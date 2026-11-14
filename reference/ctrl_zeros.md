@@ -4,8 +4,9 @@ For a square state-space model the invariant zeros are the finite
 generalized eigenvalues of the Rosenbrock system pencil
 \$\$\begin{pmatrix} A & B \\ C & D \end{pmatrix} - \lambda
 \begin{pmatrix} I & 0 \\ 0 & 0 \end{pmatrix},\$\$ computed with the QZ
-algorithm. Transfer functions return the numerator roots of each SISO
-channel. Nonsquare state-space models are not supported in this version.
+algorithm. A SISO transfer function returns its numerator roots. MIMO
+transfer functions are converted to state space, so they must be square
+as well; nonsquare models are not supported in this version.
 
 ## Usage
 

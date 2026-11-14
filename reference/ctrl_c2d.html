@@ -120,7 +120,11 @@ read from the matrix exponential of the block matrix
 \(\begin{pmatrix} A &amp; B \\ 0 &amp; 0 \end{pmatrix} T\). This is valid for
 singular <code>A</code>; the formula \(A^{-1}(A_d - I)B\) is never used.</p></li>
 <li><p><code>"foh"</code>: exact first-order (triangle) hold, for inputs that are
-linearly interpolated between samples.</p></li>
+linearly interpolated between samples. The discrete state is
+\(\xi_k = x_k - \Gamma_2 u_k\) (not the physical state), so a
+physical initial state \(x_0\) corresponds to
+\(\xi_0 = x_0 - \Gamma_2 u_0\); the matrix \(\Gamma_2\) is stored
+in the <code>foh_state_map</code> attribute of the result.</p></li>
 <li><p><code>"tustin"</code>: bilinear transformation \(s = \frac{2}{T}\frac{z-1}{z+1}\),
 optionally prewarped so that the frequency response matches exactly at
 <code>prewarp</code> rad per time unit.</p></li>

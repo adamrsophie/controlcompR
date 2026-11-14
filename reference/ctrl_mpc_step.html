@@ -93,7 +93,8 @@ when <code>accept_inaccurate = TRUE</code>) are reported with <code>ok = FALSE</
 <span>  u_prev <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  disturbance <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  k <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  warm_start <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  warm_start <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  output_offset <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -130,6 +131,12 @@ matrices with one row per stage, or functions of the stage index).</p></dd>
 <dt id="arg-warm-start">warm_start<a class="anchor" aria-label="anchor" href="#arg-warm-start"></a></dt>
 <dd><p>Optional primal vector to warm start OSQP (for example
 the shifted previous solution).</p></dd>
+
+
+<dt id="arg-output-offset">output_offset<a class="anchor" aria-label="anchor" href="#arg-output-offset"></a></dt>
+<dd><p>Optional known additive output offset (length <code>p</code>),
+for example an estimated output disturbance: output bounds then apply to
+\(C x + D u + \text{offset}\).</p></dd>
 
 </dl></div>
     <div class="section level2">

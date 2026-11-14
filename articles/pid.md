@@ -49,10 +49,12 @@ ctrl_pid(kp = 2, ki = 4, kd = 0.25, form = "standard", derivative_filter = 8)
 
 Ignoring saturation,
 [`ctrl_pid_tf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pid_tf.md)
-returns the controller as a transfer function; with a sample interval it
-is the exact discrete equivalent of the implemented difference equations
-(forward Euler integral, backward Euler derivative filter), so the
-margins below are those of the code that runs:
+returns the controller as a transfer function. A controller without a
+sample interval gives the continuous design; with one it is the exact
+discrete equivalent of the implemented difference equations (forward
+Euler integral, backward Euler derivative filter), so its margins,
+computed against the zero-order-hold plant, are those of the code that
+runs:
 
 ``` r
 
@@ -75,6 +77,22 @@ plot(ctrl_bode(L))
 ```
 
 ![](pid_files/figure-html/unnamed-chunk-4-1.png)
+
+``` r
+
+
+Cd <- ctrl_pid_tf(ctrl_pid(kp = 2, ki = 1, kd = 0.8, derivative_filter = 10,
+                           dt = 0.02))
+ctrl_margin(Cd * ctrl_c2d(plant, 0.02))
+#> Stability margins (unity negative feedback)
+#>   gain margin: 104.4 (40.37 dB) at w = 40.67
+#>   phase margin: 43.82 deg at w = 1.276
+#>   delay margin: 0.5995
+#>   nominal closed loop stable: TRUE
+```
+
+The sampled loop loses a little phase (the hold behaves like a delay of
+half a sample), which is why the discrete margins are slightly smaller.
 
 ## Closed-loop simulation with saturation
 
@@ -161,7 +179,7 @@ plant3 <- ctrl_tf(1, c(1, 3, 3, 1))
 fit <- ctrl_fit_fopdt(plant3)
 fit
 #>        K      tau    theta 
-#> 1.000000 2.133266 1.136368
+#>  1.00000 86.53948 17.93607
 zn <- ctrl_pid_tune("ziegler_nichols", plant = plant3, derivative_filter = 10,
                     dt = 0.05)
 simc <- ctrl_pid_tune("simc", fopdt = fit, dt = 0.05)
@@ -171,14 +189,14 @@ ctrl_compare_controllers(list(
   simc = function() ctrl_simulate_pid(plant3, simc, steps = 600),
   amigo = function() ctrl_simulate_pid(plant3, amigo, steps = 600)
 ), reference = 1)
-#>        controller      IAE      ISE      ITAE      RMSE control_effort
-#> 1 ziegler_nichols 2.299335 1.253245  5.685068 0.2064175       55.31573
-#> 2            simc 2.671948 1.824268  5.648226 0.2482786       31.74939
-#> 3           amigo 5.144398 3.196226 20.926339 0.3276800       26.28620
+#>        controller       IAE      ISE       ITAE      RMSE control_effort
+#> 1 ziegler_nichols  2.299335 1.253245   5.685068 0.2064175       55.31573
+#> 2            simc  8.310740 2.986853 110.440255 0.3169194       22.66202
+#> 3           amigo 13.100333 6.205627 177.892905 0.4558494       12.16790
 #>   max_abs_u max_violation
-#> 1 5.2673163             0
-#> 2 1.3677449             0
-#> 3 0.9995846             0
+#> 1  5.267316             0
+#> 2  2.414330             0
+#> 3  1.154471             0
 ```
 
 Ziegler-Nichols is aggressive (low damping); SIMC and AMIGO trade speed

@@ -14,7 +14,8 @@ ctrl_mpc_qp(
   reference = NULL,
   u_prev = NULL,
   disturbance = NULL,
-  k = 1L
+  k = 1L,
+  output_offset = NULL
 )
 ```
 
@@ -45,6 +46,12 @@ ctrl_mpc_qp(
 - k:
 
   Time index passed to reference functions.
+
+- output_offset:
+
+  Optional known additive output offset (length `p`), for example an
+  estimated output disturbance: output bounds then apply to \\C x + D
+  u + \text{offset}\\.
 
 ## Value
 

@@ -86,7 +86,7 @@ sim <- ctrl_simulate_mpc(mpc, x0 = c(2, 0), steps = 80)
 summary(sim)
 #> MPC simulation: 80 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 80
-#>   solve time: mean 0.000247 s, max 0.000613 s; mean iterations 120.6
+#>   solve time: mean 0.000197 s, max 0.000496 s; mean iterations 120.6
 #>   max input bound violation: 4.81e-11
 #>   max state bound violation (true plant): 2.22e-16
 #>   max slack: 0
@@ -199,10 +199,14 @@ Soft constraints (next article) are the usual remedy.
 A successful QP solve at every sample does not imply closed-loop
 stability. With `P = "lqr"`, stability holds near the origin where the
 constraints are inactive; with active constraints one needs a terminal
-set that is invariant under the LQR law, or `terminal = "equality"`,
-which gives recursive feasibility and stability for constant references
-when the first problem is feasible (at the cost of a longer horizon).
-Short horizons with `P = Q` can destabilize unstable plants.
+set that is invariant under the LQR law, or `terminal = "equality"`. The
+terminal equality gives recursive feasibility and stability only when
+the reference is an admissible equilibrium of the model (its state and
+input satisfy the bounds and the dynamics), the first problem is
+feasible, and the full horizon is free (no shorter control horizon, no
+rate bounds); a reference that is not an equilibrium can make the next
+problem infeasible. Short horizons with `P = Q` can destabilize unstable
+plants.
 
 ## Comparing controllers
 

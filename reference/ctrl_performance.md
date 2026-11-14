@@ -24,7 +24,8 @@ ctrl_performance(
 
 - time:
 
-  Time vector.
+  Time vector, with one point per row of `y` (one extra final point, as
+  returned by simulations that include the final state, is dropped).
 
 - y:
 
@@ -40,7 +41,8 @@ ctrl_performance(
 
 - u_min, u_max:
 
-  Optional input limits for violation reporting.
+  Optional input limits for violation reporting, a scalar or one value
+  per input (column of `u`).
 
 - discrete:
 

@@ -189,7 +189,7 @@ equations. These diagnostics make solver tolerance problems visible.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim</span><span class="op">)</span></span>
 <span><span class="co">#&gt; MPC simulation: 80 samples, 0 failed solves (0%)</span></span>
 <span><span class="co">#&gt;   solver statuses: solved = 80</span></span>
-<span><span class="co">#&gt;   solve time: mean 0.000247 s, max 0.000613 s; mean iterations 120.6</span></span>
+<span><span class="co">#&gt;   solve time: mean 0.000197 s, max 0.000496 s; mean iterations 120.6</span></span>
 <span><span class="co">#&gt;   max input bound violation: 4.81e-11</span></span>
 <span><span class="co">#&gt;   max state bound violation (true plant): 2.22e-16</span></span>
 <span><span class="co">#&gt;   max slack: 0</span></span>
@@ -289,10 +289,14 @@ log:</p>
 stability. With <code>P = "lqr"</code>, stability holds near the origin
 where the constraints are inactive; with active constraints one needs a
 terminal set that is invariant under the LQR law, or
-<code>terminal = "equality"</code>, which gives recursive feasibility
-and stability for constant references when the first problem is feasible
-(at the cost of a longer horizon). Short horizons with
-<code>P = Q</code> can destabilize unstable plants.</p>
+<code>terminal = "equality"</code>. The terminal equality gives
+recursive feasibility and stability only when the reference is an
+admissible equilibrium of the model (its state and input satisfy the
+bounds and the dynamics), the first problem is feasible, and the full
+horizon is free (no shorter control horizon, no rate bounds); a
+reference that is not an equilibrium can make the next problem
+infeasible. Short horizons with <code>P = Q</code> can destabilize
+unstable plants.</p>
 </div>
 <div class="section level2">
 <h2 id="comparing-controllers">Comparing controllers<a class="anchor" aria-label="anchor" href="#comparing-controllers"></a>

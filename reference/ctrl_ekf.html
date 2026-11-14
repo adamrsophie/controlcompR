@@ -3,11 +3,17 @@
 additive noise, \(x_{k+1} = f(k, x_k, u_k) + w_k\),
 \(y_k = h(k, x_k, u_k) + v_k\), using the conventions of
 ctrl_kalman_filter() (x0, P0 are the prior at the first sample;
-each step updates with \(y_k\) and then predicts)."><meta property="og:description" content="Nonlinear state estimation for a discrete time ctrl_nlsys with
+each step updates with \(y_k\) and then predicts; rows of y that are
+entirely NA skip the update). Row k of the data is passed to f and
+h as the sample index k - 1, the 0-based convention of
+ctrl_nl_simulate()."><meta property="og:description" content="Nonlinear state estimation for a discrete time ctrl_nlsys with
 additive noise, \(x_{k+1} = f(k, x_k, u_k) + w_k\),
 \(y_k = h(k, x_k, u_k) + v_k\), using the conventions of
 ctrl_kalman_filter() (x0, P0 are the prior at the first sample;
-each step updates with \(y_k\) and then predicts)."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
+each step updates with \(y_k\) and then predicts; rows of y that are
+entirely NA skip the update). Row k of the data is passed to f and
+h as the sample index k - 1, the 0-based convention of
+ctrl_nl_simulate()."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -81,7 +87,10 @@ each step updates with \(y_k\) and then predicts)."><meta property="og:image" co
 additive noise, \(x_{k+1} = f(k, x_k, u_k) + w_k\),
 \(y_k = h(k, x_k, u_k) + v_k\), using the conventions of
 <code><a href="ctrl_kalman_filter.html">ctrl_kalman_filter()</a></code> (<code>x0</code>, <code>P0</code> are the prior at the first sample;
-each step updates with \(y_k\) and then predicts).</p>
+each step updates with \(y_k\) and then predicts; rows of <code>y</code> that are
+entirely <code>NA</code> skip the update). Row <code>k</code> of the data is passed to <code>f</code> and
+<code>h</code> as the sample index <code>k - 1</code>, the 0-based convention of
+<code><a href="ctrl_nl_simulate.html">ctrl_nl_simulate()</a></code>.</p>
     </div>
 
     <div class="section level2">

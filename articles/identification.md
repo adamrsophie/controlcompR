@@ -113,7 +113,7 @@ res <- ctrl_resid(arx, parts$validation)
 res
 #> Residual analysis (398 samples)
 #>   autocorrelation within 99% band: TRUE (Ljung-Box p = 0.307)
-#>   input cross-correlation within 99% band (nonnegative lags): TRUE
+#>   correlation of residuals with current and past inputs within 99% band: TRUE
 plot(res)
 ```
 
@@ -127,7 +127,7 @@ model has captured the dynamics. A too simple model fails the tests:
 ctrl_resid(ctrl_arx(parts$estimation, 1, 1, 1), parts$validation)
 #> Residual analysis (399 samples)
 #>   autocorrelation within 99% band: FALSE (Ljung-Box p = 0)
-#>   input cross-correlation within 99% band (nonnegative lags): FALSE
+#>   correlation of residuals with current and past inputs within 99% band: FALSE
 ```
 
 ## Subspace identification for MIMO systems

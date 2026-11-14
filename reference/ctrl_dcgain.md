@@ -2,8 +2,9 @@
 
 The gain at zero frequency: \\D - C A^{-1} B\\ in continuous time and
 \\D + C (I - A)^{-1} B\\ in discrete time. An error is raised when the
-model has a pole at `s = 0` (or `z = 1`), because the gain is then
-infinite or undefined.
+input-output map has a pole at `s = 0` (or `z = 1`), because the gain is
+then infinite or undefined; poles there that are uncontrollable or
+unobservable are removed first.
 
 ## Usage
 

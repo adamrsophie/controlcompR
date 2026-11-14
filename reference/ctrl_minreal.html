@@ -88,14 +88,21 @@ behavior is preserved up to the rank tolerance.</p>
 
 
 <dl><dt id="arg-sys">sys<a class="anchor" aria-label="anchor" href="#arg-sys"></a></dt>
-<dd><p>A model.</p></dd>
+<dd><p>A model.
+The default tolerance first tries
+\(\sqrt{\epsilon}\max(\|A\|, \|B\|, \|C\|)\) (as in MATLAB), which
+removes modes that cancel to roughly half the working precision, as
+needed for realizations built from polynomial coefficients. The reduced
+model is then compared with the original at frequencies spread over the
+range of the poles; when they disagree (a badly scaled model whose small
+couplings were mistaken for zeros), the reduction is repeated with the
+much tighter staircase tolerance \(10 n^2 \epsilon \|[A, B]\|\), and
+an error is raised if even that result does not match.</p></dd>
 
 
 <dt id="arg-tol">tol<a class="anchor" aria-label="anchor" href="#arg-tol"></a></dt>
-<dd><p>Absolute rank tolerance for the staircase reductions. The
-default, \(\sqrt{\epsilon}\max(\|A\|, \|B\|, \|C\|)\) as in MATLAB,
-removes modes that cancel to roughly half the working precision, which
-is needed for realizations built from polynomial coefficients.</p></dd>
+<dd><p>Absolute rank tolerance for the staircase reductions. When
+given, it is used as is and the frequency check is skipped.</p></dd>
 
 </dl></div>
     <div class="section level2">

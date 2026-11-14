@@ -3,8 +3,8 @@
 For a loop transfer function `L` closed with unity negative feedback,
 \\S = (I + L)^{-1}\\ and \\T = L (I + L)^{-1} = I - S\\. With a plant
 `P` and controller `C` (loop \\L = P C\\), `ctrl_gangof4()` also returns
-\\PS\\ (disturbance to output, input side) and \\CS\\ (noise to control
-signal).
+\\S P = (I + PC)^{-1} P\\ (input disturbance to output) and \\C S\\
+(output noise to control signal).
 
 ## Usage
 

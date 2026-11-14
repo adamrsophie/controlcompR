@@ -89,7 +89,8 @@ variables, predicted states and solver matrices for verification.</p>
 <span>  reference <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  u_prev <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  disturbance <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  k <span class="op">=</span> <span class="fl">1L</span></span>
+<span>  k <span class="op">=</span> <span class="fl">1L</span>,</span>
+<span>  output_offset <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -121,6 +122,12 @@ matrices with one row per stage, or functions of the stage index).</p></dd>
 
 <dt id="arg-k">k<a class="anchor" aria-label="anchor" href="#arg-k"></a></dt>
 <dd><p>Time index passed to reference functions.</p></dd>
+
+
+<dt id="arg-output-offset">output_offset<a class="anchor" aria-label="anchor" href="#arg-output-offset"></a></dt>
+<dd><p>Optional known additive output offset (length <code>p</code>),
+for example an estimated output disturbance: output bounds then apply to
+\(C x + D u + \text{offset}\).</p></dd>
 
 </dl></div>
     <div class="section level2">

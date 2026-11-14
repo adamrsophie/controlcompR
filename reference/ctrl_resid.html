@@ -3,13 +3,17 @@
 ARX models, output errors otherwise) and test them: the autocorrelation
 should be within the 99 percent band \(\pm 2.58/\sqrt{N}\) for white
 residuals (Ljung-Box test reported), and the cross-correlation with the
-input should vanish (residuals independent of past inputs). Output-error
+input should vanish at nonnegative lags (residuals independent of current
+and past inputs; ccf reports \(\mathrm{cor}(e_{t+k}, u_t)\)). All
+outputs and input-output pairs are tested. Output-error
 models are not expected to have white residuals; the cross-correlation
 test is the relevant one for them."><meta property="og:description" content="Compute the residuals of a model on data (one-step prediction errors for
 ARX models, output errors otherwise) and test them: the autocorrelation
 should be within the 99 percent band \(\pm 2.58/\sqrt{N}\) for white
 residuals (Ljung-Box test reported), and the cross-correlation with the
-input should vanish (residuals independent of past inputs). Output-error
+input should vanish at nonnegative lags (residuals independent of current
+and past inputs; ccf reports \(\mathrm{cor}(e_{t+k}, u_t)\)). All
+outputs and input-output pairs are tested. Output-error
 models are not expected to have white residuals; the cross-correlation
 test is the relevant one for them."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -85,7 +89,9 @@ test is the relevant one for them."><meta property="og:image" content="https://a
 ARX models, output errors otherwise) and test them: the autocorrelation
 should be within the 99 percent band \(\pm 2.58/\sqrt{N}\) for white
 residuals (Ljung-Box test reported), and the cross-correlation with the
-input should vanish (residuals independent of past inputs). Output-error
+input should vanish at nonnegative lags (residuals independent of current
+and past inputs; <code>ccf</code> reports \(\mathrm{cor}(e_{t+k}, u_t)\)). All
+outputs and input-output pairs are tested. Output-error
 models are not expected to have white residuals; the cross-correlation
 test is the relevant one for them.</p>
     </div>
@@ -114,7 +120,8 @@ test is the relevant one for them.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of class <code>ctrl_resid</code> with <code>residuals</code>, <code>acf</code>,
-<code>ccf</code> (data frames with lag, value and band), <code>ljung_box</code> (p-value) and
+<code>ccf</code> (data frames with output, input, lag, value and band),
+<code>ljung_box</code> (p-value per output) and
 flags <code>white</code> and <code>independent</code>.</p>
     </div>
 

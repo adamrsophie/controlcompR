@@ -142,12 +142,12 @@ sim <- ctrl_simulate_lqg(pd, lqg, steps = 200, x0 = c(1, 0),
                          replications = 20, seed = 3)
 summary(sim$summary[, -1])
 #>  rms_estimation_error  average_cost    
-#>  Min.   :0.1313       Min.   :0.04338  
-#>  1st Qu.:0.1375       1st Qu.:0.04695  
-#>  Median :0.1415       Median :0.05016  
-#>  Mean   :0.1423       Mean   :0.04972  
-#>  3rd Qu.:0.1477       3rd Qu.:0.05267  
-#>  Max.   :0.1526       Max.   :0.05563
+#>  Min.   :0.1267       Min.   :0.04288  
+#>  1st Qu.:0.1366       1st Qu.:0.04660  
+#>  Median :0.1408       Median :0.04875  
+#>  Mean   :0.1407       Mean   :0.04857  
+#>  3rd Qu.:0.1457       3rd Qu.:0.05078  
+#>  Max.   :0.1493       Max.   :0.05293
 ```
 
 ### No guaranteed margins
@@ -170,7 +170,7 @@ ctrl_peak(ctrl_feedback(1, Lloop))
 #> [1] 1.219167
 #> 
 #> $frequency
-#> [1] 2.558961
+#> [1] 2.55897
 ```
 
 The disk margin and the sensitivity peak summarize how far the Nyquist

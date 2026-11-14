@@ -1,8 +1,9 @@
 # Step-response characteristics
 
 Compute the usual transient characteristics for each output and input
-case of a step response. Definitions (with \\y_0\\ the initial value and
-\\y\_\infty\\ the final value):
+case of a step response. Definitions (with \\y_0\\ the value before the
+step and \\y\_\infty\\ the final value; when the model is known, a
+direct feedthrough jump at \\t = 0\\ is not counted in \\y_0\\):
 
 ## Usage
 

@@ -9,7 +9,8 @@ subject to \(x_0 = x(t)\), the dynamics, input bounds on \(u_k\),
 rate bounds on \(\Delta u_k = u_k - u_{k-1}\) (with \(u_{-1}\) the
 previously applied input), state bounds on \(x_1, \ldots, x_N\),
 output bounds on \(y_1, \ldots, y_N\) (using \(u_{N-1}\) for the
-feedthrough at \(k = N\)), an optional terminal constraint, and
+feedthrough at \(k = N\)) and, when the bounded outputs have direct
+feedthrough, on \(y_0 = C x_0 + D u_0\), an optional terminal constraint, and
 \(u_k = u_{N_c - 1}\) for \(k \ge N_c\) (control horizon). Only
 \(u_0\) is applied (receding horizon)."><meta property="og:description" content="Define a constrained linear MPC controller for a discrete time model
 \(x_{k+1} = A x_k + B u_k + d_k\), \(y_k = C x_k + D u_k\). At each
@@ -21,7 +22,8 @@ subject to \(x_0 = x(t)\), the dynamics, input bounds on \(u_k\),
 rate bounds on \(\Delta u_k = u_k - u_{k-1}\) (with \(u_{-1}\) the
 previously applied input), state bounds on \(x_1, \ldots, x_N\),
 output bounds on \(y_1, \ldots, y_N\) (using \(u_{N-1}\) for the
-feedthrough at \(k = N\)), an optional terminal constraint, and
+feedthrough at \(k = N\)) and, when the bounded outputs have direct
+feedthrough, on \(y_0 = C x_0 + D u_0\), an optional terminal constraint, and
 \(u_k = u_{N_c - 1}\) for \(k \ge N_c\) (control horizon). Only
 \(u_0\) is applied (receding horizon)."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -103,7 +105,8 @@ subject to \(x_0 = x(t)\), the dynamics, input bounds on \(u_k\),
 rate bounds on \(\Delta u_k = u_k - u_{k-1}\) (with \(u_{-1}\) the
 previously applied input), state bounds on \(x_1, \ldots, x_N\),
 output bounds on \(y_1, \ldots, y_N\) (using \(u_{N-1}\) for the
-feedthrough at \(k = N\)), an optional terminal constraint, and
+feedthrough at \(k = N\)) and, when the bounded outputs have direct
+feedthrough, on \(y_0 = C x_0 + D u_0\), an optional terminal constraint, and
 \(u_k = u_{N_c - 1}\) for \(k \ge N_c\) (control horizon). Only
 \(u_0\) is applied (receding horizon).</p>
     </div>
@@ -159,7 +162,11 @@ discretized first with <code><a href="ctrl_c2d.html">ctrl_c2d()</a></code>.</p><
 
 <dt id="arg-p">P<a class="anchor" aria-label="anchor" href="#arg-p"></a></dt>
 <dd><p>Terminal weight: a matrix, <code>"Q"</code> (default, same as <code>Q</code>) or
-<code>"lqr"</code> (the DARE solution for <code>Q</code>, <code>R</code>).</p></dd>
+<code>"lqr"</code>: the DARE solution for the stage cost
+\(x^\top Q x + u^\top R u + y^\top Q_y y\) with \(y = Cx + Du\)
+(absolute output weighting, no reference). The move penalty <code>Rd</code> is
+not part of this cost, so with <code>Rd</code> the terminal weight no longer
+equals the infinite-horizon cost to go.</p></dd>
 
 
 <dt id="arg-control-horizon">control_horizon<a class="anchor" aria-label="anchor" href="#arg-control-horizon"></a></dt>
@@ -234,8 +241,12 @@ scheme follows when <code>P</code> is the LQR cost-to-go (<code>P = "lqr"</code>
 constraints are inactive near the origin; with active constraints one
 needs a terminal set that is positively invariant under the LQR law,
 which is not computed automatically. <code>terminal = "equality"</code>
-(\(x_N = x^r_N\)) gives recursive feasibility and stability for
-constant references when the first problem is feasible.</p>
+(\(x_N = x^r_N\)) gives recursive feasibility and stability for a
+constant reference only when \((x^r, u^r)\) is an admissible
+equilibrium (\(x^r = A x^r + B u^r\) with \(u^r\) and \(x^r\)
+strictly inside the bounds), the first problem is feasible, and the
+control horizon equals the horizon with no rate bounds; otherwise the
+shifted plan need not be feasible.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

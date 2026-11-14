@@ -46,7 +46,11 @@ transfer function).
   singular `A`; the formula \\A^{-1}(A_d - I)B\\ is never used.
 
 - `"foh"`: exact first-order (triangle) hold, for inputs that are
-  linearly interpolated between samples.
+  linearly interpolated between samples. The discrete state is \\\xi_k =
+  x_k - \Gamma_2 u_k\\ (not the physical state), so a physical initial
+  state \\x_0\\ corresponds to \\\xi_0 = x_0 - \Gamma_2 u_0\\; the
+  matrix \\\Gamma_2\\ is stored in the `foh_state_map` attribute of the
+  result.
 
 - `"tustin"`: bilinear transformation \\s =
   \frac{2}{T}\frac{z-1}{z+1}\\, optionally prewarped so that the

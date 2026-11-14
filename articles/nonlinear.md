@@ -172,7 +172,7 @@ sim_n$failures
 #> [1] 0
 tail(sim_n$x, 1)
 #>          angle         rate
-#> [61,] 3.141344 0.0007897875
+#> [61,] 3.141344 0.0007897509
 df <- data.frame(t = sim_n$time, angle = sim_n$x[, 1])
 ggplot2::ggplot(df, ggplot2::aes(t, angle)) + ggplot2::geom_line() +
   ggplot2::geom_hline(yintercept = pi, linetype = "dashed") + ggplot2::theme_bw()

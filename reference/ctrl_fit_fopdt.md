@@ -28,5 +28,5 @@ A named vector `c(K, tau, theta)`.
 ``` r
 ctrl_fit_fopdt(ctrl_tf(1, c(1, 3, 3, 1)))
 #>        K      tau    theta 
-#> 1.000000 2.133266 1.136368 
+#>  1.00000 86.53948 17.93607 
 ```

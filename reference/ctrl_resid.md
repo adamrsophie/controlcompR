@@ -4,9 +4,11 @@ Compute the residuals of a model on data (one-step prediction errors for
 ARX models, output errors otherwise) and test them: the autocorrelation
 should be within the 99 percent band \\\pm 2.58/\sqrt{N}\\ for white
 residuals (Ljung-Box test reported), and the cross-correlation with the
-input should vanish (residuals independent of past inputs). Output-error
-models are not expected to have white residuals; the cross-correlation
-test is the relevant one for them.
+input should vanish at nonnegative lags (residuals independent of
+current and past inputs; `ccf` reports \\\mathrm{cor}(e\_{t+k}, u_t)\\).
+All outputs and input-output pairs are tested. Output-error models are
+not expected to have white residuals; the cross-correlation test is the
+relevant one for them.
 
 ## Usage
 
@@ -31,8 +33,8 @@ ctrl_resid(model, data, lags = 20L)
 ## Value
 
 A list of class `ctrl_resid` with `residuals`, `acf`, `ccf` (data frames
-with lag, value and band), `ljung_box` (p-value) and flags `white` and
-`independent`.
+with output, input, lag, value and band), `ljung_box` (p-value per
+output) and flags `white` and `independent`.
 
 ## Examples
 

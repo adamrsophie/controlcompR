@@ -5,7 +5,10 @@ additive noise, \\x\_{k+1} = f(k, x_k, u_k) + w_k\\, \\y_k = h(k, x_k,
 u_k) + v_k\\, using the conventions of
 [`ctrl_kalman_filter()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md)
 (`x0`, `P0` are the prior at the first sample; each step updates with
-\\y_k\\ and then predicts).
+\\y_k\\ and then predicts; rows of `y` that are entirely `NA` skip the
+update). Row `k` of the data is passed to `f` and `h` as the sample
+index `k - 1`, the 0-based convention of
+[`ctrl_nl_simulate()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_simulate.md).
 
 ## Usage
 

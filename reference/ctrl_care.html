@@ -149,8 +149,10 @@ on the stability boundary (guaranteed, for example, when
 \(Q - S R^{-1} S^\top \succeq 0\) and the corresponding pair is
 detectable). When the boundary condition fails, or when \(U_{11}\) is
 singular, an error is raised rather than an invalid solution returned.
-The returned object reports the relative residual, the symmetry error
-and the closed-loop eigenvalues so that the result can be verified.</p>
+A solution whose relative residual exceeds 1e-6, or whose closed loop is
+not stable, raises an error. The returned object reports the relative
+residual, the symmetry error and the closed-loop eigenvalues so that the
+result can be verified.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

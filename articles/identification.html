@@ -201,7 +201,7 @@ because it uses past outputs.</p>
 <span><span class="va">res</span></span>
 <span><span class="co">#&gt; Residual analysis (398 samples)</span></span>
 <span><span class="co">#&gt;   autocorrelation within 99% band: TRUE (Ljung-Box p = 0.307)</span></span>
-<span><span class="co">#&gt;   input cross-correlation within 99% band (nonnegative lags): TRUE</span></span>
+<span><span class="co">#&gt;   correlation of residuals with current and past inputs within 99% band: TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span></code></pre></div>
 <p><img src="identification_files/figure-html/unnamed-chunk-6-1.png" class="r-plt" alt="" width="672"></p>
 <p>White residuals that are uncorrelated with past inputs indicate that
@@ -211,7 +211,7 @@ tests:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_resid.html">ctrl_resid</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_arx.html">ctrl_arx</a></span><span class="op">(</span><span class="va">parts</span><span class="op">$</span><span class="va">estimation</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="va">parts</span><span class="op">$</span><span class="va">validation</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Residual analysis (399 samples)</span></span>
 <span><span class="co">#&gt;   autocorrelation within 99% band: FALSE (Ljung-Box p = 0)</span></span>
-<span><span class="co">#&gt;   input cross-correlation within 99% band (nonnegative lags): FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt;   correlation of residuals with current and past inputs within 99% band: FALSE</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="subspace-identification-for-mimo-systems">Subspace identification for MIMO systems<a class="anchor" aria-label="anchor" href="#subspace-identification-for-mimo-systems"></a>

@@ -17,7 +17,8 @@ ctrl_mpc_step(
   u_prev = NULL,
   disturbance = NULL,
   k = 1L,
-  warm_start = NULL
+  warm_start = NULL,
+  output_offset = NULL
 )
 ```
 
@@ -53,6 +54,12 @@ ctrl_mpc_step(
 
   Optional primal vector to warm start OSQP (for example the shifted
   previous solution).
+
+- output_offset:
+
+  Optional known additive output offset (length `p`), for example an
+  estimated output disturbance: output bounds then apply to \\C x + D
+  u + \text{offset}\\.
 
 ## Value
 

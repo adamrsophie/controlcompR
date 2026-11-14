@@ -125,8 +125,9 @@ mismatch) and may include input disturbances and measurement noise.</p>
 
 <dt id="arg-disturbance">disturbance<a class="anchor" aria-label="anchor" href="#arg-disturbance"></a></dt>
 <dd><p>Input disturbance added to the plant input: a vector
-(constant), a matrix with one row per sample, or a function of the
-sample index.</p></dd>
+with one value per input (constant), a matrix with one row per sample,
+or a function of the sample index. For a single input, a vector with
+one value per sample is also accepted.</p></dd>
 
 
 <dt id="arg-noise">noise<a class="anchor" aria-label="anchor" href="#arg-noise"></a></dt>
@@ -178,7 +179,7 @@ move). No input is ever applied silently.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> MPC simulation: 80 samples, 0 failed solves (0%)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solver statuses: solved = 80</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   solve time: mean 0.000257 s, max 0.000669 s; mean iterations 124.4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   solve time: mean 0.000203 s, max 0.000521 s; mean iterations 124.4</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   max input bound violation: 4.95e-11</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   max state bound violation (true plant): 1.11e-16</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   max slack: 0</span>

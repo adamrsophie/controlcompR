@@ -10,8 +10,9 @@ library(controlcompR)
 [`ctrl_freqresp()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_freqresp.md)
 evaluates G(j\omega) (or G(e^{j\omega T})) on a grid, with one complex
 linear solve C (j\omega I - A)^{-1} B + D per frequency, so no
-polynomial is ever evaluated. The default grid covers two decades beyond
-the poles and zeros and is denser near lightly damped modes:
+polynomial is ever evaluated. The default grid extends one to two
+decades beyond the poles and zeros and is denser near lightly damped
+modes:
 
 ``` r
 
@@ -103,7 +104,7 @@ ctrl_peak(g4$S)
 #> [1] 1.148627
 #> 
 #> $frequency
-#> [1] 8.572113
+#> [1] 8.572122
 ```
 
 The peak of the sensitivity M_s = \\S\\\_\infty is the inverse of the

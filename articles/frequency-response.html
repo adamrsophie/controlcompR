@@ -111,8 +111,8 @@
 <p><code><a href="../reference/ctrl_freqresp.html">ctrl_freqresp()</a></code> evaluates <span class="math inline">G(j\omega)</span> (or <span class="math inline">G(e^{j\omega T})</span>) on a grid, with one complex
 linear solve <span class="math inline">C (j\omega I - A)^{-1} B +
 D</span> per frequency, so no polynomial is ever evaluated. The default
-grid covers two decades beyond the poles and zeros and is denser near
-lightly damped modes:</p>
+grid extends one to two decades beyond the poles and zeros and is denser
+near lightly damped modes:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">G</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">10</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0.4</span>, <span class="fl">25</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fr</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_freqresp.html">ctrl_freqresp</a></span><span class="op">(</span><span class="va">G</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
@@ -191,7 +191,7 @@ is gain in <span class="math inline">[(1 - \alpha/2)/(1 + \alpha/2), (1
 <span><span class="co">#&gt; [1] 1.148627</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $frequency</span></span>
-<span><span class="co">#&gt; [1] 8.572113</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 8.572122</span></span></code></pre></div>
 <p>The peak of the sensitivity <span class="math inline">M_s =
 \|S\|_\infty</span> is the inverse of the distance from the Nyquist
 curve to the critical point, a single number that bounds both gain and

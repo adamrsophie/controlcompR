@@ -59,21 +59,19 @@ G <- ctrl_tf(c(1, 2), c(1, 3, 2))
 ss <- ctrl_tf2ss(G)
 ss
 #> State-space model (continuous time)
-#> 2 states, 1 inputs, 1 outputs
+#> 1 states, 1 inputs, 1 outputs
 #> 
 #> A =
-#>    x1 x2
-#> x1 -3 -2
-#> x2  1  0
+#>    x1
+#> x1 -1
 #> 
 #> B =
-#>    u1
-#> x1  1
-#> x2  0
+#>        u1
+#> x1 0.4472
 #> 
 #> C =
-#>    x1 x2
-#> y1  1  2
+#>       x1
+#> y1 2.236
 #> 
 #> D =
 #>    u1

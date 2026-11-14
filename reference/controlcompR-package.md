@@ -11,15 +11,15 @@ decompositions of extended pencils, linear quadratic regulators, pole
 placement, PID controllers with derivative filtering, anti-windup and
 bumpless transfer, Luenberger observers, Kalman filters and smoothers,
 LQG controllers, gain, phase and disk margins, H2 and H-infinity norms,
-balanced truncation, constrained linear model predictive control solved
-with 'OSQP' (input, rate, state and output constraints, soft
-constraints, offset-free tracking), moving horizon estimation, subspace
-and ARX system identification, and nonlinear simulation, linearization,
-extended and unscented Kalman filters and nonlinear model predictive
-control. The design is inspired by 'python-control'
-<https://python-control.org> and 'ControlSystems.jl'
-<https://github.com/JuliaControl/ControlSystems.jl>; no Python or Julia
-is required.
+H2 and (experimental, certified) H-infinity synthesis, balanced
+truncation, constrained linear model predictive control solved with
+'OSQP' (input, rate, state and output constraints, soft constraints,
+offset-free tracking), moving horizon estimation, subspace and ARX
+system identification, and nonlinear simulation, linearization, extended
+and unscented Kalman filters and nonlinear model predictive control. The
+design is inspired by 'python-control' <https://python-control.org> and
+'ControlSystems.jl' <https://github.com/JuliaControl/ControlSystems.jl>;
+no Python or Julia is required.
 
 ## See also
 

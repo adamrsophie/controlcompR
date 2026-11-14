@@ -115,9 +115,11 @@ J = \int_0^\infty x^\top Q x + u^\top R u + 2 x^\top N u \, dt .
 </span> The conditions are checked: <span class="math inline">R \succ
 0</span>, the joint weight <span class="math inline">\begin{pmatrix} Q
 &amp; N \\ N^\top &amp; R\end{pmatrix} \succeq 0</span>, <span class="math inline">(A, B)</span> stabilizable, and no unobservable
-modes of the cost on the imaginary axis. The optimality statement holds
-only for this linear model and this cost; it says nothing about
-constraints, model error or nonlinear plants.</p>
+modes of the cost on the imaginary axis. The minimum is over stabilizing
+inputs; it is the unrestricted minimum when the cost detects every
+unstable mode. The optimality statement holds only for this linear model
+and this cost; it says nothing about constraints, model error or
+nonlinear plants.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plant</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
 <span>                 state_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"position"</span>, <span class="st">"velocity"</span><span class="op">)</span><span class="op">)</span></span>

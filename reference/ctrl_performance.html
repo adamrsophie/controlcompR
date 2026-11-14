@@ -105,7 +105,9 @@ IAE \(\int |e|\), ISE \(\int e^2\), ITAE \(\int t|e|\), RMSE
 
 
 <dl><dt id="arg-time">time<a class="anchor" aria-label="anchor" href="#arg-time"></a></dt>
-<dd><p>Time vector.</p></dd>
+<dd><p>Time vector, with one point per row of <code>y</code> (one extra final
+point, as returned by simulations that include the final state, is
+dropped).</p></dd>
 
 
 <dt id="arg-y">y<a class="anchor" aria-label="anchor" href="#arg-y"></a></dt>
@@ -121,7 +123,8 @@ IAE \(\int |e|\), ISE \(\int e^2\), ITAE \(\int t|e|\), RMSE
 
 
 <dt id="arg-u-min-u-max">u_min, u_max<a class="anchor" aria-label="anchor" href="#arg-u-min-u-max"></a></dt>
-<dd><p>Optional input limits for violation reporting.</p></dd>
+<dd><p>Optional input limits for violation reporting, a
+scalar or one value per input (column of <code>u</code>).</p></dd>
 
 
 <dt id="arg-discrete">discrete<a class="anchor" aria-label="anchor" href="#arg-discrete"></a></dt>

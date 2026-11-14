@@ -113,10 +113,14 @@ and <code>all_pm</code>, and <code>closed_loop_stable</code>.</p>
     <p>The gain margin at a phase crossover \(\omega_{pc}\) is
 \(1/|L(j\omega_{pc})|\); the phase margin at a gain crossover
 \(\omega_{gc}\) is \(180 + \angle L(j\omega_{gc})\) degrees,
-wrapped to \((-180, 180]\); the delay margin is
-\(\mathrm{PM}/\omega_{gc}\) (radians over rad per time unit). The
-reported scalar margins are the most critical ones (gain margin closest
-to 1 on a log scale, smallest phase margin). Margins describe distance
+wrapped to \((-180, 180]\); the delay margin is the smallest
+\((\mathrm{PM}_i \bmod 360)/\omega_{gc,i}\) over all gain crossovers
+(radians over rad per time unit), the smallest added delay that brings a
+crossover onto the critical point. The reported gain and phase margins
+are the most critical ones (gain margin closest to 1 on a log scale,
+smallest phase margin). <code>closed_loop_stable</code> is computed on the given
+realization, so unstable hidden modes of a state-space loop are not
+cancelled away. Margins describe distance
 to instability only if the nominal closed loop is stable, which is
 reported in <code>closed_loop_stable</code>. Margins are SISO quantities; for MIMO
 loops use loop-at-a-time disk margins.</p>
@@ -129,7 +133,7 @@ loops use loop-at-a-time disk margins.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Stability margins (unity negative feedback)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   gain margin: 0.8 (-1.938 dB) at w = 1.732</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   phase margin: -7.033 deg at w = 1.908</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   delay margin: 0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   delay margin: 3.228</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   nominal closed loop stable: FALSE</span>
 </code></pre></div>
     </div>

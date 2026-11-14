@@ -95,7 +95,10 @@
 
 <dt id="arg-detrend">detrend<a class="anchor" aria-label="anchor" href="#arg-detrend"></a></dt>
 <dd><p>Remove the sample means of <code>y</code> and <code>u</code> (stored in
-<code>offsets</code> so predictions can be mapped back).</p></dd>
+<code>offsets</code> so predictions can be mapped back), or a list with <code>y</code> and <code>u</code>
+offsets to subtract, typically <code>train$offsets</code>. Models estimated on
+detrended data describe deviations from the offsets, so validation data
+must be shifted by the training offsets, not by their own means.</p></dd>
 
 </dl></div>
     <div class="section level2">

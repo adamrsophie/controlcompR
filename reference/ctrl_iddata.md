@@ -25,7 +25,10 @@ ctrl_iddata(y, u, dt = 1, detrend = FALSE)
 - detrend:
 
   Remove the sample means of `y` and `u` (stored in `offsets` so
-  predictions can be mapped back).
+  predictions can be mapped back), or a list with `y` and `u` offsets to
+  subtract, typically `train$offsets`. Models estimated on detrended
+  data describe deviations from the offsets, so validation data must be
+  shifted by the training offsets, not by their own means.
 
 ## Value
 

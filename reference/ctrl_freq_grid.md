@@ -1,8 +1,9 @@
 # Frequency grid for a model
 
-A logarithmic grid spanning two decades beyond the smallest and largest
-nonzero pole and zero magnitudes, refined near lightly damped poles. For
-discrete models the grid ends at the Nyquist frequency.
+A logarithmic grid from one to two decades below the smallest to one to
+two decades above the largest nonzero pole and zero magnitude (the ends
+are rounded outward to whole decades), refined near lightly damped
+poles. For discrete models the grid ends at the Nyquist frequency.
 
 ## Usage
 

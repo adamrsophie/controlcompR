@@ -144,10 +144,11 @@ Asking for a derivative term without a filter is an error. The standard
 <h2 id="linear-analysis">Linear analysis<a class="anchor" aria-label="anchor" href="#linear-analysis"></a>
 </h2>
 <p>Ignoring saturation, <code><a href="../reference/ctrl_pid_tf.html">ctrl_pid_tf()</a></code> returns the
-controller as a transfer function; with a sample interval it is the
-exact discrete equivalent of the implemented difference equations
-(forward Euler integral, backward Euler derivative filter), so the
-margins below are those of the code that runs:</p>
+controller as a transfer function. A controller without a sample
+interval gives the continuous design; with one it is the exact discrete
+equivalent of the implemented difference equations (forward Euler
+integral, backward Euler derivative filter), so its margins, computed
+against the zero-order-hold plant, are those of the code that runs:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plant</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">C</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_pid_tf.html">ctrl_pid_tf</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">2</span>, ki <span class="op">=</span> <span class="fl">1</span>, kd <span class="op">=</span> <span class="fl">0.8</span>, derivative_filter <span class="op">=</span> <span class="fl">10</span><span class="op">)</span><span class="op">)</span></span>
@@ -166,6 +167,19 @@ margins below are those of the code that runs:</p>
 <span><span class="co">#&gt;   nominal closed loop stable: TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_bode.html">ctrl_bode</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="pid_files/figure-html/unnamed-chunk-4-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span></span>
+<span><span class="va">Cd</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_pid_tf.html">ctrl_pid_tf</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">2</span>, ki <span class="op">=</span> <span class="fl">1</span>, kd <span class="op">=</span> <span class="fl">0.8</span>, derivative_filter <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>                           dt <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/ctrl_margin.html">ctrl_margin</a></span><span class="op">(</span><span class="va">Cd</span> <span class="op">*</span> <span class="fu"><a href="../reference/ctrl_c2d.html">ctrl_c2d</a></span><span class="op">(</span><span class="va">plant</span>, <span class="fl">0.02</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Stability margins (unity negative feedback)</span></span>
+<span><span class="co">#&gt;   gain margin: 104.4 (40.37 dB) at w = 40.67</span></span>
+<span><span class="co">#&gt;   phase margin: 43.82 deg at w = 1.276</span></span>
+<span><span class="co">#&gt;   delay margin: 0.5995</span></span>
+<span><span class="co">#&gt;   nominal closed loop stable: TRUE</span></span></code></pre></div>
+<p>The sampled loop loses a little phase (the hold behaves like a delay
+of half a sample), which is why the discrete margins are slightly
+smaller.</p>
 </div>
 <div class="section level2">
 <h2 id="closed-loop-simulation-with-saturation">Closed-loop simulation with saturation<a class="anchor" aria-label="anchor" href="#closed-loop-simulation-with-saturation"></a>
@@ -173,11 +187,11 @@ margins below are those of the code that runs:</p>
 <p><code><a href="../reference/ctrl_simulate_pid.html">ctrl_simulate_pid()</a></code> runs the discrete controller against
 the plant (a continuous plant is discretized exactly with a zero-order
 hold at the controller sample interval):</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_simulate_pid.html">ctrl_simulate_pid</a></span><span class="op">(</span><span class="va">plant</span>, <span class="va">pid</span>, reference <span class="op">=</span> <span class="fl">1</span>, steps <span class="op">=</span> <span class="fl">600</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">sim</span><span class="op">)</span></span></code></pre></div>
 <p><img src="pid_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_performance.html">ctrl_performance</a></span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">time</span>, <span class="va">sim</span><span class="op">$</span><span class="va">y</span>, <span class="va">sim</span><span class="op">$</span><span class="va">r</span>, u <span class="op">=</span> <span class="va">sim</span><span class="op">$</span><span class="va">u</span>, u_min <span class="op">=</span> <span class="op">-</span><span class="fl">1.5</span>, u_max <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       IAE      ISE    ITAE    RMSE control_effort max_abs_u max_violation</span></span>
 <span><span class="co">#&gt; 1 1.96389 1.001498 4.29645 0.29033       2.388996       1.5             0</span></span></code></pre></div>
@@ -191,7 +205,7 @@ Back-calculation feeds the difference between the saturated and
 unsaturated outputs back into the integrator with gain <code>kt</code>;
 clamping stops integration while the output is saturated in the
 direction of the error:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plant2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">mk</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">aw</span><span class="op">)</span> <span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">1</span>, ki <span class="op">=</span> <span class="fl">2</span>, u_min <span class="op">=</span> <span class="op">-</span><span class="fl">0.4</span>, u_max <span class="op">=</span> <span class="fl">0.4</span>,</span>
 <span>                            antiwindup <span class="op">=</span> <span class="va">aw</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
@@ -204,7 +218,7 @@ direction of the error:</p>
 <span><span class="co">#&gt; max_integrator 0.5183408 0.39461983 0.38336489</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">runs</span><span class="op">$</span><span class="va">none</span><span class="op">)</span></span></code></pre></div>
 <p><img src="pid_files/figure-html/unnamed-chunk-6-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">runs</span><span class="op">$</span><span class="va">backcalc</span><span class="op">)</span></span></code></pre></div>
 <p><img src="pid_files/figure-html/unnamed-chunk-6-2.png" class="r-plt" alt="" width="672"></p>
 </div>
@@ -214,7 +228,7 @@ direction of the error:</p>
 <p>In manual mode the controller output follows an operator value while
 the integrator tracks it, so switching to automatic mode does not cause
 a jump:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">manual</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="fl">100</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">200</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">sim_bt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_simulate_pid.html">ctrl_simulate_pid</a></span><span class="op">(</span><span class="va">plant2</span>, <span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">1</span>, ki <span class="op">=</span> <span class="fl">1</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
 <span>                            reference <span class="op">=</span> <span class="fl">0.5</span>, steps <span class="op">=</span> <span class="fl">300</span>, manual <span class="op">=</span> <span class="va">manual</span><span class="op">)</span></span>
@@ -229,12 +243,12 @@ frequency-response rule uses the ultimate gain and period (from the gain
 margin and phase crossover); SIMC and AMIGO use a first-order plus
 dead-time model, which <code><a href="../reference/ctrl_fit_fopdt.html">ctrl_fit_fopdt()</a></code> estimates from a
 step response:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plant3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_fit_fopdt.html">ctrl_fit_fopdt</a></span><span class="op">(</span><span class="va">plant3</span><span class="op">)</span></span>
 <span><span class="va">fit</span></span>
 <span><span class="co">#&gt;        K      tau    theta </span></span>
-<span><span class="co">#&gt; 1.000000 2.133266 1.136368</span></span>
+<span><span class="co">#&gt;  1.00000 86.53948 17.93607</span></span>
 <span><span class="va">zn</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_pid_tune.html">ctrl_pid_tune</a></span><span class="op">(</span><span class="st">"ziegler_nichols"</span>, plant <span class="op">=</span> <span class="va">plant3</span>, derivative_filter <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>                    dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="va">simc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_pid_tune.html">ctrl_pid_tune</a></span><span class="op">(</span><span class="st">"simc"</span>, fopdt <span class="op">=</span> <span class="va">fit</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
@@ -244,14 +258,14 @@ step response:</p>
 <span>  simc <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="op">)</span> <span class="fu"><a href="../reference/ctrl_simulate_pid.html">ctrl_simulate_pid</a></span><span class="op">(</span><span class="va">plant3</span>, <span class="va">simc</span>, steps <span class="op">=</span> <span class="fl">600</span><span class="op">)</span>,</span>
 <span>  amigo <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="op">)</span> <span class="fu"><a href="../reference/ctrl_simulate_pid.html">ctrl_simulate_pid</a></span><span class="op">(</span><span class="va">plant3</span>, <span class="va">amigo</span>, steps <span class="op">=</span> <span class="fl">600</span><span class="op">)</span></span>
 <span><span class="op">)</span>, reference <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="co">#&gt;        controller      IAE      ISE      ITAE      RMSE control_effort</span></span>
-<span><span class="co">#&gt; 1 ziegler_nichols 2.299335 1.253245  5.685068 0.2064175       55.31573</span></span>
-<span><span class="co">#&gt; 2            simc 2.671948 1.824268  5.648226 0.2482786       31.74939</span></span>
-<span><span class="co">#&gt; 3           amigo 5.144398 3.196226 20.926339 0.3276800       26.28620</span></span>
+<span><span class="co">#&gt;        controller       IAE      ISE       ITAE      RMSE control_effort</span></span>
+<span><span class="co">#&gt; 1 ziegler_nichols  2.299335 1.253245   5.685068 0.2064175       55.31573</span></span>
+<span><span class="co">#&gt; 2            simc  8.310740 2.986853 110.440255 0.3169194       22.66202</span></span>
+<span><span class="co">#&gt; 3           amigo 13.100333 6.205627 177.892905 0.4558494       12.16790</span></span>
 <span><span class="co">#&gt;   max_abs_u max_violation</span></span>
-<span><span class="co">#&gt; 1 5.2673163             0</span></span>
-<span><span class="co">#&gt; 2 1.3677449             0</span></span>
-<span><span class="co">#&gt; 3 0.9995846             0</span></span></code></pre></div>
+<span><span class="co">#&gt; 1  5.267316             0</span></span>
+<span><span class="co">#&gt; 2  2.414330             0</span></span>
+<span><span class="co">#&gt; 3  1.154471             0</span></span></code></pre></div>
 <p>Ziegler-Nichols is aggressive (low damping); SIMC and AMIGO trade
 speed for robustness. Always check margins and a simulation with
 realistic saturation and noise before using a tuned controller.</p>
@@ -259,7 +273,7 @@ realistic saturation and noise before using a tuned controller.</p>
 <div class="section level2">
 <h2 id="root-locus">Root locus<a class="anchor" aria-label="anchor" href="#root-locus"></a>
 </h2>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_rlocus.html">ctrl_rlocus</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="pid_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="672"></p>
 </div>

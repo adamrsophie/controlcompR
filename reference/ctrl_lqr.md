@@ -1,12 +1,13 @@
 # Linear quadratic regulator
 
-Design the state feedback \\u = -K x\\ that minimizes \$\$J =
-\int_0^\infty \left(x^\top Q x + u^\top R u + 2 x^\top N u \right)
-dt\$\$ for a continuous time model, or \$\$J = \sum\_{k=0}^\infty
-\left(x_k^\top Q x_k + u_k^\top R u_k + 2 x_k^\top N u_k\right)\$\$ for
-a discrete time model. The gain is \\K = R^{-1}(B^\top P + N^\top)\\
-(continuous) or \\K = (R + B^\top P B)^{-1}(B^\top P A + N^\top)\\
-(discrete), where `P` is the stabilizing solution of
+Design the state feedback \\u = -K x\\ that minimizes, over inputs that
+stabilize the closed loop, \$\$J = \int_0^\infty \left(x^\top Q x +
+u^\top R u + 2 x^\top N u \right) dt\$\$ for a continuous time model, or
+\$\$J = \sum\_{k=0}^\infty \left(x_k^\top Q x_k + u_k^\top R u_k + 2
+x_k^\top N u_k\right)\$\$ for a discrete time model. The gain is \\K =
+R^{-1}(B^\top P + N^\top)\\ (continuous) or \\K = (R + B^\top P
+B)^{-1}(B^\top P A + N^\top)\\ (discrete), where `P` is the stabilizing
+solution of
 [`ctrl_care()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_care.md)
 or
 [`ctrl_dare()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_care.md).
@@ -50,7 +51,10 @@ is \\A - B K\\.
 
 Prerequisites are checked: `R` must be positive definite, the joint
 weight \\\[Q, N; N^\top, R\]\\ positive semidefinite and \\(A, B)\\
-stabilizable. The optimality statement applies to the linear,
+stabilizable. Without stabilization as a requirement the minimum can be
+smaller: an unstable mode that the cost does not see (for example with
+`Q = 0`) is cheapest left alone. The two coincide when the cost is
+detectable. The optimality statement applies to the linear,
 unconstrained, exactly known model; LQR is not optimal for nonlinear,
 constrained or uncertain plants, and the guaranteed margins of
 continuous time LQR (infinite gain margin, 60 degree phase margin per

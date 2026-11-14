@@ -9,9 +9,10 @@ x^r_k\\\_Q^2 + \\u_k - u^r_k\\\_R^2 + \\y_k - y^r_k\\\_{Q_y}^2 +
 bounds on \\u_k\\, rate bounds on \\\Delta u_k = u_k - u\_{k-1}\\ (with
 \\u\_{-1}\\ the previously applied input), state bounds on \\x_1,
 \ldots, x_N\\, output bounds on \\y_1, \ldots, y_N\\ (using \\u\_{N-1}\\
-for the feedthrough at \\k = N\\), an optional terminal constraint, and
-\\u_k = u\_{N_c - 1}\\ for \\k \ge N_c\\ (control horizon). Only \\u_0\\
-is applied (receding horizon).
+for the feedthrough at \\k = N\\) and, when the bounded outputs have
+direct feedthrough, on \\y_0 = C x_0 + D u_0\\, an optional terminal
+constraint, and \\u_k = u\_{N_c - 1}\\ for \\k \ge N_c\\ (control
+horizon). Only \\u_0\\ is applied (receding horizon).
 
 ## Usage
 
@@ -64,8 +65,12 @@ ctrl_mpc(
 
 - P:
 
-  Terminal weight: a matrix, `"Q"` (default, same as `Q`) or `"lqr"`
-  (the DARE solution for `Q`, `R`).
+  Terminal weight: a matrix, `"Q"` (default, same as `Q`) or `"lqr"`:
+  the DARE solution for the stage cost \\x^\top Q x + u^\top R u +
+  y^\top Q_y y\\ with \\y = Cx + Du\\ (absolute output weighting, no
+  reference). The move penalty `Rd` is not part of this cost, so with
+  `Rd` the terminal weight no longer equals the infinite-horizon cost to
+  go.
 
 - control_horizon:
 
@@ -142,8 +147,12 @@ scheme follows when `P` is the LQR cost-to-go (`P = "lqr"`) and the
 constraints are inactive near the origin; with active constraints one
 needs a terminal set that is positively invariant under the LQR law,
 which is not computed automatically. `terminal = "equality"` (\\x_N =
-x^r_N\\) gives recursive feasibility and stability for constant
-references when the first problem is feasible.
+x^r_N\\) gives recursive feasibility and stability for a constant
+reference only when \\(x^r, u^r)\\ is an admissible equilibrium (\\x^r =
+A x^r + B u^r\\ with \\u^r\\ and \\x^r\\ strictly inside the bounds),
+the first problem is feasible, and the control horizon equals the
+horizon with no rate bounds; otherwise the shifted plan need not be
+feasible.
 
 ## See also
 

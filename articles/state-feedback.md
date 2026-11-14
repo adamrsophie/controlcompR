@@ -13,9 +13,10 @@ Riccati equation, minimizes J = \int_0^\infty x^\top Q x + u^\top R u +
 2 x^\top N u \\ dt . The conditions are checked: R \succ 0, the joint
 weight \begin{pmatrix} Q & N \\ N^\top & R\end{pmatrix} \succeq 0, (A,
 B) stabilizable, and no unobservable modes of the cost on the imaginary
-axis. The optimality statement holds only for this linear model and this
-cost; it says nothing about constraints, model error or nonlinear
-plants.
+axis. The minimum is over stabilizing inputs; it is the unrestricted
+minimum when the cost detects every unstable mode. The optimality
+statement holds only for this linear model and this cost; it says
+nothing about constraints, model error or nonlinear plants.
 
 ``` r
 
