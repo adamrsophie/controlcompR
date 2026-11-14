@@ -5,7 +5,7 @@
 [![reference-comparison](https://github.com/adamrsophie/controlcompR/actions/workflows/reference-comparison.yaml/badge.svg)](https://github.com/adamrsophie/controlcompR/actions/workflows/reference-comparison.yaml)
 [![pkgdown](https://github.com/adamrsophie/controlcompR/actions/workflows/pkgdown.yaml/badge.svg)](https://adamrsophie.github.io/controlcompR/)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/adamrsophie/controlcompR/blob/main/LICENSE.md)
 <!-- badges: end -->
 
 ***controlcompR*** is an R framework for modeling, analyzing, designing and

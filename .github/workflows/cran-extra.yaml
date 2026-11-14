@@ -37,15 +37,18 @@ jobs:
           tlmgr install inconsolata epstopdf-pkg courier psnfss makeindex && tlmgr path add
           sudo apt-get update && sudo apt-get install -y aspell aspell-en tidy
       - name: Spelling
+        if: ${{ !cancelled() }}
         run: |
           s <- spelling::spell_check_package()
           print(s)
           if (nrow(s)) stop("Spelling errors found.")
         shell: Rscript {0}
       - name: URLs
+        if: ${{ !cancelled() }}
         run: urlchecker::url_check()
         shell: Rscript {0}
       - name: Check with manual and incoming feasibility
+        if: ${{ !cancelled() }}
         run: |
           res <- rcmdcheck::rcmdcheck(args = "--as-cran", build_args = character(),
                                       error_on = "warning", check_dir = "check")
@@ -83,6 +86,7 @@ jobs:
           needs: check
       - name: Check without optional packages
         run: |
+          if (requireNamespace("sysid", quietly = TRUE)) remove.packages("sysid")
           stopifnot(!requireNamespace("sysid", quietly = TRUE))
           rcmdcheck::rcmdcheck(args = c("--no-manual", "--as-cran"),
                                error_on = "warning", check_dir = "check")
