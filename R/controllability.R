@@ -59,7 +59,8 @@ get_ab <- function(sys, B, bname) {
 staircase <- function(A, B, tol = NULL) {
   n <- nrow(A)
   U <- diag(n)
-  tol <- tol %||% (max(n, ncol(B), 1) * .Machine$double.eps *
+  # rounding grows over the staircase stages, so scale with n^2
+  tol <- tol %||% (10 * max(n, ncol(B), 1)^2 * .Machine$double.eps *
                      max(norm(A, "2"), norm(B, "2"), 1))
   k <- 0L
   M <- B
