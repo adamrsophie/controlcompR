@@ -1,0 +1,123 @@
+---
+title: "Stability, controllability and matrix equations"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Stability, controllability and matrix equations}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+```
+
+```{r setup}
+library(controlcompR)
+```
+
+## Poles and stability
+
+A continuous time model is asymptotically stable when every pole has a
+negative real part; a discrete time model when every pole lies strictly
+inside the unit circle. Poles on the boundary need more care: a simple
+pole on the imaginary axis gives a marginally stable model, but a repeated
+boundary pole with a nontrivial Jordan block grows without bound.
+`ctrl_stability()` distinguishes these cases with a tolerance scaled by
+the size of `A`:
+
+```{r}
+ctrl_stability(ctrl_ss(diag(c(-1, -2)), diag(2), diag(2)))$classification
+osc <- ctrl_ss(matrix(c(0, 1, -1, 0), 2, byrow = TRUE), c(0, 1), c(1, 0))
+ctrl_stability(osc)$classification
+jordan <- ctrl_ss(matrix(c(0, 1, 0, 0), 2, byrow = TRUE), c(0, 1), c(1, 0))
+ctrl_stability(jordan)
+```
+
+`ctrl_damp()` lists natural frequencies and damping ratios (for discrete
+models through the equivalent continuous poles \(\log(z)/T\)):
+
+```{r}
+G <- ctrl_tf(9, c(1, 1.2, 9))
+ctrl_damp(G)
+```
+
+## Controllability and observability
+
+The rank of the controllability matrix \([B, AB, \ldots, A^{n-1}B]\) is a
+poor numerical test: its columns grow like powers of `A`. The package uses
+an orthogonal staircase reduction instead, which also isolates the
+uncontrollable modes, and reports the Popov-Belevitch-Hautus test for each
+eigenvalue so the *distance* to uncontrollability can be judged:
+
+```{r}
+A <- diag(c(-1, 2))
+res <- ctrl_controllability(A, c(1, 0))
+res$rank
+res$uncontrollable_modes
+res$stabilizable
+res$pbh
+```
+
+A model is *stabilizable* when every uncontrollable mode is stable and
+*detectable* when every unobservable mode is stable. These weaker
+properties are what LQR, Kalman filtering and MPC need:
+
+```{r}
+ctrl_is_stabilizable(ctrl_ss(A, c(0, 1), diag(2)))
+ctrl_observability(A, C = c(0, 1))$detectable
+```
+
+Rank decisions use tolerances. A nearly uncontrollable model is reported
+as controllable with a tiny PBH singular value; the numbers matter more
+than the yes or no answer:
+
+```{r}
+near <- ctrl_controllability(diag(c(-1, -2)), c(1, 1e-9))
+near$controllable
+min(near$pbh$pbh_sigma_min)
+```
+
+## Lyapunov and Sylvester equations
+
+`ctrl_lyap()` solves \(A X + X A^\top + Q = 0\) (or
+\(A X A^\top - X + Q = 0\)) with the Bartels-Stewart method on a real Schur
+form; `ctrl_sylvester()` solves \(A X + X B = C\). The solution of the
+Lyapunov equation with \(Q = BB^\top\) is the controllability gramian:
+
+```{r}
+sys <- ctrl_ss(matrix(c(-1, 2, 0, -3), 2, byrow = TRUE), c(1, 1), c(1, 0))
+Wc <- ctrl_gram(sys, "c")
+Wc
+max(abs(sys$A %*% Wc + Wc %*% t(sys$A) + sys$B %*% t(sys$B)))
+```
+
+The solvers check that the equation has a unique solution (no eigenvalue
+pairs \(\lambda_i + \lambda_j = 0\), or \(\lambda_i \lambda_j = 1\) in
+discrete time) and report the residual.
+
+## Algebraic Riccati equations
+
+`ctrl_care()` and `ctrl_dare()` compute the *stabilizing* solutions of
+\[
+A^\top P + P A - (PB + S) R^{-1} (B^\top P + S^\top) + Q = 0
+\]
+and its discrete counterpart. The solvers use the extended matrix pencil
+of size \(2n + m\), compress the input block with a QR factorization (so
+`R` is never inverted) and compute an ordered generalized Schur
+decomposition with LAPACK `dgges`. The discrete solver does not need `A` to
+be invertible.
+
+```{r}
+ric <- ctrl_care(sys$A, sys$B, diag(2), 1)
+ric
+```
+
+The result carries the residual, the symmetry error before
+symmetrization and the closed-loop poles, so the solution can be checked
+rather than trusted. When no stabilizing solution exists, for example
+because a mode on the imaginary axis is not reachable, the solver stops
+with an explanation instead of returning a wrong matrix:
+
+```{r, error = TRUE}
+ctrl_care(osc$A, c(0, 0), diag(2), 1)
+```

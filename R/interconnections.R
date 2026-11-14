@@ -1,9 +1,21 @@
+# A static gain (no states, or constant transfer functions) adopts the time
+# domain of the other model.
+is_static_model <- function(s) {
+  if (is_ctrl_ss(s)) return(nrow(s$A) == 0L)
+  if (is_ctrl_tf(s)) {
+    return(all(vapply(s$den, function(d) sum(d != 0) == 1L && d[length(d)] != 0, TRUE)) &&
+             all(vapply(seq_along(s$num), function(k) {
+               length(s$num[[k]]) <= length(s$den[[k]]) &&
+                 all(s$num[[k]][-length(s$num[[k]])] == 0)
+             }, TRUE)))
+  }
+  FALSE
+}
+
 common_dt <- function(s1, s2) {
   if (s1$dt == s2$dt) return(s1$dt)
-  n1 <- if (is_ctrl_ss(s1)) nrow(s1$A) else NA
-  n2 <- if (is_ctrl_ss(s2)) nrow(s2$A) else NA
-  if (identical(n1, 0L)) return(s2$dt)
-  if (identical(n2, 0L)) return(s1$dt)
+  if (is_static_model(s1)) return(s2$dt)
+  if (is_static_model(s2)) return(s1$dt)
   ctrl_abort("Cannot connect models with different time domains (dt = ",
              s1$dt, " and dt = ", s2$dt, ").")
 }

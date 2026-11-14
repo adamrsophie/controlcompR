@@ -1,0 +1,177 @@
+url: https://adamrsophie.github.io/controlcompR/
+
+template:
+  bootstrap: 5
+  light-switch: true
+  math-rendering: katex
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, lightswitch, github]
+
+home:
+  sidebar:
+    structure: [links, license, citation, authors, dev]
+
+articles:
+- title: Getting started
+  navbar: Getting started
+  contents:
+  - controlcompR
+  - models
+- title: Analysis
+  navbar: Analysis
+  contents:
+  - analysis
+  - time-response
+  - frequency-response
+- title: Controller and estimator design
+  navbar: Design
+  contents:
+  - pid
+  - state-feedback
+  - estimation
+- title: Model predictive control
+  navbar: Model predictive control
+  contents:
+  - mpc
+  - advanced-mpc
+- title: Robust control, identification and nonlinear systems
+  navbar: Advanced topics
+  contents:
+  - robust-control
+  - identification
+  - nonlinear
+  - model-reduction
+- title: Validation
+  navbar: Validation
+  contents:
+  - numerical-validation
+
+reference:
+- title: Models
+  contents:
+  - ctrl_ss
+  - ctrl_tf
+  - ctrl_zpk
+  - ctrl_gain
+  - ctrl_tf2ss
+  - ctrl_ssdata
+  - ctrl_transform
+  - ctrl_signal_names
+  - ctrl_is_proper
+  - is_ctrl_ss
+  - sub-.ctrl_ss
+  - summary.ctrl_ss
+  - ctrl_c2d
+  - ctrl_d2c
+- title: Interconnections
+  contents:
+  - ctrl_series
+  - ctrl_arith
+  - ctrl_inv
+  - ctrl_connect
+  - ctrl_sumblock
+  - ctrl_closed_loop
+  - ctrl_sensitivity
+  - ctrl_lft
+- title: Structure and stability
+  contents:
+  - ctrl_poles
+  - ctrl_zeros
+  - ctrl_damp
+  - ctrl_dcgain
+  - ctrl_is_stable
+  - ctrl_stability
+  - ctrl_controllability
+  - ctrl_observability
+  - ctrl_ctrb
+  - ctrl_is_stabilizable
+  - ctrl_gram
+  - ctrl_minreal
+  - ctrl_tf_minreal
+  - ctrl_stabsep
+- title: Matrix equations
+  contents:
+  - ctrl_lyap
+  - ctrl_sylvester
+  - ctrl_care
+- title: Time responses
+  contents:
+  - ctrl_simulate
+  - ctrl_step
+  - ctrl_step_info
+  - as.data.frame.ctrl_response
+- title: Frequency responses, margins and norms
+  contents:
+  - ctrl_freqresp
+  - ctrl_freq_grid
+  - ctrl_bode
+  - ctrl_margin
+  - ctrl_disk_margin
+  - ctrl_bandwidth
+  - ctrl_norm
+  - ctrl_rlocus
+  - ctrl_pzmap
+  - ctrl_plots
+- title: State feedback and estimation
+  contents:
+  - ctrl_lqr
+  - ctrl_dlqr_finite
+  - ctrl_reference_gain
+  - ctrl_place
+  - ctrl_observer
+  - ctrl_kalman
+  - ctrl_kalman_filter
+  - ctrl_lqg
+  - ctrl_simulate_lqg
+- title: PID control
+  contents:
+  - ctrl_pid
+  - ctrl_pid_tf
+  - ctrl_pid_update
+  - ctrl_simulate_pid
+  - ctrl_pid_tune
+  - ctrl_fit_fopdt
+- title: Performance assessment
+  contents:
+  - ctrl_performance
+  - ctrl_compare_controllers
+- title: Model predictive control and moving horizon estimation
+  contents:
+  - ctrl_mpc
+  - ctrl_mpc_step
+  - ctrl_mpc_qp
+  - ctrl_mpc_estimator
+  - ctrl_simulate_mpc
+  - ctrl_mhe
+- title: Robust control
+  contents:
+  - ctrl_h2syn
+  - ctrl_hinfsyn
+  - ctrl_augw
+  - ctrl_robust_stability
+- title: Model reduction
+  contents:
+  - ctrl_hsvd
+  - ctrl_balreal
+- title: System identification
+  contents:
+  - ctrl_iddata
+  - ctrl_idsplit
+  - ctrl_arx
+  - ctrl_arx_order
+  - ctrl_n4sid
+  - ctrl_from_sysid
+  - ctrl_compare
+  - ctrl_resid
+- title: Nonlinear systems
+  contents:
+  - ctrl_nlsys
+  - ctrl_nl_simulate
+  - ctrl_nl_discretize
+  - ctrl_linearize
+  - ctrl_equilibrium
+  - ctrl_ekf
+  - ctrl_nmpc

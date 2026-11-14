@@ -1,0 +1,144 @@
+---
+title: "State estimation and LQG control"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{State estimation and LQG control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+```
+
+```{r setup}
+library(controlcompR)
+```
+
+## Luenberger observers
+
+When only \(y = Cx\) is measured, an observer reconstructs the state:
+\[
+\dot{\hat x} = A \hat x + B u + L (y - C \hat x - D u).
+\]
+The error \(e = x - \hat x\) obeys \(\dot e = (A - LC) e\), so `L` is a
+pole placement problem for the dual pair \((A^\top, C^\top)\):
+
+```{r}
+plant <- ctrl_ss(matrix(c(0, 1, -2, -0.5), 2, byrow = TRUE), c(0, 1), c(1, 0))
+obs <- ctrl_observer(plant, poles = c(-6, -7))
+obs
+```
+
+## The steady-state Kalman filter
+
+For \(x_{k+1} = A x_k + B u_k + G w_k\), \(y_k = C x_k + D u_k + v_k\)
+with noise covariances \(Q_n\) and \(R_n\), `ctrl_kalman()` returns the
+steady-state gains. The conventions are stated precisely because packages
+differ:
+
+* `P` is the prior (predicted) covariance \(P_{k|k-1}\);
+* `M` is the measurement update gain,
+  \(\hat x_{k|k} = \hat x_{k|k-1} + M (y_k - C \hat x_{k|k-1} - D u_k)\);
+* `L` is the one-step predictor gain (\(L = AM\) without cross
+  covariance);
+* `Z` is the posterior covariance \(P_{k|k}\).
+
+```{r}
+pd <- ctrl_c2d(plant, 0.1)
+kf <- ctrl_kalman(pd, Qn = diag(c(1e-4, 1e-3)), Rn = 0.01)
+kf$M
+kf$poles
+```
+
+`Rn` must be positive definite. Noise-free measurements make the filtering
+problem singular, and the package refuses it rather than adding an
+invisible regularization.
+
+## The time-varying filter and smoother
+
+`ctrl_kalman_filter()` processes data with the Joseph-form covariance
+update, which stays symmetric positive semidefinite in floating point. It
+returns innovations, their covariances, the normalized innovation squared
+(NIS) and the Gaussian log-likelihood; missing samples (`NA`) skip the
+update:
+
+```{r}
+set.seed(1)
+Tn <- 150
+x <- c(1, 0)
+X <- matrix(0, Tn, 2)
+y <- numeric(Tn)
+for (k in 1:Tn) {
+  X[k, ] <- x
+  y[k] <- x[1] + rnorm(1, sd = 0.1)
+  x <- drop(pd$A %*% x) + rnorm(2, sd = c(0.01, 0.03))
+}
+y[60:70] <- NA
+run <- ctrl_kalman_filter(pd, y, Qn = diag(c(1e-4, 1e-3)), Rn = 0.01,
+                          x0 = c(0, 0), P0 = diag(2))
+run
+plot(run, truth = X)
+```
+
+A consistent filter has a mean NIS close to the number of outputs; much
+larger values point to underestimated noise or a wrong model. The
+Rauch-Tung-Striebel smoother uses all the data for every estimate:
+
+```{r}
+sm <- ctrl_kalman_smoother(run)
+c(filter = sqrt(mean((run$filtered[, 1] - X[, 1])^2)),
+  smoother = sqrt(mean((sm$smoothed[, 1] - X[, 1])^2)))
+```
+
+## LQG control
+
+An LQG controller combines LQR with a Kalman filter. By the separation
+principle the closed-loop poles are the union of the regulator and
+estimator poles:
+
+```{r}
+lqg <- ctrl_lqg(pd, Q = diag(c(1, 0.1)), R = 0.1, Qn = diag(c(1e-4, 1e-3)),
+                Rn = 0.01, form = "current")
+lqg
+cl <- ctrl_closed_loop(pd, lqg)
+sort(Mod(ctrl_poles(cl)))
+sort(Mod(c(lqg$lqr$poles, lqg$kalman$poles)))
+```
+
+In discrete time the `"current"` form uses \(\hat x_{k|k}\), reacting to
+the newest measurement; the `"delayed"` form uses the predictor
+\(\hat x_{k|k-1}\), leaving a full sample for computation.
+
+### Stochastic simulation over many realizations
+
+A stochastic design should be judged over many noise realizations, not
+one favorable trajectory:
+
+```{r}
+sim <- ctrl_simulate_lqg(pd, lqg, steps = 200, x0 = c(1, 0),
+                         replications = 20, seed = 3)
+summary(sim$summary[, -1])
+```
+
+### No guaranteed margins
+
+LQR with full state feedback has at least 60 degrees of phase margin, but
+an LQG controller has no guaranteed margins at all (Doyle, 1978). Always
+check the margins of the actual loop. The controller maps `y` to `u`
+including the minus sign, so the loop transfer function for the unity
+negative feedback convention is \(L = -K_c G\):
+
+```{r}
+Lloop <- ctrl_series(-lqg$controller, pd)
+ctrl_disk_margin(Lloop)
+ctrl_peak(ctrl_feedback(1, Lloop))
+```
+
+The disk margin and the sensitivity peak summarize how far the Nyquist
+curve stays from the critical point.
+
+## Nonlinear models
+
+For nonlinear models, `ctrl_ekf()` and `ctrl_ukf()` follow the same
+conventions; see the article on nonlinear systems.

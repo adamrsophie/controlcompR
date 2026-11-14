@@ -1,0 +1,79 @@
+---
+title: "Time responses"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Time responses}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+```
+
+```{r setup}
+library(controlcompR)
+```
+
+## Simulation with arbitrary inputs
+
+`ctrl_simulate()` integrates a continuous model exactly for inputs that
+are piecewise constant (zero-order hold, the default) or piecewise linear
+(first-order hold) between the time points, using matrix exponentials of
+augmented matrices. No numerical ODE solver is involved, so the result is
+exact up to rounding:
+
+```{r}
+sys <- ctrl_ss(matrix(c(0, 1, -4, -0.8), 2, byrow = TRUE), c(0, 1), c(1, 0))
+t <- seq(0, 15, by = 0.05)
+u <- as.numeric(t > 1) - as.numeric(t > 6)
+res <- ctrl_simulate(sys, input = u, times = t)
+plot(res)
+head(as.data.frame(res))
+```
+
+For a discrete model the simulation is the difference equation itself and
+`times` must be multiples of the sample interval.
+
+## Step, impulse and initial-condition responses
+
+When no time grid is given, one is chosen from the slowest and fastest
+poles. Each input is applied in turn:
+
+```{r}
+mimo <- ctrl_ss(diag(c(-1, -3)), matrix(c(1, 0.5, 0, 1), 2), diag(2))
+plot(ctrl_step(mimo))
+plot(ctrl_impulse(sys))
+plot(ctrl_initial(sys, x0 = c(1, 0)))
+```
+
+## Step characteristics
+
+```{r}
+G <- ctrl_tf(9, c(1, 1.2, 9))
+info <- ctrl_step_info(G)
+info
+```
+
+The definitions are explicit: rise time from 10 to 90 percent of the final
+change, settling time as the last exit from a 2 percent band, overshoot
+and undershoot as percentages of the final change. For a stable model the
+final value is taken from the DC gain; otherwise the last simulated sample
+is used and `settled` says whether the response had stopped changing. The
+classical approximation for the overshoot of a second order system,
+\(100 e^{-\pi \zeta / \sqrt{1 - \zeta^2}}\), agrees:
+
+```{r}
+zeta <- 1.2 / (2 * 3)
+100 * exp(-pi * zeta / sqrt(1 - zeta^2))
+```
+
+## Integral performance criteria
+
+`ctrl_performance()` computes IAE, ISE, ITAE, RMSE, control effort and the
+largest bound violation for any recorded experiment:
+
+```{r}
+st <- ctrl_step(G)
+ctrl_performance(st$time, st$y[, 1, 1], r = 1)
+```

@@ -5,7 +5,13 @@ library(controlcompR)
 if (!requireNamespace("jsonlite", quietly = TRUE)) stop("jsonlite is required")
 prob <- jsonlite::read_json("benchmarks/reference/problems.json", simplifyVector = TRUE)
 ref <- jsonlite::read_json("benchmarks/reference/reference-values.json",
-                           simplifyVector = TRUE)
+                           simplifyVector = FALSE)
+# JSON arrays: a list of rows becomes a row-major matrix, a list of scalars a vector
+as_num <- function(x) {
+  if (!is.list(x)) return(as.numeric(x))
+  if (all(vapply(x, is.list, TRUE))) return(do.call(rbind, lapply(x, as_num)))
+  as.numeric(unlist(x))
+}
 m <- function(x) {
   x <- as.matrix(x)
   storage.mode(x) <- "double"
@@ -13,6 +19,10 @@ m <- function(x) {
 }
 rows <- list()
 add <- function(name, ours, theirs) {
+  theirs <- as_num(theirs)
+  if (!is.null(dim(theirs)) && !identical(dim(as.matrix(ours)), dim(theirs))) {
+    stop("Dimension mismatch in check ", name)
+  }
   err <- max(abs(as.numeric(ours) - as.numeric(theirs))) /
     max(1, max(abs(as.numeric(theirs))))
   rows[[length(rows) + 1L]] <<- data.frame(check = name, rel_error = err)
@@ -41,12 +51,12 @@ p <- lapply(prob$hsv[1, ], function(v) m(v[[1]]))
 add("hsv", ctrl_hsvd(ctrl_ss(p$A, p$B, p$C, p$D)), ref$hsv[[1]])
 p <- prob$c2d[1, ]
 d <- ctrl_c2d(ctrl_ss(m(p$A[[1]]), m(p$B[[1]]), m(p$C[[1]]), m(p$D[[1]])), p$dt)
-add("c2d A", d$A, ref$c2d$A[[1]])
-add("c2d B", d$B, ref$c2d$B[[1]])
+add("c2d A", d$A, ref$c2d[[1]]$A)
+add("c2d B", d$B, ref$c2d[[1]]$B)
 p <- prob$place[1, ]
 K <- ctrl_place(m(p$A[[1]]), m(p$B[[1]]), unlist(p$poles))
 add("place", sort(Re(eigen(m(p$A[[1]]) - m(p$B[[1]]) %*% K)$values)), ref$place[[1]])
-h <- ref$hinfsyn
+h <- ref$hinfsyn[[1]]
 if (is.null(h$error)) {
   p <- prob$hinfsyn[1, ]
   P <- ctrl_ss(m(p$A[[1]]), m(p$B[[1]]), m(p$C[[1]]), m(p$D[[1]]))

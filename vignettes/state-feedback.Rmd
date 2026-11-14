@@ -1,0 +1,127 @@
+---
+title: "State feedback: LQR and pole placement"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{State feedback: LQR and pole placement}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+```
+
+```{r setup}
+library(controlcompR)
+```
+
+## The linear quadratic regulator
+
+For \(\dot x = Ax + Bu\), the law \(u = -Kx\) with
+\(K = R^{-1}(B^\top P + N^\top)\), where \(P\) is the stabilizing solution
+of the continuous algebraic Riccati equation, minimizes
+\[
+J = \int_0^\infty x^\top Q x + u^\top R u + 2 x^\top N u \, dt .
+\]
+The conditions are checked: \(R \succ 0\), the joint weight
+\(\begin{pmatrix} Q & N \\ N^\top & R\end{pmatrix} \succeq 0\),
+\((A, B)\) stabilizable, and no unobservable modes of the cost on the
+imaginary axis. The optimality statement holds only for this linear model
+and this cost; it says nothing about constraints, model error or
+nonlinear plants.
+
+```{r}
+plant <- ctrl_ss(matrix(c(0, 1, 0, 0), 2, byrow = TRUE), c(0, 1), c(1, 0),
+                 state_names = c("position", "velocity"))
+lqr <- ctrl_lqr(plant, Q = diag(c(1, 0.1)), R = 0.01)
+lqr
+```
+
+The returned cost matrix gives the optimal cost from any initial state,
+\(J^\star = x_0^\top P x_0\):
+
+```{r}
+x0 <- c(1, 0)
+drop(t(x0) %*% lqr$P %*% x0)
+```
+
+### The weights trade speed against effort
+
+```{r}
+designs <- lapply(c(1, 0.1, 0.01), function(r) ctrl_lqr(plant, diag(c(1, 0.1)), r))
+sapply(designs, function(d) c(K = d$K, slowest_pole = max(Re(d$poles))))
+```
+
+### Closed-loop simulation
+
+```{r}
+cl <- ctrl_closed_loop(plant, lqr)
+plot(ctrl_initial(cl, x0 = c(1, 0)))
+```
+
+The closed loop has the plant outputs followed by the control signals, so
+the actuator effort is always visible.
+
+## Discrete and finite-horizon LQR
+
+For discrete models `ctrl_lqr()` solves the discrete Riccati equation.
+`ctrl_dlqr_finite()` computes the time-varying gains of the finite-horizon
+problem by the backward Riccati recursion; for long horizons the first
+gain converges to the infinite-horizon gain:
+
+```{r}
+pd <- ctrl_c2d(plant, 0.1)
+inf <- ctrl_lqr(pd, diag(c(1, 0.1)), 0.01)
+fin <- ctrl_dlqr_finite(pd, diag(c(1, 0.1)), 0.01, horizon = 200)
+rbind(infinite = drop(inf$K), finite_first = drop(fin$K[[1]]))
+```
+
+## Reference tracking
+
+State feedback regulates to zero. To track a constant reference \(r\),
+use \(u = N r - K x\) with the static prefilter `N` that gives unit DC
+gain (it exists when the plant has no zero at the origin):
+
+```{r}
+N <- ctrl_reference_gain(plant, lqr)
+N
+plot(ctrl_step(ctrl_series(ctrl_gain(N), cl)))
+```
+
+A prefilter is not robust to model error: a constant disturbance or a gain
+mismatch leaves a steady-state offset. Integral action (augmenting the
+state with the integral of the error) or offset-free MPC removes it.
+
+```{r}
+# integral augmentation: z' = r - y
+Aa <- rbind(cbind(plant$A, 0), cbind(-plant$C, 0))
+Ba <- rbind(plant$B, 0)
+aug <- ctrl_ss(Aa, Ba, diag(3))
+Ki <- ctrl_lqr(aug, diag(c(1, 0.1, 5)), 0.01)$K
+Ki
+```
+
+## Pole placement
+
+`ctrl_place()` computes `K` so that \(A - BK\) has prescribed eigenvalues,
+with the robust eigenstructure assignment of Kautsky, Nichols and Van
+Dooren. For several inputs the remaining freedom is used to make the
+closed-loop eigenvectors as well conditioned as possible, and the
+condition number is reported because it measures how fragile the
+placement is:
+
+```{r}
+K <- ctrl_place(plant, poles = c(-2 + 1i, -2 - 1i))
+K
+eigen(plant$A - plant$B %*% K)$values
+attr(K, "cond_X")
+
+A3 <- matrix(c(0, 1, 0, 0, 0, 1, 1, -2, -3), 3, byrow = TRUE)
+B3 <- matrix(c(0, 1, 0, 0, 0, 1), 3)
+K3 <- ctrl_place(A3, B3, c(-1, -2, -3))
+attr(K3, "cond_X")
+```
+
+Placing poles far to the left needs large gains, which amplify noise and
+saturate actuators. LQR often gives better compromises because the
+weights speak directly about states and inputs.

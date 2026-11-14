@@ -1,0 +1,142 @@
+---
+title: "PID control"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{PID control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+```
+
+```{r setup}
+library(controlcompR)
+```
+
+A textbook PID law \(k_p e + k_i \int e + k_d \dot e\) is not
+implementable as written: the derivative is improper, amplifies
+measurement noise without bound, and the integrator winds up whenever the
+actuator saturates. `ctrl_pid()` therefore always includes the features a
+working controller needs:
+
+\[
+u = k_p (b\,r - y) + k_i \int (r - y)\,dt + k_d \frac{d}{dt}
+\frac{c\,r - y}{T_f s + 1},
+\]
+
+with setpoint weights `b` and `c` (the default `c = 0` avoids a derivative
+kick on setpoint steps), a derivative filter `Tf`, output saturation and
+anti-windup.
+
+## Defining a controller
+
+```{r}
+pid <- ctrl_pid(kp = 2, ki = 1, kd = 0.8, derivative_filter = 10,
+                u_min = -1.5, u_max = 1.5, dt = 0.02)
+pid
+```
+
+`derivative_filter = N` sets \(T_f = T_d / N\) with \(T_d = k_d / k_p\).
+Asking for a derivative term without a filter is an error. The standard
+(ISA) form uses \(T_i\) and \(T_d\):
+
+```{r}
+ctrl_pid(kp = 2, ki = 4, kd = 0.25, form = "standard", derivative_filter = 8)
+```
+
+## Linear analysis
+
+Ignoring saturation, `ctrl_pid_tf()` returns the controller as a transfer
+function; with a sample interval it is the exact discrete equivalent of
+the implemented difference equations (forward Euler integral, backward
+Euler derivative filter), so the margins below are those of the code that
+runs:
+
+```{r}
+plant <- ctrl_tf(1, c(1, 1, 0))
+C <- ctrl_pid_tf(ctrl_pid(kp = 2, ki = 1, kd = 0.8, derivative_filter = 10))
+C
+L <- C * plant
+ctrl_margin(L)
+plot(ctrl_bode(L))
+```
+
+## Closed-loop simulation with saturation
+
+`ctrl_simulate_pid()` runs the discrete controller against the plant (a
+continuous plant is discretized exactly with a zero-order hold at the
+controller sample interval):
+
+```{r}
+sim <- ctrl_simulate_pid(plant, pid, reference = 1, steps = 600)
+plot(sim)
+ctrl_performance(sim$time, sim$y, sim$r, u = sim$u, u_min = -1.5, u_max = 1.5)
+```
+
+## Anti-windup
+
+When the actuator saturates, an unprotected integrator keeps growing and
+the response overshoots badly once the error changes sign.
+Back-calculation feeds the difference between the saturated and
+unsaturated outputs back into the integrator with gain `kt`; clamping
+stops integration while the output is saturated in the direction of the
+error:
+
+```{r}
+plant2 <- ctrl_tf(1, c(1, 1))
+mk <- function(aw) ctrl_pid(kp = 1, ki = 2, u_min = -0.4, u_max = 0.4,
+                            antiwindup = aw, dt = 0.05)
+runs <- lapply(c(none = "none", backcalc = "backcalc", clamp = "clamp"),
+               function(aw) ctrl_simulate_pid(plant2, mk(aw), reference = 0.35,
+                                              steps = 300))
+sapply(runs, function(s) c(overshoot = max(s$y) - 0.35, max_integrator = max(s$I)))
+plot(runs$none)
+plot(runs$backcalc)
+```
+
+## Bumpless transfer
+
+In manual mode the controller output follows an operator value while the
+integrator tracks it, so switching to automatic mode does not cause a
+jump:
+
+```{r}
+manual <- c(rep(0.2, 100), rep(NA, 200))
+sim_bt <- ctrl_simulate_pid(plant2, ctrl_pid(kp = 1, ki = 1, dt = 0.05),
+                            reference = 0.5, steps = 300, manual = manual)
+sim_bt$u[99:102]
+```
+
+## Tuning rules
+
+Tuning rules are heuristics and starting points. The Ziegler-Nichols
+frequency-response rule uses the ultimate gain and period (from the gain
+margin and phase crossover); SIMC and AMIGO use a first-order plus
+dead-time model, which `ctrl_fit_fopdt()` estimates from a step response:
+
+```{r}
+plant3 <- ctrl_tf(1, c(1, 3, 3, 1))
+fit <- ctrl_fit_fopdt(plant3)
+fit
+zn <- ctrl_pid_tune("ziegler_nichols", plant = plant3, derivative_filter = 10,
+                    dt = 0.05)
+simc <- ctrl_pid_tune("simc", fopdt = fit, dt = 0.05)
+amigo <- ctrl_pid_tune("amigo", fopdt = fit, dt = 0.05)
+ctrl_compare_controllers(list(
+  ziegler_nichols = function() ctrl_simulate_pid(plant3, zn, steps = 600),
+  simc = function() ctrl_simulate_pid(plant3, simc, steps = 600),
+  amigo = function() ctrl_simulate_pid(plant3, amigo, steps = 600)
+), reference = 1)
+```
+
+Ziegler-Nichols is aggressive (low damping); SIMC and AMIGO trade speed
+for robustness. Always check margins and a simulation with realistic
+saturation and noise before using a tuned controller.
+
+## Root locus
+
+```{r}
+plot(ctrl_rlocus(ctrl_tf(1, c(1, 3, 2, 0))))
+```

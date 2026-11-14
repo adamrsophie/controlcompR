@@ -34,3 +34,15 @@ test_that("named connections reproduce unity feedback", {
   expect_error(ctrl_connect(G, K, inputs = "r", outputs = "y"), "neither")
   expect_error(ctrl_series(ctrl_ss(-1, 1, 1), ctrl_ss(-1, 1, 1, dt = 1)), "time domains")
 })
+
+test_that("numeric gains adopt the time domain of discrete models", {
+  L <- ctrl_tf(0.1, c(1, -0.5), dt = 0.1)
+  T <- ctrl_feedback(L, 1)
+  expect_equal(T$dt, 0.1)
+  expect_equal(ctrl_series(2, L)$dt, 0.1)
+  expect_equal((L + 1)$dt, 0.1)
+  expect_true(ctrl_margin(L)$closed_loop_stable)
+  Ls <- ctrl_tf2ss(L)
+  expect_equal(ctrl_feedback(Ls, 1)$dt, 0.1)
+  expect_error(ctrl_series(ctrl_tf(1, c(1, 1)), L), "time domains")
+})
