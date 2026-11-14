@@ -124,5 +124,5 @@ sys <- ctrl_nlsys(f, nstates = 2, ninputs = 1, dt = 0.1)
 tr <- ctrl_nl_trajopt(sys, x0 = c(0, 0), horizon = 40, Q = 0, R = 0.01,
                       x_final = c(pi / 2, 0), u_min = -2, u_max = 2)
 tr$terminal_error
-#> [1] 9.058934e-07
+#> [1] 9.058911e-07
 ```
