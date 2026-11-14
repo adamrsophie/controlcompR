@@ -4,12 +4,14 @@
 \alias{ctrl_d2c}
 \title{Convert a discrete time model to continuous time}
 \usage{
-ctrl_d2c(sys, method = c("zoh", "tustin"))
+ctrl_d2c(sys, method = c("zoh", "tustin"), prewarp = NULL)
 }
 \arguments{
 \item{sys}{A discrete time model.}
 
 \item{method}{\code{"zoh"} or \code{"tustin"}.}
+
+\item{prewarp}{Prewarping frequency used in \code{\link[=ctrl_c2d]{ctrl_c2d()}} (\code{"tustin"} only).}
 }
 \value{
 A continuous time model.
@@ -17,9 +19,10 @@ A continuous time model.
 \description{
 \code{"zoh"} inverts the zero-order-hold map with a matrix logarithm of
 \eqn{\begin{pmatrix} A_d & B_d \\ 0 & I\end{pmatrix}}; it fails when
-\eqn{A_d} has eigenvalues on the closed negative real axis (no real
-logarithm exists, the discrete model is not the sampled version of any
-real continuous model). \code{"tustin"} inverts the bilinear map and fails
+\eqn{A_d} has eigenvalues on the closed negative real axis. Such
+matrices may still have real logarithms (for example from pairs of
+Jordan blocks), but the principal logarithm is not real and other
+branches are not supported. \code{"tustin"} inverts the bilinear map and fails
 when \eqn{A_d} has an eigenvalue at -1. Both are exact inverses of the
 corresponding \code{\link[=ctrl_c2d]{ctrl_c2d()}} methods when they apply.
 }

@@ -31,8 +31,9 @@ ctrl_simulate_mpc(
 \item{plant}{Simulation plant (default: the prediction model).}
 
 \item{disturbance}{Input disturbance added to the plant input: a vector
-(constant), a matrix with one row per sample, or a function of the
-sample index.}
+with one value per input (constant), a matrix with one row per sample,
+or a function of the sample index. For a single input, a vector with
+one value per sample is also accepted.}
 
 \item{noise}{Measurement noise on the outputs (same formats).}
 

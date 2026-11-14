@@ -105,3 +105,28 @@ test_that("stochastic LQG simulation is reproducible", {
   expect_identical(a$x, b$x)
   expect_lt(abs(a$x[51, 1, 1]), 0.5)
 })
+
+test_that("LQG simulation draws correlated noise and costs the cross weight", {
+  plant <- ctrl_ss(0.9, 1, 1, dt = 1)
+  lqg <- ctrl_lqg(plant, Q = 1, R = 1, Qn = 1, Rn = 1, Nn = 0.5, form = "delayed")
+  sim <- ctrl_simulate_lqg(plant, lqg, steps = 4000, x0 = 0, seed = 3)
+  x <- sim$x[, 1, 1]
+  y <- sim$y[, 1, 1]
+  w <- x[-1] - 0.9 * x[-length(x)] - sim$u[, 1, 1]
+  v <- y - x[-length(x)]
+  expect_equal(cov(w, v), 0.5, tolerance = 0.1)
+  expect_error(ctrl_simulate_lqg(plant, lqg, steps = 3, x0 = 0, Qn = -1), "semidefinite")
+  expect_error(ctrl_kalman(ctrl_ss(-1, 1, 1), Qn = 0, Rn = 1, Nn = 1, G = 0),
+               "semidefinite")
+})
+
+test_that("finite-horizon LQR rejects indefinite weights", {
+  expect_error(ctrl_dlqr_finite(ctrl_ss(1, 1, 1, dt = 1), 1, 1, 1, P_terminal = -2),
+               "semidefinite")
+})
+
+test_that("RTS smoother accepts singular covariances", {
+  kf <- ctrl_kalman_filter(ctrl_ss(1, 1, 1, dt = 1), y = c(0, 0), Qn = 0, Rn = 1, P0 = 0)
+  sm <- ctrl_kalman_smoother(kf)
+  expect_equal(drop(sm$smoothed), c(0, 0))
+})

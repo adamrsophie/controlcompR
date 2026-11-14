@@ -37,7 +37,11 @@ read from the matrix exponential of the block matrix
 \eqn{\begin{pmatrix} A & B \\ 0 & 0 \end{pmatrix} T}. This is valid for
 singular \code{A}; the formula \eqn{A^{-1}(A_d - I)B} is never used.
 \item \code{"foh"}: exact first-order (triangle) hold, for inputs that are
-linearly interpolated between samples.
+linearly interpolated between samples. The discrete state is
+\eqn{\xi_k = x_k - \Gamma_2 u_k} (not the physical state), so a
+physical initial state \eqn{x_0} corresponds to
+\eqn{\xi_0 = x_0 - \Gamma_2 u_0}; the matrix \eqn{\Gamma_2} is stored
+in the \code{foh_state_map} attribute of the result.
 \item \code{"tustin"}: bilinear transformation \eqn{s = \frac{2}{T}\frac{z-1}{z+1}},
 optionally prewarped so that the frequency response matches exactly at
 \code{prewarp} rad per time unit.

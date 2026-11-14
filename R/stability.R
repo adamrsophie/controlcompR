@@ -185,8 +185,9 @@ ctrl_damp <- function(sys) {
 #'
 #' The gain at zero frequency: \eqn{D - C A^{-1} B} in continuous time and
 #' \eqn{D + C (I - A)^{-1} B} in discrete time. An error is raised when the
-#' model has a pole at `s = 0` (or `z = 1`), because the gain is then
-#' infinite or undefined.
+#' input-output map has a pole at `s = 0` (or `z = 1`), because the gain is
+#' then infinite or undefined; poles there that are uncontrollable or
+#' unobservable are removed first.
 #'
 #' @param sys A model.
 #' @return A `p x m` matrix.
@@ -199,7 +200,15 @@ ctrl_dcgain <- function(sys) {
   if (!n) return(s$D)
   M <- if (s$dt > 0) diag(n) - s$A else -s$A
   rc <- rcond(M)
-  if (rc < 1e3 * .Machine$double.eps) {
+  if (rc < 1e3 * .Machine$double.eps && n > 0L) {
+    # a pole at the origin may be uncontrollable or unobservable and then
+    # does not affect the gain; retry on a minimal realization
+    r <- ctrl_minreal(s)
+    if (nrow(r$A) < n) {
+      out <- ctrl_dcgain(r)
+      dimnames(out) <- list(s$output_names, s$input_names)
+      return(out)
+    }
     ctrl_abort("The DC gain is undefined: the model has a pole at ",
                if (s$dt > 0) "z = 1" else "s = 0", " (rcond ", signif(rc, 3), ").")
   }
@@ -214,9 +223,10 @@ ctrl_dcgain <- function(sys) {
 #' generalized eigenvalues of the Rosenbrock system pencil
 #' \deqn{\begin{pmatrix} A & B \\ C & D \end{pmatrix} - \lambda
 #' \begin{pmatrix} I & 0 \\ 0 & 0 \end{pmatrix},}
-#' computed with the QZ algorithm. Transfer functions return the numerator
-#' roots of each SISO channel. Nonsquare state-space models are not
-#' supported in this version.
+#' computed with the QZ algorithm. A SISO transfer function returns its
+#' numerator roots. MIMO transfer functions are converted to state space,
+#' so they must be square as well; nonsquare models are not supported in
+#' this version.
 #'
 #' @param sys A model.
 #' @return A complex vector of zeros.

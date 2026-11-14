@@ -10,7 +10,8 @@
 #' rate bounds on \eqn{\Delta u_k = u_k - u_{k-1}} (with \eqn{u_{-1}} the
 #' previously applied input), state bounds on \eqn{x_1, \ldots, x_N},
 #' output bounds on \eqn{y_1, \ldots, y_N} (using \eqn{u_{N-1}} for the
-#' feedthrough at \eqn{k = N}), an optional terminal constraint, and
+#' feedthrough at \eqn{k = N}) and, when the bounded outputs have direct
+#' feedthrough, on \eqn{y_0 = C x_0 + D u_0}, an optional terminal constraint, and
 #' \eqn{u_k = u_{N_c - 1}} for \eqn{k \ge N_c} (control horizon). Only
 #' \eqn{u_0} is applied (receding horizon).
 #'
@@ -40,8 +41,12 @@
 #' constraints are inactive near the origin; with active constraints one
 #' needs a terminal set that is positively invariant under the LQR law,
 #' which is not computed automatically. `terminal = "equality"`
-#' (\eqn{x_N = x^r_N}) gives recursive feasibility and stability for
-#' constant references when the first problem is feasible.
+#' (\eqn{x_N = x^r_N}) gives recursive feasibility and stability for a
+#' constant reference only when \eqn{(x^r, u^r)} is an admissible
+#' equilibrium (\eqn{x^r = A x^r + B u^r} with \eqn{u^r} and \eqn{x^r}
+#' strictly inside the bounds), the first problem is feasible, and the
+#' control horizon equals the horizon with no rate bounds; otherwise the
+#' shifted plan need not be feasible.
 #'
 #' @param plant Discrete time `ctrl_ss` model. Continuous models must be
 #'   discretized first with [ctrl_c2d()].
@@ -49,7 +54,11 @@
 #' @param Q State weight (scalar, vector or matrix).
 #' @param R Input weight (scalar, vector or matrix).
 #' @param P Terminal weight: a matrix, `"Q"` (default, same as `Q`) or
-#'   `"lqr"` (the DARE solution for `Q`, `R`).
+#'   `"lqr"`: the DARE solution for the stage cost
+#'   \eqn{x^\top Q x + u^\top R u + y^\top Q_y y} with \eqn{y = Cx + Du}
+#'   (absolute output weighting, no reference). The move penalty `Rd` is
+#'   not part of this cost, so with `Rd` the terminal weight no longer
+#'   equals the infinite-horizon cost to go.
 #' @param control_horizon Number of free input moves `Nc` (default `N`).
 #' @param Rd Weight on input increments.
 #' @param Qy Weight on output tracking errors.
@@ -106,8 +115,12 @@ ctrl_mpc <- function(plant, horizon, Q, R, P = "Q", control_horizon = horizon,
   if (is.character(P)) {
     P <- match.arg(P, c("Q", "lqr"))
     P <- if (P == "Q") Q else {
-      if (min_eig_sym(R) <= 0) ctrl_abort("`P = \"lqr\"` needs positive definite `R`.")
-      ctrl_dare(s$A, s$B, Q, R)$P
+      # stage cost including the output term y = Cx + Du
+      Qe <- Q + t(s$C) %*% Qy %*% s$C
+      Re <- R + t(s$D) %*% Qy %*% s$D
+      Ne <- t(s$C) %*% Qy %*% s$D
+      if (min_eig_sym(Re) <= 0) ctrl_abort("`P = \"lqr\"` needs positive definite `R + D' Qy D`.")
+      ctrl_dare(s$A, s$B, symmetrize(Qe), symmetrize(Re), Ne)$P
     }
   }
   P <- check_psd(expand_weight(P, n, "P"), "P")
@@ -121,6 +134,11 @@ ctrl_mpc <- function(plant, horizon, Q, R, P = "Q", control_horizon = horizon,
     if (any(bounds[[paste0(nm, "_min")]] > bounds[[paste0(nm, "_max")]])) {
       ctrl_abort("`", nm, "_min` must not exceed `", nm, "_max`.")
     }
+  }
+  if (!is.numeric(soft_weight) || length(soft_weight) != 2L ||
+      any(!is.finite(soft_weight)) || any(soft_weight < 0)) {
+    ctrl_abort("`soft_weight` must be two finite nonnegative numbers ",
+               "c(rho_q, rho_l).")
   }
   if (length(soft) && !all(soft %in% c("states", "outputs"))) {
     ctrl_abort("`soft` may contain \"states\" and \"outputs\".")
@@ -206,7 +224,11 @@ mpc_build_qp <- function(mpc) {
   soft_y <- "outputs" %in% mpc$soft
   xb <- which(is.finite(b$x_min) | is.finite(b$x_max))
   yb <- which(is.finite(b$y_min) | is.finite(b$y_max))
-  ns <- (if (soft_x) N * length(xb) else 0L) + (if (soft_y) N * length(yb) else 0L)
+  # y_0 = C x_0 + D u_0 depends on the decision u_0 only through D; it is
+  # constrained when the bounded outputs have direct feedthrough
+  y_stages <- if (length(yb) && any(D[yb, , drop = FALSE] != 0)) 0:N else seq_len(N)
+  ns <- (if (soft_x) N * length(xb) else 0L) +
+    (if (soft_y) length(y_stages) * length(yb) else 0L)
   si0 <- nx + nu
   nz <- nx + nu + ns
   Hm <- trip_new()
@@ -304,10 +326,11 @@ mpc_build_qp <- function(mpc) {
       }
     }
   }
-  # output bounds on y_1..y_N
+  # output bounds on y_1..y_N (and y_0 with feedthrough)
   rows_y <- integer()
+  comp_y <- integer()
   if (length(yb)) {
-    for (k in 1:N) {
+    for (k in y_stages) {
       Cy <- C[yb, , drop = FALSE]
       Dy <- D[yb, , drop = FALSE]
       ku <- min(k, N - 1L)
@@ -321,8 +344,10 @@ mpc_build_qp <- function(mpc) {
         r2 <- add_rows(c(blocks, list(list(cols = sc, M = S))),
                        b$y_min[yb], rep(Inf, length(yb)), "ys")
         rows_y <- c(rows_y, r1, r2)
+        comp_y <- c(comp_y, yb, yb)
       } else {
         rows_y <- c(rows_y, add_rows(blocks, b$y_min[yb], b$y_max[yb], "y"))
+        comp_y <- c(comp_y, yb)
       }
     }
   }
@@ -351,7 +376,7 @@ mpc_build_qp <- function(mpc) {
   list(H = Hs, A = Acs, l = lo, u = hi, tags = row_tag, n = n, m = m, p = p,
        N = N, nz = nz, ns = ns, xi = xi, ui = ui, si0 = si0,
        rows_init = rows_init, rows_dyn = rows_dyn, rows_rate0 = rows_rate0,
-       rows_y = rows_y, rows_term = rows_term, rows_tset = rows_tset,
+       rows_y = rows_y, comp_y = comp_y, rows_term = rows_term, rows_tset = rows_tset,
        Qy_x = Qy_x, Qy_xu = Qy_xu, Qy_u = Qy_u)
 }
 
@@ -389,6 +414,9 @@ ref_rows <- function(ref, k, width, rows, name) {
 #' @param disturbance Known additive disturbance \eqn{d_k} in the dynamics
 #'   (vector or matrix with `N` rows).
 #' @param k Time index passed to reference functions.
+#' @param output_offset Optional known additive output offset (length `p`),
+#'   for example an estimated output disturbance: output bounds then apply to
+#'   \eqn{C x + D u + \text{offset}}.
 #' @return A list with `H`, `q`, `A`, `l`, `u`, `constant` (objective
 #'   constant) and the index functions `xi(k)` and `ui(k)`.
 #' @examples
@@ -397,7 +425,7 @@ ref_rows <- function(ref, k, width, rows, name) {
 #' dim(qp$A)
 #' @export
 ctrl_mpc_qp <- function(mpc, x, reference = NULL, u_prev = NULL,
-                        disturbance = NULL, k = 1L) {
+                        disturbance = NULL, k = 1L, output_offset = NULL) {
   qp <- mpc$qp
   n <- qp$n
   m <- qp$m
@@ -443,6 +471,13 @@ ctrl_mpc_qp <- function(mpc, x, reference = NULL, u_prev = NULL,
   if (length(qp$rows_rate0)) {
     l[qp$rows_rate0] <- mpc$bounds$du_min + u_prev
     u[qp$rows_rate0] <- mpc$bounds$du_max + u_prev
+  }
+  if (!is.null(output_offset) && length(qp$rows_y)) {
+    off <- as.numeric(output_offset)
+    if (length(off) != p) ctrl_abort("`output_offset` must have length ", p, ".")
+    # the true output is y = C x + D u + offset: shift the bounds on C x + D u
+    l[qp$rows_y] <- l[qp$rows_y] - off[qp$comp_y]
+    u[qp$rows_y] <- u[qp$rows_y] - off[qp$comp_y]
   }
   if (length(qp$rows_term)) {
     l[qp$rows_term] <- xN
@@ -493,9 +528,10 @@ mpc_solver <- function(mpc, qpd) {
 #' ctrl_mpc_step(mpc, x = 3)$u
 #' @export
 ctrl_mpc_step <- function(mpc, x, reference = NULL, u_prev = NULL,
-                          disturbance = NULL, k = 1L, warm_start = NULL) {
+                          disturbance = NULL, k = 1L, warm_start = NULL,
+                          output_offset = NULL) {
   if (!inherits(mpc, "ctrl_mpc")) ctrl_abort("`mpc` must be a `ctrl_mpc` object.")
-  qpd <- ctrl_mpc_qp(mpc, x, reference, u_prev, disturbance, k)
+  qpd <- ctrl_mpc_qp(mpc, x, reference, u_prev, disturbance, k, output_offset)
   model <- mpc_solver(mpc, qpd)
   if (!is.null(warm_start) && length(warm_start) == qpd$nz) {
     model@WarmStart(x = warm_start)
@@ -661,8 +697,9 @@ mpc_target <- function(s, Bd, Cd, dhat, r) {
 #'   [ctrl_mpc_qp()]); with an estimator, `y` is the output setpoint.
 #' @param plant Simulation plant (default: the prediction model).
 #' @param disturbance Input disturbance added to the plant input: a vector
-#'   (constant), a matrix with one row per sample, or a function of the
-#'   sample index.
+#'   with one value per input (constant), a matrix with one row per sample,
+#'   or a function of the sample index. For a single input, a vector with
+#'   one value per sample is also accepted.
 #' @param noise Measurement noise on the outputs (same formats).
 #' @param estimator Optional `ctrl_mpc_estimator` for output feedback with
 #'   offset-free tracking; without it the true state is measured.
@@ -708,8 +745,19 @@ ctrl_simulate_mpc <- function(mpc, x0, steps, reference = NULL, plant = NULL,
   sig <- function(v, k, width) {
     if (is.null(v)) return(rep(0, width))
     if (is.function(v)) return(as.numeric(v(k)))
-    if (is.null(dim(v))) return(rep_len(as.numeric(v), width))
-    v[min(k, nrow(v)), ]
+    if (is.null(dim(v))) {
+      v <- as.numeric(v)
+      if (length(v) == width) return(v)
+      if (length(v) == 1L) return(rep(v, width))
+      # a single channel given as a sequence over the samples
+      if (width == 1L && length(v) >= steps) return(v[k])
+      ctrl_abort("A signal vector must have length 1 or ", width,
+                 " (one value per channel); give a sequence over the samples ",
+                 "as a matrix with one row per sample.")
+    }
+    if (ncol(v) != width) ctrl_abort("A signal matrix must have ", width, " columns.")
+    if (nrow(v) < steps) ctrl_abort("A signal matrix must have at least ", steps, " rows.")
+    v[k, ]
   }
   X <- matrix(0, steps + 1L, ns)
   Y <- matrix(0, steps, p)
@@ -734,6 +782,7 @@ ctrl_simulate_mpc <- function(mpc, x0, steps, reference = NULL, plant = NULL,
     y <- drop(sim$C %*% x + sim$D %*% u_prev) + sig(noise, k, p)
     ref <- reference
     dist_model <- NULL
+    y_off <- NULL
     if (!is.null(estimator)) {
       # measurement update of the augmented filter (D term uses u_prev as
       # the held input until the new input is computed)
@@ -746,13 +795,14 @@ ctrl_simulate_mpc <- function(mpc, x0, steps, reference = NULL, plant = NULL,
       tg <- mpc_target(model, estimator$Bd, estimator$Cd, dhat, r_y)
       ref <- list(x = tg$x, u = tg$u, y = r_y - drop(estimator$Cd %*% dhat))
       dist_model <- matrix(drop(estimator$Bd %*% dhat), N, n, byrow = TRUE)
+      y_off <- drop(estimator$Cd %*% dhat)
     } else {
       xhat <- x
     }
     Xh[k, ] <- xhat
     ws <- NULL
     if (warm_start && !is.null(zprev)) ws <- shift_plan(zprev, mpc)
-    st <- ctrl_mpc_step(mpc, xhat, ref, u_prev, dist_model, k, ws)
+    st <- ctrl_mpc_step(mpc, xhat, ref, u_prev, dist_model, k, ws, y_off)
     log$status[k] <- st$status
     log$ok[k] <- st$ok
     log$iterations[k] <- as.integer(st$iterations %||% NA_integer_)

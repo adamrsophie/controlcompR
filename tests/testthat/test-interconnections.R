@@ -46,3 +46,15 @@ test_that("numeric gains adopt the time domain of discrete models", {
   expect_equal(ctrl_feedback(Ls, 1)$dt, 0.1)
   expect_error(ctrl_series(ctrl_tf(1, c(1, 1)), L), "time domains")
 })
+
+test_that("append lets static gains adopt the time domain in any order", {
+  Gd <- ctrl_c2d(ctrl_tf(1, c(1, 1)), 0.1)
+  expect_equal(ctrl_append(ctrl_gain(1), Gd)$dt, 0.1)
+  expect_equal(ctrl_append(Gd, ctrl_gain(1))$dt, 0.1)
+})
+
+test_that("transfer function feedback checks the algebraic loop", {
+  expect_error(ctrl_feedback(ctrl_tf(c(1, 1), c(1, 0)), 1, sign = 1), "algebraic loop")
+  expect_error(ctrl_feedback(ctrl_tf2ss(ctrl_tf(c(1, 1), c(1, 0))), 1, sign = 1),
+               "algebraic loop")
+})

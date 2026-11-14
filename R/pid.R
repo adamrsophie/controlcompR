@@ -218,9 +218,13 @@ ctrl_pid_update <- function(pid, state = NULL, r, y, manual = NULL) {
   if (pid$integral_method == "backward") I <- I + pid$ki * dt * e
   if (pid$integral_method == "tustin") I <- I + pid$ki * dt * (e + state$e_prev) / 2
   if (!is.null(manual)) {
-    # track the manual output: the integrator absorbs the difference
+    # track the manual output: the integrator absorbs the difference so the
+    # first automatic output equals the manual one when r and y are unchanged
+    # (it anticipates that sample's integral increment and derivative decay)
     u <- min(max(manual, pid$u_min), pid$u_max)
-    I_next <- u - P - D
+    inc <- if (pid$integral_method == "forward") 0 else pid$ki * dt * e
+    D_next <- if (pid$kd != 0) pid$Tf / (pid$Tf + dt) * D else 0
+    I_next <- u - P - D_next - inc
     return(list(u = u, u_unsat = u, P = P, I = I, D = D, saturated = FALSE,
                 state = list(I = I_next, D = D, ed_prev = ed, e_prev = e,
                              manual_prev = TRUE)))
@@ -291,6 +295,11 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
   if (abs(sd$dt - dt) > 1e-12 * dt) {
     ctrl_abort("The discrete plant and controller sample intervals differ.")
   }
+  if (sd$D[output, 1] != 0) {
+    ctrl_abort("The plant has direct feedthrough to the measured output; the ",
+               "sampled loop with a saturating PID is then an algebraic loop. ",
+               "Add a measurement delay or use a strictly proper plant.")
+  }
   n <- nrow(sd$A)
   times <- (0:(steps - 1L)) * dt
   sig <- function(v, name) {
@@ -309,9 +318,8 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
                     P = 0, I = 0, D = 0, saturated = FALSE, mode = "auto",
                     stringsAsFactors = FALSE)
   st <- NULL
-  u_prev <- 0
   for (k in seq_len(steps)) {
-    ytrue <- drop(sd$C[output, , drop = FALSE] %*% x + sd$D[output, 1] * u_prev)
+    ytrue <- drop(sd$C[output, , drop = FALSE] %*% x)
     ym <- ytrue + nz[k]
     step <- ctrl_pid_update(pid, st, r[k], ym,
                             manual = if (is.na(man[k])) NULL else man[k])
@@ -327,7 +335,6 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
     out$saturated[k] <- step$saturated
     out$mode[k] <- if (is.na(man[k])) "auto" else "manual"
     x <- drop(sd$A %*% x + sd$B %*% (u + d[k]))
-    u_prev <- u
   }
   class(out) <- c("ctrl_pid_simulation", "data.frame")
   out

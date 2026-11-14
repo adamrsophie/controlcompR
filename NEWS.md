@@ -31,5 +31,5 @@
     validation tools and conversion of `sysid` models.
   * Nonlinear systems: simulation, linearization, equilibria,
     discretization, EKF, UKF and experimental nonlinear MPC.
-  * Sixteen articles and a reference comparison against python-control
+  * Fifteen articles and a reference comparison against python-control
     and SLICOT.

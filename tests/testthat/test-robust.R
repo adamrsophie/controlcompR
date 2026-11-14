@@ -103,3 +103,8 @@ test_that("small-gain robust stability test", {
   unstable <- ctrl_robust_stability(G, ctrl_tf(-5, 1), 0.1)
   expect_false(unstable$nominally_stable)
 })
+
+test_that("hinfsyn validates the tolerance", {
+  P <- ctrl_ss(-1, cbind(1, 1), rbind(1, 1), rbind(c(0, 1), c(1, 0)))
+  expect_error(ctrl_hinfsyn(P, 1, 1, tol = -1), "tol")
+})

@@ -5,10 +5,18 @@
 #' behavior is preserved up to the rank tolerance.
 #'
 #' @param sys A model.
-#' @param tol Absolute rank tolerance for the staircase reductions. The
-#'   default, \eqn{\sqrt{\epsilon}\max(\|A\|, \|B\|, \|C\|)} as in MATLAB,
-#'   removes modes that cancel to roughly half the working precision, which
-#'   is needed for realizations built from polynomial coefficients.
+#' The default tolerance first tries
+#' \eqn{\sqrt{\epsilon}\max(\|A\|, \|B\|, \|C\|)} (as in MATLAB), which
+#' removes modes that cancel to roughly half the working precision, as
+#' needed for realizations built from polynomial coefficients. The reduced
+#' model is then compared with the original at frequencies spread over the
+#' range of the poles; when they disagree (a badly scaled model whose small
+#' couplings were mistaken for zeros), the reduction is repeated with the
+#' much tighter staircase tolerance \eqn{10 n^2 \epsilon \|[A, B]\|}, and
+#' an error is raised if even that result does not match.
+#'
+#' @param tol Absolute rank tolerance for the staircase reductions. When
+#'   given, it is used as is and the frequency check is skipped.
 #' @return A `ctrl_ss` model with a minimal number of states.
 #' @examples
 #' # Two copies of the same first-order system: one state is redundant
@@ -22,8 +30,45 @@ ctrl_minreal <- function(sys, tol = NULL) {
   s <- as_ss(sys)
   n <- nrow(s$A)
   if (!n) return(s)
-  tol <- tol %||% (sqrt(.Machine$double.eps) *
-                     max(norm(s$A, "2"), norm(s$B, "2"), norm(s$C, "2"), 1))
+  if (!is.null(tol)) return(minreal_tol(s, tol))
+  loose <- sqrt(.Machine$double.eps) *
+    max(norm(s$A, "2"), norm(s$B, "2"), norm(s$C, "2"), 1)
+  red <- minreal_tol(s, loose)
+  if (same_response(s, red)) return(red)
+  tight <- 10 * n^2 * .Machine$double.eps *
+    max(norm(s$A, "2"), norm(s$B, "2"), norm(s$C, "2"), 1)
+  red <- minreal_tol(s, tight)
+  if (same_response(s, red)) return(red)
+  ctrl_abort("The minimal realization does not reproduce the frequency ",
+             "response of the model; the model is too badly scaled for a ",
+             "reliable reduction. Rescale states, inputs or outputs.")
+}
+
+# Compare two realizations at frequencies spread over the pole magnitudes.
+same_response <- function(s, r, rtol = 1e-6) {
+  if (nrow(r$A) == nrow(s$A)) return(TRUE)
+  ev <- Mod(eigen(s$A, only.values = TRUE)$values)
+  if (s$dt > 0) {
+    z <- exp(1i * c(0.001, 0.01, 0.1, 0.5, 1, 2, 3) * 1.37)
+  } else {
+    ev <- ev[ev > 0]
+    lo <- if (length(ev)) min(ev) else 1
+    hi <- if (length(ev)) max(ev) else 1
+    w <- 10^seq(log10(lo) - 2, log10(hi) + 2, length.out = 25) * 1.0137
+    z <- 1i * w
+  }
+  g1 <- eval_system(s, z)
+  g2 <- eval_system(r, z)
+  ok <- is.finite(Re(g1)) & is.finite(Re(g2))
+  if (!any(ok)) return(TRUE)
+  scale <- max(Mod(g1[ok]), Mod(s$D), .Machine$double.xmin)
+  # compare per frequency relative to the response size there and overall
+  err <- Mod(g1 - g2)[ok]
+  ref <- pmax(Mod(g1)[ok], 1e-8 * scale)
+  all(err <= rtol * ref + 1e-10 * scale)
+}
+
+minreal_tol <- function(s, tol) {
   st <- staircase(s$A, s$B, tol)
   nc <- st$nc
   keep <- seq_len(nc)
@@ -124,7 +169,9 @@ ctrl_hsvd <- function(sys) {
   s <- as_ss(sys)
   if (!nrow(s$A)) return(numeric())
   f <- gramian_factors(s)
-  svd(t(f$Lo) %*% f$Lc, nu = 0, nv = 0)$d
+  if (!ncol(f$Lo) || !ncol(f$Lc)) return(rep(0, nrow(s$A)))
+  hs <- svd(t(f$Lo) %*% f$Lc, nu = 0, nv = 0)$d
+  c(hs, rep(0, nrow(s$A) - length(hs)))
 }
 
 gramian_factors <- function(s) {
@@ -172,6 +219,13 @@ ctrl_balreal <- function(sys, tol = 1e-12) {
   s <- as_ss(sys)
   if (!nrow(s$A)) return(s)
   f <- gramian_factors(s)
+  if (!ncol(f$Lo) || !ncol(f$Lc)) {
+    # no state is both controllable and observable: the model is static
+    out <- ctrl_gain(s$D, dt = s$dt, input_names = s$input_names,
+                     output_names = s$output_names)
+    attr(out, "hsv") <- rep(0, nrow(s$A))
+    return(out)
+  }
   sv <- svd(t(f$Lo) %*% f$Lc)
   r <- sum(sv$d > tol * max(sv$d))
   out <- balanced_project(s, f, sv, r, "truncate")
@@ -185,13 +239,13 @@ balanced_project <- function(s, f, sv, r, method) {
   Sinv <- diag(1 / sqrt(sig), r)
   Tl <- Sinv %*% t(sv$u[, idx, drop = FALSE]) %*% t(f$Lo)
   Tr <- f$Lc %*% sv$v[, idx, drop = FALSE] %*% Sinv
-  if (method == "truncate" || r == length(sv$d)) {
+  rr <- sum(sv$d > 1e-14 * max(sv$d))
+  if (method == "truncate" || r >= rr) {
     return(ctrl_ss(Tl %*% s$A %*% Tr, Tl %*% s$B, s$C %*% Tr, s$D, dt = s$dt,
                    input_names = s$input_names, output_names = s$output_names))
   }
   # full balancing (all states with positive Hankel singular values) then
   # residualize the trailing block
-  rr <- sum(sv$d > 1e-14 * max(sv$d))
   full <- balanced_project(s, f, sv, rr, "truncate")
   i1 <- seq_len(r)
   i2 <- (r + 1L):rr
@@ -240,7 +294,7 @@ ctrl_balred <- function(sys, order, method = c("truncate", "matchdc")) {
   rs <- order - nu
   if (nrow(stable$A)) {
     f <- gramian_factors(stable)
-    sv <- svd(t(f$Lo) %*% f$Lc)
+    sv <- if (ncol(f$Lo) && ncol(f$Lc)) svd(t(f$Lo) %*% f$Lc) else list(d = numeric())
     rs <- min(rs, sum(sv$d > 1e-14 * max(sv$d, 0)))
     red <- if (rs == 0L) {
       dc <- if (method == "matchdc") ctrl_dcgain(stable) else stable$D
@@ -256,6 +310,6 @@ ctrl_balred <- function(sys, order, method = c("truncate", "matchdc")) {
   out$input_names <- s$input_names
   out$output_names <- s$output_names
   attr(out, "hsv") <- hsv
-  attr(out, "error_bound") <- 2 * sum(hsv[-seq_len(rs)])
+  attr(out, "error_bound") <- 2 * sum(hsv[seq_along(hsv) > rs])
   out
 }

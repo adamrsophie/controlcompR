@@ -10,7 +10,11 @@
 #'   \eqn{\begin{pmatrix} A & B \\ 0 & 0 \end{pmatrix} T}. This is valid for
 #'   singular `A`; the formula \eqn{A^{-1}(A_d - I)B} is never used.
 #' * `"foh"`: exact first-order (triangle) hold, for inputs that are
-#'   linearly interpolated between samples.
+#'   linearly interpolated between samples. The discrete state is
+#'   \eqn{\xi_k = x_k - \Gamma_2 u_k} (not the physical state), so a
+#'   physical initial state \eqn{x_0} corresponds to
+#'   \eqn{\xi_0 = x_0 - \Gamma_2 u_0}; the matrix \eqn{\Gamma_2} is stored
+#'   in the `foh_state_map` attribute of the result.
 #' * `"tustin"`: bilinear transformation \eqn{s = \frac{2}{T}\frac{z-1}{z+1}},
 #'   optionally prewarped so that the frequency response matches exactly at
 #'   `prewarp` rad per time unit.
@@ -55,7 +59,7 @@ ctrl_c2d <- function(sys, dt, method = c("zoh", "foh", "tustin", "matched"),
     foh = {
       f <- foh_matrices(s$A, s$B, dt)
       list(A = f$Phi, B = f$G1 - f$G2 + f$Phi %*% f$G2, C = s$C,
-           D = s$D + s$C %*% f$G2)
+           D = s$D + s$C %*% f$G2, G2 = f$G2)
     },
     tustin = {
       if (!is.null(prewarp)) {
@@ -81,6 +85,7 @@ ctrl_c2d <- function(sys, dt, method = c("zoh", "foh", "tustin", "matched"),
                  state_names = s$state_names, input_names = s$input_names,
                  output_names = s$output_names)
   attr(out, "discretization") <- list(method = method, prewarp = prewarp)
+  if (method == "foh") attr(out, "foh_state_map") <- mats$G2
   if (was_tf) ctrl_ss2tf(out) else out
 }
 
@@ -120,12 +125,16 @@ c2d_matched <- function(sys, dt) {
   zz <- exp(zpk$zeros * dt)
   reldeg <- length(zpk$poles) - length(zpk$zeros)
   if (reldeg > 1L) zz <- c(zz, rep(-1 + 0i, reldeg - 1L))
-  near0 <- function(v) any(Mod(v) < 1e-12)
-  s0 <- if (near0(zpk$poles) || near0(zpk$zeros)) 1i / dt else 0
-  gc <- zpk$gain * prod(s0 - zpk$zeros) / prod(s0 - zpk$poles)
-  z0 <- exp(s0 * dt)
-  gd0 <- prod(z0 - zz) / prod(z0 - pz)
-  k <- Re(gc / gd0)
+  # match the low-frequency gain after removing s^k and (z - 1)^k factors:
+  # near s = 0, z - 1 ~ s dt
+  at0 <- function(v) Mod(v) < 1e-12
+  kz <- sum(at0(zpk$zeros))
+  kp <- sum(at0(zpk$poles))
+  gc <- zpk$gain * prod(-zpk$zeros[!at0(zpk$zeros)]) /
+    prod(-zpk$poles[!at0(zpk$poles)])
+  atz1 <- function(v) Mod(v - 1) < 1e-12
+  gd <- prod(1 - zz[!atz1(zz)]) / prod(1 - pz[!atz1(pz)])
+  k <- Re(gc / (gd * dt^(kz - kp)))
   out <- ctrl_zpk2tf(ctrl_zpk(zz, pz, k, dt = dt))
   out$input_names <- sys$input_names
   out$output_names <- sys$output_names
@@ -136,20 +145,22 @@ c2d_matched <- function(sys, dt) {
 #'
 #' `"zoh"` inverts the zero-order-hold map with a matrix logarithm of
 #' \eqn{\begin{pmatrix} A_d & B_d \\ 0 & I\end{pmatrix}}; it fails when
-#' \eqn{A_d} has eigenvalues on the closed negative real axis (no real
-#' logarithm exists, the discrete model is not the sampled version of any
-#' real continuous model). `"tustin"` inverts the bilinear map and fails
+#' \eqn{A_d} has eigenvalues on the closed negative real axis. Such
+#' matrices may still have real logarithms (for example from pairs of
+#' Jordan blocks), but the principal logarithm is not real and other
+#' branches are not supported. `"tustin"` inverts the bilinear map and fails
 #' when \eqn{A_d} has an eigenvalue at -1. Both are exact inverses of the
 #' corresponding [ctrl_c2d()] methods when they apply.
 #'
 #' @param sys A discrete time model.
 #' @param method `"zoh"` or `"tustin"`.
+#' @param prewarp Prewarping frequency used in [ctrl_c2d()] (`"tustin"` only).
 #' @return A continuous time model.
 #' @examples
 #' sysd <- ctrl_c2d(ctrl_ss(-1, 1, 1), 0.1)
 #' ctrl_d2c(sysd)$A  # -1
 #' @export
-ctrl_d2c <- function(sys, method = c("zoh", "tustin")) {
+ctrl_d2c <- function(sys, method = c("zoh", "tustin"), prewarp = NULL) {
   method <- match.arg(method)
   assert_system(sys)
   if (sys$dt == 0) ctrl_abort("`sys` is already a continuous time model.")
@@ -166,7 +177,7 @@ ctrl_d2c <- function(sys, method = c("zoh", "tustin")) {
   if (method == "zoh") {
     ev <- eigen(s$A, only.values = TRUE)$values
     if (any(Mod(Im(ev)) < 1e-12 & Re(ev) <= 1e-12)) {
-      ctrl_abort("Zero-order-hold inversion is impossible: A has an ",
+      ctrl_abort("Zero-order-hold inversion is not supported: A has an ",
                  "eigenvalue on the closed negative real axis.")
     }
     M <- rbind(cbind(s$A, s$B), cbind(matrix(0, m, n), diag(m)))
@@ -180,6 +191,13 @@ ctrl_d2c <- function(sys, method = c("zoh", "tustin")) {
     ipa <- s$A + diag(n)
     if (rcond(ipa) < 1e-12) {
       ctrl_abort("Tustin inversion is impossible: A has an eigenvalue at -1.")
+    }
+    if (!is.null(prewarp)) {
+      check_scalar_number(prewarp, "prewarp", positive = TRUE)
+      if (prewarp * T / 2 >= pi / 2) {
+        ctrl_abort("`prewarp` must be below the Nyquist frequency pi / dt.")
+      }
+      T <- 2 / prewarp * tan(prewarp * T / 2)
     }
     iinv <- solve(ipa)
     A <- (2 / T) * (s$A - diag(n)) %*% iinv

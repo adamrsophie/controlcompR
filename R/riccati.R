@@ -21,8 +21,10 @@
 #' \eqn{Q - S R^{-1} S^\top \succeq 0} and the corresponding pair is
 #' detectable). When the boundary condition fails, or when \eqn{U_{11}} is
 #' singular, an error is raised rather than an invalid solution returned.
-#' The returned object reports the relative residual, the symmetry error
-#' and the closed-loop eigenvalues so that the result can be verified.
+#' A solution whose relative residual exceeds 1e-6, or whose closed loop is
+#' not stable, raises an error. The returned object reports the relative
+#' residual, the symmetry error and the closed-loop eigenvalues so that the
+#' result can be verified.
 #'
 #' @param A State matrix (`n x n`).
 #' @param B Input matrix (`n x m`).
@@ -154,6 +156,11 @@ riccati_solve <- function(A, B, Q, R, S, discrete, check_weights) {
     K <- solve(G, t(B) %*% P %*% A + t(S))
     Res <- t(A) %*% P %*% A - P - (t(A) %*% P %*% B + S) %*% K + Q
     res <- rel_residual(Res, t(A) %*% P %*% A, P, Q)
+  }
+  if (!is.finite(res) || res > 1e-6) {
+    ctrl_abort("The computed Riccati solution has relative residual ",
+               signif(res, 3), " (above 1e-6); the problem is too ill ",
+               "conditioned for an accurate solution.")
   }
   poles <- as.complex(eigen(A - B %*% K, only.values = TRUE)$values)
   stable <- if (discrete) all(Mod(poles) < 1) else all(Re(poles) < 0)

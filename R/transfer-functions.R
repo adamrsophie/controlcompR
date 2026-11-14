@@ -202,10 +202,21 @@ ctrl_zpk <- function(zeros = numeric(), poles = numeric(), gain = 1,
 check_conjugate <- function(z, name) {
   if (!length(z)) return(invisible())
   if (any(!is.finite(z))) ctrl_abort("`", name, "` must be finite.")
-  cz <- sort_complex(Conj(z))
-  zz <- sort_complex(z)
-  if (max(Mod(cz - zz)) > 1e-8 * max(1, Mod(z))) {
-    ctrl_abort("Complex `", name, "` must appear in conjugate pairs.")
+  tol <- 1e-8 * max(1, Mod(z))
+  # greedy nearest matching of each value with the conjugate of another
+  left <- seq_along(z)
+  while (length(left)) {
+    i <- left[1]
+    if (abs(Im(z[i])) <= tol) {
+      left <- left[-1]
+      next
+    }
+    cand <- left[-1]
+    d <- Mod(z[cand] - Conj(z[i]))
+    if (!length(cand) || min(d) > tol) {
+      ctrl_abort("Complex `", name, "` must appear in conjugate pairs.")
+    }
+    left <- setdiff(left, c(i, cand[which.min(d)]))
   }
 }
 
@@ -268,9 +279,15 @@ ctrl_tf2ss <- function(sys, minimal = TRUE, tol = NULL) {
   m <- ncol(sys$num)
   if (p == 1L && m == 1L) {
     out <- siso_tf2ss(sys$num[[1]], sys$den[[1]], sys$dt)
-    return(ctrl_ss(out$A, out$B, out$C, out$D, dt = sys$dt,
+    out <- ctrl_ss(out$A, out$B, out$C, out$D, dt = sys$dt,
                    input_names = sys$input_names,
-                   output_names = sys$output_names))
+                   output_names = sys$output_names)
+    # the controllable canonical form is minimal unless numerator and
+    # denominator share a factor (then it is unobservable)
+    if (minimal && nrow(out$A) && !ctrl_is_observable(out)) {
+      out <- ctrl_minreal(out, tol = tol)
+    }
+    return(out)
   }
   parts <- list()
   for (i in seq_len(p)) for (j in seq_len(m)) {

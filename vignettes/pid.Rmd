@@ -49,10 +49,11 @@ ctrl_pid(kp = 2, ki = 4, kd = 0.25, form = "standard", derivative_filter = 8)
 ## Linear analysis
 
 Ignoring saturation, `ctrl_pid_tf()` returns the controller as a transfer
-function; with a sample interval it is the exact discrete equivalent of
-the implemented difference equations (forward Euler integral, backward
-Euler derivative filter), so the margins below are those of the code that
-runs:
+function. A controller without a sample interval gives the continuous
+design; with one it is the exact discrete equivalent of the implemented
+difference equations (forward Euler integral, backward Euler derivative
+filter), so its margins, computed against the zero-order-hold plant, are
+those of the code that runs:
 
 ```{r}
 plant <- ctrl_tf(1, c(1, 1, 0))
@@ -61,7 +62,14 @@ C
 L <- C * plant
 ctrl_margin(L)
 plot(ctrl_bode(L))
+
+Cd <- ctrl_pid_tf(ctrl_pid(kp = 2, ki = 1, kd = 0.8, derivative_filter = 10,
+                           dt = 0.02))
+ctrl_margin(Cd * ctrl_c2d(plant, 0.02))
 ```
+
+The sampled loop loses a little phase (the hold behaves like a delay of
+half a sample), which is why the discrete margins are slightly smaller.
 
 ## Closed-loop simulation with saturation
 

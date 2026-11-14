@@ -15,7 +15,9 @@ ctrl_performance(
 )
 }
 \arguments{
-\item{time}{Time vector.}
+\item{time}{Time vector, with one point per row of \code{y} (one extra final
+point, as returned by simulations that include the final state, is
+dropped).}
 
 \item{y}{Output matrix or vector.}
 
@@ -23,7 +25,8 @@ ctrl_performance(
 
 \item{u}{Optional control signal.}
 
-\item{u_min, u_max}{Optional input limits for violation reporting.}
+\item{u_min, u_max}{Optional input limits for violation reporting, a
+scalar or one value per input (column of \code{u}).}
 
 \item{discrete}{Use rectangle sums instead of the trapezoidal rule.}
 }

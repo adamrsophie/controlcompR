@@ -105,6 +105,11 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
   Rn <- check_pd(expand_weight(Rn, p, "Rn"), "Rn")
   Nn <- if (is.null(Nn)) matrix(0, q, p) else as_real_matrix(Nn, "Nn", q, p)
   check_dims(Nn, "Nn", q, p)
+  W0 <- rbind(cbind(Qn, Nn), cbind(t(Nn), Rn))
+  if (min_eig_sym(W0) < -1e-10 * max(1, norm(W0, "2"))) {
+    ctrl_abort("The joint noise covariance [Qn Nn; Nn' Rn] is not positive ",
+               "semidefinite.")
+  }
   obs <- ctrl_observability(s)
   if (!obs$detectable) {
     ctrl_abort("(A, C) is not detectable; unobservable unstable modes: ",
@@ -285,7 +290,9 @@ ctrl_kalman_smoother <- function(filter) {
     for (k in (Tn - 1L):1) {
       Pf <- filter$P_filtered[, , k]
       Ppn <- filter$P_predicted[, , k + 1L]
-      J <- t(solve(Ppn, A %*% Pf))
+      # pseudo-inverse: a singular predicted covariance (deterministic state
+      # components) is valid and leaves those components unchanged
+      J <- Pf %*% t(A) %*% MASS_ginv(Ppn, tol = 1e-12)
       xs[k, ] <- filter$filtered[k, ] + drop(J %*% (xs[k + 1L, ] -
                                                      filter$predicted[k + 1L, ]))
       Ps[, , k] <- symmetrize(Pf + J %*% (Ps[, , k + 1L] - Ppn) %*% t(J))
@@ -480,10 +487,17 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
     set.seed(seed)
   }
   kf <- lqg$kalman
-  Qn <- if (is.null(Qn)) kf$Qn else expand_weight(Qn, ncol(kf$G), "Qn")
-  Rn <- if (is.null(Rn)) kf$Rn else expand_weight(Rn, nrow(s$C), "Rn")
-  Fq <- psd_sqrt_factor(Qn)
-  Fr <- psd_sqrt_factor(Rn)
+  Qn <- if (is.null(Qn)) kf$Qn else check_psd(expand_weight(Qn, ncol(kf$G), "Qn"), "Qn")
+  Rn <- if (is.null(Rn)) kf$Rn else check_psd(expand_weight(Rn, nrow(s$C), "Rn"), "Rn")
+  # process and measurement noise are drawn jointly with the design cross
+  # covariance Nn
+  q <- ncol(kf$G)
+  Wj <- rbind(cbind(Qn, kf$Nn), cbind(t(kf$Nn), Rn))
+  if (min_eig_sym(Wj) < -1e-10 * max(1, norm(Wj, "2"))) {
+    ctrl_abort("The joint noise covariance [Qn Nn; Nn' Rn] is not positive ",
+               "semidefinite.")
+  }
+  Fj <- psd_sqrt_factor(Wj)
   n <- nrow(s$A)
   m <- ncol(s$B)
   p <- nrow(s$C)
@@ -495,6 +509,7 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
   Yo <- array(0, c(steps, p, replications))
   Qw <- lqg$lqr$Q
   Rw <- lqg$lqr$R
+  Nw <- lqg$lqr$N %||% matrix(0, n, m)
   summ <- data.frame(replication = seq_len(replications), rms_estimation_error = 0,
                      average_cost = 0)
   for (r in seq_len(replications)) {
@@ -503,7 +518,9 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
     X[1, , r] <- x
     cost <- 0
     for (k in seq_len(steps)) {
-      v <- if (ncol(Fr)) drop(Fr %*% rnorm(ncol(Fr))) else rep(0, p)
+      wv <- if (ncol(Fj)) drop(Fj %*% rnorm(ncol(Fj))) else rep(0, q + p)
+      w <- wv[seq_len(q)]
+      v <- wv[q + seq_len(p)]
       # u depends on y through Dc; with plant D the loop is algebraic
       E <- diag(p) - s$D %*% ctrl$D
       y <- drop(solve(E, s$C %*% x + s$D %*% (ctrl$C %*% xc) + v))
@@ -515,8 +532,8 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
       Xh[k, , r] <- xhat
       U[k, , r] <- u
       Yo[k, , r] <- y
-      cost <- cost + sum(x * (Qw %*% x)) + sum(u * (Rw %*% u))
-      w <- if (ncol(Fq)) drop(Fq %*% rnorm(ncol(Fq))) else rep(0, ncol(kf$G))
+      cost <- cost + sum(x * (Qw %*% x)) + sum(u * (Rw %*% u)) +
+        2 * sum(x * (Nw %*% u))
       x <- drop(s$A %*% x + s$B %*% u + kf$G %*% w)
       xc <- drop(ctrl$A %*% xc + ctrl$B %*% y)
       X[k + 1L, , r] <- x

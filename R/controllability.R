@@ -149,7 +149,7 @@ controllability_core <- function(A, B, tol, dt, word) {
     basis = st$U[, seq_len(nc), drop = FALSE],
     transform = st$U,
     pbh = if (n) pbh_table(A, B, st$tol) else NULL,
-    ctrb_singular_values = if (n) svd(ctrl_ctrb(A, B), 0, 0)$d else numeric(),
+    ctrb_singular_values = if (n) ctrb_sv(A, B) else numeric(),
     tol = st$tol,
     kind = word
   )
@@ -212,6 +212,14 @@ print.ctrl_controllability <- function(x, digits = 4, ...) {
         paste(format(signif(modes, digits)), collapse = ", "), "\n", sep = "")
   }
   invisible(x)
+}
+
+# Singular values of the controllability matrix for diagnostics only; NA
+# when the matrix powers overflow (the staircase result does not need them).
+ctrb_sv <- function(A, B) {
+  M <- ctrl_ctrb(A, B)
+  if (any(!is.finite(M))) return(rep(NA_real_, nrow(A)))
+  tryCatch(svd(M, 0, 0)$d, error = function(e) rep(NA_real_, nrow(A)))
 }
 
 #' Stabilizability and detectability tests

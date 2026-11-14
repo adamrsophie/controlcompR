@@ -6,7 +6,10 @@
 #' @param u Input data (vector or `T x m` matrix).
 #' @param dt Sample interval.
 #' @param detrend Remove the sample means of `y` and `u` (stored in
-#'   `offsets` so predictions can be mapped back).
+#'   `offsets` so predictions can be mapped back), or a list with `y` and `u`
+#'   offsets to subtract, typically `train$offsets`. Models estimated on
+#'   detrended data describe deviations from the offsets, so validation data
+#'   must be shifted by the training offsets, not by their own means.
 #' @return An object of class `ctrl_iddata`.
 #' @examples
 #' d <- ctrl_iddata(y = sin(1:50 / 5), u = cos(1:50 / 5), dt = 0.1)
@@ -21,7 +24,16 @@ ctrl_iddata <- function(y, u, dt = 1, detrend = FALSE) {
   if (anyNA(Y) || anyNA(U)) ctrl_abort("Identification data must not contain NA.")
   check_scalar_number(dt, "dt", positive = TRUE)
   off <- list(y = rep(0, ncol(Y)), u = rep(0, ncol(U)))
-  if (detrend) {
+  if (is.list(detrend)) {
+    oy <- as.numeric(detrend$y)
+    ou <- as.numeric(detrend$u)
+    if (length(oy) != ncol(Y) || length(ou) != ncol(U)) {
+      ctrl_abort("`detrend` offsets must have one value per output and input.")
+    }
+    off <- list(y = oy, u = ou)
+    Y <- sweep(Y, 2, off$y)
+    U <- sweep(U, 2, off$u)
+  } else if (isTRUE(detrend)) {
     off <- list(y = colMeans(Y), u = colMeans(U))
     Y <- sweep(Y, 2, off$y)
     U <- sweep(U, 2, off$u)
@@ -213,8 +225,20 @@ ctrl_n4sid <- function(data, order = NULL, horizon = NULL, feedthrough = FALSE) 
   Uf <- hank(U, i + 1L)
   Yp <- hank(Y, 1L)
   Yf <- hank(Y, i + 1L)
+  # the input must be persistently exciting of order 2i
+  ur <- qr(t(rbind(Uf, Up)))$rank
+  if (ur < 2L * i * m) {
+    ctrl_abort("The input is not persistently exciting of order ", 2L * i,
+               " (rank ", ur, " of ", 2L * i * m, "); the system cannot be ",
+               "identified from these data. Use a richer input or a shorter horizon.")
+  }
   M <- rbind(Uf, Up, Yp, Yf) / sqrt(N)
-  L <- t(qr.R(qr(t(M))))
+  # tol = 0 disables column pivoting, which would scramble the block structure
+  qm <- qr(t(M), tol = 0)
+  if (!identical(qm$pivot, seq_len(nrow(M)))) {
+    ctrl_abort("Internal error: pivoted QR in subspace identification.")
+  }
+  L <- t(qr.R(qm))
   nu <- i * m
   nz <- i * (m + p)
   iy <- nu + nz + seq_len(i * p)
@@ -223,7 +247,8 @@ ctrl_n4sid <- function(data, order = NULL, horizon = NULL, feedthrough = FALSE) 
   sval <- sv$d
   if (is.null(order)) {
     ls <- log(pmax(sval[seq_len(min(length(sval), i * p - 1L))], .Machine$double.eps))
-    order <- which.max(-diff(ls))
+    # with a single admissible order (i p = 2) there is no gap to compare
+    order <- if (length(ls) < 2L) 1L else which.max(-diff(ls))
   }
   n <- as_count(order, "order")
   Gam <- sv$u[, seq_len(n), drop = FALSE] %*% diag(sqrt(sval[seq_len(n)]), n)
@@ -312,11 +337,18 @@ idmodel_outputs <- function(model, data) {
   Tn <- nrow(data$y)
   times <- (seq_len(Tn) - 1) * data$dt
   if (inherits(model, "ctrl_n4sid")) {
-    x0 <- if (identical(nrow(model$residuals), Tn)) model$x0 else NULL
-    if (is.null(x0)) {
-      x0 <- ss_input_ls(model$sys$A, model$sys$C, data$u, data$y,
-                        any(model$sys$D != 0))$x0
+    # estimate only the initial state on these data, keeping the model's
+    # A, B, C and D fixed
+    s0 <- ctrl_simulate(model$sys, input = data$u, times = times)$y[, , 1]
+    s0 <- matrix(s0, Tn)
+    nx <- nrow(model$sys$A)
+    O <- matrix(0, Tn * ncol(data$y), nx)
+    Ak <- diag(nx)
+    for (k in seq_len(Tn)) {
+      O[(k - 1L) * ncol(data$y) + seq_len(ncol(data$y)), ] <- model$sys$C %*% Ak
+      Ak <- model$sys$A %*% Ak
     }
+    x0 <- qr.solve(O, as.numeric(t(data$y - s0)))
     sim <- ctrl_simulate(model$sys, input = data$u, times = times, x0 = x0)$y[, , 1]
     return(list(simulated = matrix(sim, Tn), predicted = NULL))
   }
@@ -422,7 +454,9 @@ plot.ctrl_idcompare <- function(x, ...) {
 #' ARX models, output errors otherwise) and test them: the autocorrelation
 #' should be within the 99 percent band \eqn{\pm 2.58/\sqrt{N}} for white
 #' residuals (Ljung-Box test reported), and the cross-correlation with the
-#' input should vanish (residuals independent of past inputs). Output-error
+#' input should vanish at nonnegative lags (residuals independent of current
+#' and past inputs; `ccf` reports \eqn{\mathrm{cor}(e_{t+k}, u_t)}). All
+#' outputs and input-output pairs are tested. Output-error
 #' models are not expected to have white residuals; the cross-correlation
 #' test is the relevant one for them.
 #'
@@ -430,7 +464,8 @@ plot.ctrl_idcompare <- function(x, ...) {
 #' @param data Data (preferably validation data).
 #' @param lags Maximum lag.
 #' @return A list of class `ctrl_resid` with `residuals`, `acf`,
-#'   `ccf` (data frames with lag, value and band), `ljung_box` (p-value) and
+#'   `ccf` (data frames with output, input, lag, value and band),
+#'   `ljung_box` (p-value per output) and
 #'   flags `white` and `independent`.
 #' @examples
 #' set.seed(1)
@@ -445,32 +480,49 @@ ctrl_resid <- function(model, data, lags = 20L) {
   check_iddata(data)
   o <- idmodel_outputs(model, data)
   yhat <- if (!is.null(o$predicted)) o$predicted else o$simulated
-  e <- data$y[, 1] - yhat[, 1]
+  E <- as.matrix(data$y) - as.matrix(yhat)
+  U <- as.matrix(data$u)
   skip <- if (inherits(model, "ctrl_arx")) seq_len(max(model$na, model$nk + model$nb - 1L)) else integer()
-  if (length(skip)) e <- e[-skip]
-  u <- data$u[, 1]
-  if (length(skip)) u <- u[-skip]
-  N <- length(e)
+  if (length(skip)) {
+    E <- E[-skip, , drop = FALSE]
+    U <- U[-skip, , drop = FALSE]
+  }
+  N <- nrow(E)
   band <- 2.58 / sqrt(N)
-  ac <- stats::acf(e, lag.max = lags, plot = FALSE)$acf[-1]
-  cc <- stats::ccf(u, e, lag.max = lags, plot = FALSE)
-  ccd <- data.frame(lag = drop(cc$lag), value = drop(cc$acf), band = band)
-  lb <- stats::Box.test(e, lag = lags, type = "Ljung-Box",
-                        fitdf = if (inherits(model, "ctrl_arx")) model$na else 0)
-  structure(list(residuals = e,
-                 acf = data.frame(lag = seq_len(lags), value = ac, band = band),
-                 ccf = ccd, ljung_box = lb$p.value,
-                 white = all(abs(ac) < band),
+  fitdf <- if (inherits(model, "ctrl_arx")) model$na else 0
+  acd <- ccd <- list()
+  lb <- numeric(ncol(E))
+  for (i in seq_len(ncol(E))) {
+    e <- E[, i]
+    ac <- stats::acf(e, lag.max = lags, plot = FALSE)$acf[-1]
+    acd[[i]] <- data.frame(output = i, lag = seq_len(lags), value = ac,
+                           band = band)
+    lb[i] <- stats::Box.test(e, lag = lags, type = "Ljung-Box",
+                             fitdf = fitdf)$p.value
+    for (j in seq_len(ncol(U))) {
+      # ccf(e, u) at lag k estimates cor(e[t + k], u[t]): k >= 0 measures the
+      # dependence of the residual on current and past inputs
+      cc <- stats::ccf(e, U[, j], lag.max = lags, plot = FALSE)
+      ccd[[length(ccd) + 1L]] <- data.frame(output = i, input = j,
+                                            lag = drop(cc$lag),
+                                            value = drop(cc$acf), band = band)
+    }
+  }
+  acd <- do.call(rbind, acd)
+  ccd <- do.call(rbind, ccd)
+  structure(list(residuals = if (ncol(E) == 1L) E[, 1] else E,
+                 acf = acd, ccf = ccd, ljung_box = lb,
+                 white = all(abs(acd$value) < band),
                  independent = all(abs(ccd$value[ccd$lag >= 0]) < band)),
             class = "ctrl_resid")
 }
 
 #' @export
 print.ctrl_resid <- function(x, ...) {
-  cat("Residual analysis (", length(x$residuals), " samples)\n", sep = "")
+  cat("Residual analysis (", NROW(x$residuals), " samples)\n", sep = "")
   cat("  autocorrelation within 99% band: ", x$white, " (Ljung-Box p = ",
-      signif(x$ljung_box, 3), ")\n", sep = "")
-  cat("  input cross-correlation within 99% band (nonnegative lags): ",
+      paste(signif(x$ljung_box, 3), collapse = ", "), ")\n", sep = "")
+  cat("  correlation of residuals with current and past inputs within 99% band: ",
       x$independent, "\n", sep = "")
   invisible(x)
 }
@@ -478,8 +530,10 @@ print.ctrl_resid <- function(x, ...) {
 #' @rdname ctrl_plots
 #' @export
 plot.ctrl_resid <- function(x, ...) {
-  df <- rbind(data.frame(x$acf, panel = "residual autocorrelation"),
-              data.frame(x$ccf, panel = "input-residual cross-correlation"))
+  ac <- x$acf[x$acf$output == 1, c("lag", "value", "band")]
+  cc <- x$ccf[x$ccf$output == 1 & x$ccf$input == 1, c("lag", "value", "band")]
+  df <- rbind(data.frame(ac, panel = "residual autocorrelation (output 1)"),
+              data.frame(cc, panel = "cor(e[t + lag], u[t]) (output 1, input 1)"))
   ggplot2::ggplot(df, ggplot2::aes(x = .data$lag, y = .data$value)) +
     ggplot2::geom_hline(yintercept = 0) +
     ggplot2::geom_segment(ggplot2::aes(xend = .data$lag, yend = 0)) +

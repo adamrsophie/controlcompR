@@ -1,6 +1,7 @@
 #' Linear quadratic regulator
 #'
-#' Design the state feedback \eqn{u = -K x} that minimizes
+#' Design the state feedback \eqn{u = -K x} that minimizes, over inputs
+#' that stabilize the closed loop,
 #' \deqn{J = \int_0^\infty \left(x^\top Q x + u^\top R u + 2 x^\top N u
 #' \right) dt}
 #' for a continuous time model, or
@@ -16,7 +17,10 @@
 #'
 #' Prerequisites are checked: `R` must be positive definite, the joint
 #' weight \eqn{[Q, N; N^\top, R]} positive semidefinite and \eqn{(A, B)}
-#' stabilizable. The optimality statement applies to the linear,
+#' stabilizable. Without stabilization as a requirement the minimum can be
+#' smaller: an unstable mode that the cost does not see (for example with
+#' `Q = 0`) is cheapest left alone. The two coincide when the cost is
+#' detectable. The optimality statement applies to the linear,
 #' unconstrained, exactly known model; LQR is not optimal for nonlinear,
 #' constrained or uncertain plants, and the guaranteed margins of
 #' continuous time LQR (infinite gain margin, 60 degree phase margin per
@@ -119,14 +123,15 @@ ctrl_dlqr_finite <- function(sys, Q, R, horizon, P_terminal = NULL) {
   if (s$dt == 0) ctrl_abort("`sys` must be a discrete time model.")
   n <- nrow(s$A)
   m <- ncol(s$B)
-  Q <- expand_weight(Q, n, "Q")
+  Q <- check_psd(expand_weight(Q, n, "Q"), "Q")
   R <- expand_weight(R, m, "R")
   check_pd(R, "R")
   if (!is.numeric(horizon) || length(horizon) != 1L || horizon < 1 ||
       horizon != round(horizon)) {
     ctrl_abort("`horizon` must be a positive integer.")
   }
-  PN <- if (is.null(P_terminal)) Q else expand_weight(P_terminal, n, "P_terminal")
+  PN <- if (is.null(P_terminal)) Q else
+    check_psd(expand_weight(P_terminal, n, "P_terminal"), "P_terminal")
   P <- vector("list", horizon + 1L)
   K <- vector("list", horizon)
   P[[horizon + 1L]] <- PN

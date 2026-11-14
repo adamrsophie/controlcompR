@@ -116,7 +116,12 @@ ctrl_nl_simulate <- function(sys, x0, times, input = NULL, controller = NULL,
       if (!is.null(controller)) Um[k, ] <- as.numeric(controller(times[k], x))
       if (!is.null(uf)) Um[k, ] <- as.numeric(uf(times[k]))
       if (k < Tn) {
-        steps <- round((times[k + 1L] - times[k]) / sys$dt)
+        ratio <- (times[k + 1L] - times[k]) / sys$dt
+        steps <- round(ratio)
+        if (abs(ratio - steps) > 1e-8 * max(1, ratio)) {
+          ctrl_abort("`times` must be spaced by integer multiples of the ",
+                     "sample interval dt = ", sys$dt, ".")
+        }
         for (j in seq_len(steps)) x <- nl_f(sys, times[k] / sys$dt + j - 1, x, Um[k, ])
       }
     }
@@ -142,7 +147,9 @@ ctrl_nl_simulate <- function(sys, x0, times, input = NULL, controller = NULL,
       }
     }
   }
-  Y <- t(vapply(seq_len(Tn), function(k) nl_h(sys, times[k], X[k, ], Um[k, ]),
+  # discrete models receive the sample index, continuous models the time
+  tk <- if (sys$dt > 0) times / sys$dt else times
+  Y <- t(vapply(seq_len(Tn), function(k) nl_h(sys, tk[k], X[k, ], Um[k, ]),
                 numeric(sys$p)))
   if (sys$p == 1L) Y <- matrix(Y, ncol = 1)
   colnames(X) <- sys$state_names
@@ -384,6 +391,11 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
   }
   Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
   if (ncol(Y) != sys$p) ctrl_abort("`y` must have ", sys$p, " columns.")
+  part <- apply(Y, 1, function(r) any(is.na(r)) && !all(is.na(r)))
+  if (any(part)) {
+    ctrl_abort("Rows of `y` must be complete or entirely missing (NA); ",
+               "partially missing rows are not supported.")
+  }
   Tn <- nrow(Y)
   U <- if (is.null(u)) matrix(0, Tn, sys$m) else input_matrix(u, seq_len(Tn), sys$m)
   list(Y = Y, U = U, Tn = Tn,
@@ -399,7 +411,10 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
 #' additive noise, \eqn{x_{k+1} = f(k, x_k, u_k) + w_k},
 #' \eqn{y_k = h(k, x_k, u_k) + v_k}, using the conventions of
 #' [ctrl_kalman_filter()] (`x0`, `P0` are the prior at the first sample;
-#' each step updates with \eqn{y_k} and then predicts).
+#' each step updates with \eqn{y_k} and then predicts; rows of `y` that are
+#' entirely `NA` skip the update). Row `k` of the data is passed to `f` and
+#' `h` as the sample index `k - 1`, the 0-based convention of
+#' [ctrl_nl_simulate()].
 #'
 #' * `ctrl_ekf()` linearizes `f` and `h` at the current estimate with
 #'   central finite differences and uses the Joseph-form covariance update.
@@ -443,18 +458,23 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL) {
   P <- z$P
   out <- nl_filter_storage(z$Tn, n, p)
   for (k in seq_len(z$Tn)) {
+    tk <- k - 1L  # sample index passed to the model, 0-based as in simulation
     uk <- z$U[k, ]
     yk <- z$Y[k, ]
-    H <- num_jacobian(function(xx) nl_h(sys, k, xx, uk), x)
-    e <- yk - nl_h(sys, k, x, uk)
-    S <- symmetrize(H %*% P %*% t(H) + z$Rn)
-    K <- P %*% t(H) %*% solve(S)
-    x <- x + drop(K %*% e)
-    IKH <- diag(n) - K %*% H
-    P <- symmetrize(IKH %*% P %*% t(IKH) + K %*% z$Rn %*% t(K))
-    out <- nl_filter_record(out, k, x, P, e, S)
-    Fj <- num_jacobian(function(xx) nl_f(sys, k, xx, uk), x)
-    x <- nl_f(sys, k, x, uk)
+    if (all(is.finite(yk))) {
+      H <- num_jacobian(function(xx) nl_h(sys, tk, xx, uk), x)
+      e <- yk - nl_h(sys, tk, x, uk)
+      S <- symmetrize(H %*% P %*% t(H) + z$Rn)
+      K <- P %*% t(H) %*% solve(S)
+      x <- x + drop(K %*% e)
+      IKH <- diag(n) - K %*% H
+      P <- symmetrize(IKH %*% P %*% t(IKH) + K %*% z$Rn %*% t(K))
+      out <- nl_filter_record(out, k, x, P, e, S)
+    } else {
+      out <- nl_filter_record(out, k, x, P, NULL, NULL)
+    }
+    Fj <- num_jacobian(function(xx) nl_f(sys, tk, xx, uk), x)
+    x <- nl_f(sys, tk, x, uk)
     P <- symmetrize(Fj %*% P %*% t(Fj) + z$Qn)
   }
   nl_filter_finish(out, sys)
@@ -480,21 +500,26 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
   P <- z$P
   out <- nl_filter_storage(z$Tn, n, p)
   for (k in seq_len(z$Tn)) {
+    tk <- k - 1L
     uk <- z$U[k, ]
+    if (all(is.finite(z$Y[k, ]))) {
+      Xs <- sigma(x, P)
+      Ys <- matrix(apply(Xs, 2, function(xx) nl_h(sys, tk, xx, uk)), nrow = p)
+      yhat <- drop(Ys %*% wm)
+      dY <- Ys - yhat
+      dX <- Xs - x
+      S <- symmetrize(dY %*% (wc * t(dY)) + z$Rn)
+      Pxy <- dX %*% (wc * t(dY))
+      K <- Pxy %*% solve(S)
+      e <- z$Y[k, ] - yhat
+      x <- x + drop(K %*% e)
+      P <- symmetrize(P - K %*% S %*% t(K))
+      out <- nl_filter_record(out, k, x, P, e, S)
+    } else {
+      out <- nl_filter_record(out, k, x, P, NULL, NULL)
+    }
     Xs <- sigma(x, P)
-    Ys <- matrix(apply(Xs, 2, function(xx) nl_h(sys, k, xx, uk)), nrow = p)
-    yhat <- drop(Ys %*% wm)
-    dY <- Ys - yhat
-    dX <- Xs - x
-    S <- symmetrize(dY %*% (wc * t(dY)) + z$Rn)
-    Pxy <- dX %*% (wc * t(dY))
-    K <- Pxy %*% solve(S)
-    e <- z$Y[k, ] - yhat
-    x <- x + drop(K %*% e)
-    P <- symmetrize(P - K %*% S %*% t(K))
-    out <- nl_filter_record(out, k, x, P, e, S)
-    Xs <- sigma(x, P)
-    Fs <- matrix(apply(Xs, 2, function(xx) nl_f(sys, k, xx, uk)), nrow = n)
+    Fs <- matrix(apply(Xs, 2, function(xx) nl_f(sys, tk, xx, uk)), nrow = n)
     x <- drop(Fs %*% wm)
     dF <- Fs - x
     P <- symmetrize(dF %*% (wc * t(dF)) + z$Qn)
@@ -517,6 +542,12 @@ nl_filter_storage <- function(Tn, n, p) {
 nl_filter_record <- function(out, k, x, P, e, S) {
   out$filtered[k, ] <- x
   out$P_filtered[, , k] <- P
+  if (is.null(e)) {
+    # missing measurement: prediction only
+    out$innovations[k, ] <- NA_real_
+    out$nis[k] <- NA_real_
+    return(out)
+  }
   out$innovations[k, ] <- e
   cS <- chol(S)
   zz <- forwardsolve(t(cS), e)

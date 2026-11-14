@@ -104,3 +104,39 @@ test_that("NMPC agrees with linear MPC on a linear model and respects bounds", {
   expect_true(all(abs(sim$u) <= 1 + 1e-12))
   expect_lt(abs(sim$x[41, 1]), 0.1)
 })
+
+test_that("EKF and UKF skip missing samples and use 0-based sample indices", {
+  f <- function(k, x, u, p) c(x[1] + 0.1 * x[2], x[2] - 0.1 * sin(x[1]))
+  h <- function(k, x, u, p) x[1]
+  sys <- ctrl_nlsys(f, h, nstates = 2, ninputs = 0, dt = 0.1)
+  set.seed(1)
+  x <- c(1, 0)
+  y <- numeric(60)
+  for (k in 1:60) {
+    y[k] <- x[1] + rnorm(1, sd = 0.05)
+    x <- f(k, x, NULL, NULL)
+  }
+  y[20:25] <- NA
+  for (fn in list(ctrl_ekf, ctrl_ukf)) {
+    r <- fn(sys, y, Qn = 1e-6, Rn = 0.0025, x0 = c(0.8, 0))
+    expect_true(all(is.na(r$nis[20:25])))
+    expect_true(all(is.finite(r$filtered)))
+    expect_true(is.finite(r$loglik))
+  }
+  seen <- integer()
+  f2 <- function(k, x, u, p) {
+    seen <<- c(seen, k)
+    x
+  }
+  sys2 <- ctrl_nlsys(f2, h, nstates = 2, ninputs = 0, dt = 0.1)
+  ctrl_ukf(sys2, c(1, 1, 1), Qn = 1e-6, Rn = 1, x0 = c(1, 0))
+  expect_equal(min(seen), 0L)
+})
+
+test_that("discrete outputs receive the sample index", {
+  sys <- ctrl_nlsys(function(k, x, u, p) x, function(k, x, u, p) k,
+                    nstates = 1, ninputs = 0, dt = 0.1)
+  r <- ctrl_nl_simulate(sys, 0, times = c(0, 0.1, 0.2))
+  expect_equal(drop(r$y), c(0, 1, 2))
+  expect_error(ctrl_nl_simulate(sys, 0, times = c(0, 0.04, 0.08)), "integer multiples")
+})

@@ -19,8 +19,8 @@ library(controlcompR)
 
 `ctrl_freqresp()` evaluates \(G(j\omega)\) (or \(G(e^{j\omega T})\)) on a
 grid, with one complex linear solve \(C (j\omega I - A)^{-1} B + D\) per
-frequency, so no polynomial is ever evaluated. The default grid covers two decades beyond
-the poles and zeros and is denser near lightly damped modes:
+frequency, so no polynomial is ever evaluated. The default grid extends one to two decades
+beyond the poles and zeros and is denser near lightly damped modes:
 
 ```{r}
 G <- ctrl_tf(c(10, 10), c(1, 0.4, 25, 0))

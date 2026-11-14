@@ -63,8 +63,9 @@ eval_system <- function(sys, z) {
 
 #' Frequency grid for a model
 #'
-#' A logarithmic grid spanning two decades beyond the smallest and largest
-#' nonzero pole and zero magnitudes, refined near lightly damped poles. For
+#' A logarithmic grid from one to two decades below the smallest to one to
+#' two decades above the largest nonzero pole and zero magnitude (the ends
+#' are rounded outward to whole decades), refined near lightly damped poles. For
 #' discrete models the grid ends at the Nyquist frequency.
 #'
 #' @param sys A model.
@@ -289,10 +290,14 @@ polish_root <- function(f, w, rel = 1e-3) {
 #' The gain margin at a phase crossover \eqn{\omega_{pc}} is
 #' \eqn{1/|L(j\omega_{pc})|}; the phase margin at a gain crossover
 #' \eqn{\omega_{gc}} is \eqn{180 + \angle L(j\omega_{gc})} degrees,
-#' wrapped to \eqn{(-180, 180]}; the delay margin is
-#' \eqn{\mathrm{PM}/\omega_{gc}} (radians over rad per time unit). The
-#' reported scalar margins are the most critical ones (gain margin closest
-#' to 1 on a log scale, smallest phase margin). Margins describe distance
+#' wrapped to \eqn{(-180, 180]}; the delay margin is the smallest
+#' \eqn{(\mathrm{PM}_i \bmod 360)/\omega_{gc,i}} over all gain crossovers
+#' (radians over rad per time unit), the smallest added delay that brings a
+#' crossover onto the critical point. The reported gain and phase margins
+#' are the most critical ones (gain margin closest to 1 on a log scale,
+#' smallest phase margin). `closed_loop_stable` is computed on the given
+#' realization, so unstable hidden modes of a state-space loop are not
+#' cancelled away. Margins describe distance
 #' to instability only if the nominal closed loop is stable, which is
 #' reported in `closed_loop_stable`. Margins are SISO quantities; for MIMO
 #' loops use loop-at-a-time disk margins.
@@ -308,6 +313,7 @@ polish_root <- function(f, w, rel = 1e-3) {
 #' ctrl_margin(L)
 #' @export
 ctrl_margin <- function(L) {
+  L_orig <- as_system(L)
   L <- siso_loop_tf(L)
   num <- L$num[[1]]
   den <- L$den[[1]]
@@ -332,7 +338,8 @@ ctrl_margin <- function(L) {
     ph_l <- laurent_prod(a, b, d) - laurent_prod(b, a, d)
     wgc <- circle_roots(mag_l) / dt
     wpc <- circle_roots(ph_l) / dt
-    wpc <- c(wpc, pi / dt)
+    # the Nyquist frequency is always a phase crossover; drop near copies
+    wpc <- c(wpc[abs(wpc * dt - pi) > 1e-9], pi / dt)
   }
   wgc <- vapply(wgc, function(w) polish_root(function(x) Mod(evalL(x)) - 1, w),
                 0)
@@ -375,12 +382,17 @@ ctrl_margin <- function(L) {
     k <- which.min(pm_tab$phase_margin)
     pm <- pm_tab$phase_margin[k]
     wgc_best <- pm_tab$frequency[k]
-    dm <- if (pm > 0) (pm * pi / 180) / wgc_best else 0
-    pm_tab$delay_margin <- ifelse(pm_tab$phase_margin > 0,
-                                  pm_tab$phase_margin * pi / 180 /
+    # a delay adds phase lag, so the crossover at w_i is reached after a
+    # lag of (PM_i mod 360) degrees; the delay margin is the smallest
+    # such lag over all gain crossovers
+    pm_tab$delay_margin <- ifelse(pm_tab$frequency > 0,
+                                  ((pm_tab$phase_margin %% 360) * pi / 180) /
                                     pm_tab$frequency, 0)
+    dm <- min(pm_tab$delay_margin)
   }
-  cl <- tryCatch(ctrl_is_stable(ctrl_feedback(L, 1)), error = function(e) NA)
+  # use the original realization: a minimal transfer function would hide
+  # unstable uncontrollable or unobservable modes of the loop
+  cl <- tryCatch(ctrl_is_stable(ctrl_feedback(L_orig, 1)), error = function(e) NA)
   structure(list(gain_margin = gm, gain_margin_db = 20 * log10(gm),
                  phase_margin = pm, delay_margin = dm,
                  phase_crossover = wpc_best, gain_crossover = wgc_best,

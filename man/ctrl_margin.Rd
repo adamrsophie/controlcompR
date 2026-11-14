@@ -28,10 +28,14 @@ finder, so they do not depend on a frequency grid.
 The gain margin at a phase crossover \eqn{\omega_{pc}} is
 \eqn{1/|L(j\omega_{pc})|}; the phase margin at a gain crossover
 \eqn{\omega_{gc}} is \eqn{180 + \angle L(j\omega_{gc})} degrees,
-wrapped to \eqn{(-180, 180]}; the delay margin is
-\eqn{\mathrm{PM}/\omega_{gc}} (radians over rad per time unit). The
-reported scalar margins are the most critical ones (gain margin closest
-to 1 on a log scale, smallest phase margin). Margins describe distance
+wrapped to \eqn{(-180, 180]}; the delay margin is the smallest
+\eqn{(\mathrm{PM}_i \bmod 360)/\omega_{gc,i}} over all gain crossovers
+(radians over rad per time unit), the smallest added delay that brings a
+crossover onto the critical point. The reported gain and phase margins
+are the most critical ones (gain margin closest to 1 on a log scale,
+smallest phase margin). \code{closed_loop_stable} is computed on the given
+realization, so unstable hidden modes of a state-space loop are not
+cancelled away. Margins describe distance
 to instability only if the nominal closed loop is stable, which is
 reported in \code{closed_loop_stable}. Margins are SISO quantities; for MIMO
 loops use loop-at-a-time disk margins.

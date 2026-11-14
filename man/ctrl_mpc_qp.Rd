@@ -10,7 +10,8 @@ ctrl_mpc_qp(
   reference = NULL,
   u_prev = NULL,
   disturbance = NULL,
-  k = 1L
+  k = 1L,
+  output_offset = NULL
 )
 }
 \arguments{
@@ -27,6 +28,10 @@ matrices with one row per stage, or functions of the stage index).}
 (vector or matrix with \code{N} rows).}
 
 \item{k}{Time index passed to reference functions.}
+
+\item{output_offset}{Optional known additive output offset (length \code{p}),
+for example an estimated output disturbance: output bounds then apply to
+\eqn{C x + D u + \text{offset}}.}
 }
 \value{
 A list with \code{H}, \code{q}, \code{A}, \code{l}, \code{u}, \code{constant} (objective

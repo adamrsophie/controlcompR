@@ -77,12 +77,29 @@ hinf_norm <- function(s, tol) {
   }
   p <- as.complex(eigen(A, only.values = TRUE)$values)
   cand <- c(0, Mod(p), abs(Im(p)))
+  # a log grid over the pole range guards against candidates that all hit
+  # transmission zeros (a lower bound of zero would end the iteration)
+  mp <- Mod(p)[Mod(p) > 0]
+  lo <- if (length(mp)) log10(min(mp)) - 2 else -2
+  hi <- if (length(mp)) log10(max(mp)) + 2 else 2
+  cand <- c(cand, 10^seq(lo, hi, length.out = 41) * 1.0173)
   cand <- unique(cand[is.finite(cand)])
   vals <- vapply(cand, smax, 0)
   dinf <- max(svd(D, 0, 0)$d, 0)
   glb <- max(vals, dinf)
   wpk <- if (max(vals) >= dinf) cand[which.max(vals)] else Inf
   if (glb == 0) {
+    # zero only if the transfer matrix vanishes identically: all Markov
+    # parameters C A^k B (k < n) are zero (A scaled to avoid overflow)
+    a <- max(norm(A, "2"), 1)
+    M <- B
+    for (k in seq_len(n)) {
+      if (max(abs(C %*% M)) > 1e-14 * max(norm(C, "2"), 1) * max(norm(B, "2"), 1)) {
+        ctrl_abort("Internal error: the H-infinity norm search found no ",
+                   "nonzero response although the model is not zero.")
+      }
+      M <- (A / a) %*% M
+    }
     out <- 0
     attr(out, "frequency") <- 0
     attr(out, "bounds") <- c(0, 0)
@@ -130,8 +147,8 @@ hinf_norm <- function(s, tol) {
 #' For a loop transfer function `L` closed with unity negative feedback,
 #' \eqn{S = (I + L)^{-1}} and \eqn{T = L (I + L)^{-1} = I - S}. With a plant
 #' `P` and controller `C` (loop \eqn{L = P C}), `ctrl_gangof4()` also
-#' returns \eqn{PS} (disturbance to output, input side) and \eqn{CS}
-#' (noise to control signal).
+#' returns \eqn{S P = (I + PC)^{-1} P} (input disturbance to output) and
+#' \eqn{C S} (output noise to control signal).
 #'
 #' @param L Loop transfer function.
 #' @param P,C Plant and controller.
@@ -158,7 +175,9 @@ ctrl_gangof4 <- function(P, C) {
   C <- as_system(C)
   L <- ctrl_series(C, P)
   sens <- ctrl_sensitivity(L)
-  list(S = sens$S, T = sens$T, PS = ctrl_series(sens$S, P),
+  # S is the output sensitivity (I + PC)^-1; the load disturbance map is
+  # S P (signal flows through P first) and the noise-to-control map is C S
+  list(S = sens$S, T = sens$T, PS = ctrl_series(P, sens$S),
        CS = ctrl_series(sens$S, C))
 }
 
@@ -190,29 +209,60 @@ ctrl_gangof4 <- function(P, C) {
 #' ctrl_disk_margin(L)
 #' @export
 ctrl_disk_margin <- function(L, skew = 0) {
+  L_orig <- as_system(L)
   L <- siso_loop_tf(L)
   check_scalar_number(skew, "skew")
   S <- ctrl_sensitivity(L)$S
-  if (!ctrl_is_stable(S)) {
+  hidden_ok <- tryCatch(ctrl_is_stable(ctrl_feedback(L_orig, 1)),
+                        error = function(e) TRUE)
+  if (!ctrl_is_stable(S) || !hidden_ok) {
     ctrl_abort("The nominal closed loop is unstable; disk margins are zero.")
   }
   Ss <- ctrl_tf2ss(S)
   Ss$D <- Ss$D + (skew - 1) / 2
   nrm <- ctrl_norm(Ss, "inf")
   alpha <- 1 / as.numeric(nrm)
-  lo <- (1 - alpha * (1 - skew) / 2) / (1 + alpha * (1 + skew) / 2)
-  hi_den <- 1 - alpha * (1 + skew) / 2
-  hi <- if (hi_den <= 0) Inf else (1 + alpha * (1 - skew) / 2) / hi_den
-  lo <- max(lo, 0)
-  pm <- if (is.finite(hi) && lo > 0) {
-    acos(min(1, (1 + lo * hi) / (lo + hi))) * 180 / pi
-  } else if (!is.finite(hi) && lo > 0) {
-    acos(min(1, lo)) * 180 / pi
-  } else 90
+  gm <- disk_gain_phase(alpha, skew)
+  lo <- gm$lo
+  hi <- gm$hi
+  pm <- gm$pm
   structure(list(alpha = alpha, skew = skew, gain_margin = c(lo, hi),
                  gain_margin_db = 20 * log10(c(lo, hi)), phase_margin = pm,
                  frequency = attr(nrm, "frequency")),
             class = "ctrl_disk_margin")
+}
+
+# Gain and phase ranges of the disk {(1 + a d) / (1 - b d) : |d| <= alpha},
+# a = (1 - skew) / 2, b = (1 + skew) / 2. The image is a disk (alpha < 1/b)
+# or the exterior of a disk (alpha > 1/b) whose real-axis diameter runs
+# between f(-alpha) and f(alpha).
+disk_gain_phase <- function(alpha, skew) {
+  a <- (1 - skew) / 2
+  b <- (1 + skew) / 2
+  if (!is.finite(alpha)) return(list(lo = 0, hi = Inf, pm = 180))
+  e1 <- (1 - a * alpha) / (1 + b * alpha)
+  hi_den <- 1 - b * alpha
+  lo <- max(e1, 0)
+  hi <- if (hi_den <= 0) Inf else (1 + a * alpha) / hi_den
+  if (abs(hi_den) < 1e-12) {
+    # pole on the boundary: the image is the half plane Re(z) >= e1
+    return(list(lo = lo, hi = Inf, pm = acos(max(-1, min(1, e1))) * 180 / pi))
+  }
+  e2 <- (1 + a * alpha) / hi_den
+  cc <- (e1 + e2) / 2
+  r <- abs(e2 - e1) / 2
+  k <- 1 + cc^2 - r^2
+  bounded <- hi_den > 0
+  # unit circle points inside the region satisfy 2 c cos(phi) >= k (bounded)
+  # or 2 c cos(phi) <= k (exterior)
+  if (abs(cc) < 1e-14) {
+    pm <- 180
+  } else if ((bounded && cc > 0) || (!bounded && cc < 0)) {
+    pm <- acos(max(-1, min(1, k / (2 * cc)))) * 180 / pi
+  } else {
+    pm <- 180
+  }
+  list(lo = lo, hi = hi, pm = pm)
 }
 
 #' @export

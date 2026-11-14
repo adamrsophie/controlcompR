@@ -23,7 +23,8 @@ An object of class \code{c("ctrl_lqr", "ctrl_controller")} with \code{K},
 the weights and the plant.
 }
 \description{
-Design the state feedback \eqn{u = -K x} that minimizes
+Design the state feedback \eqn{u = -K x} that minimizes, over inputs
+that stabilize the closed loop,
 \deqn{J = \int_0^\infty \left(x^\top Q x + u^\top R u + 2 x^\top N u
 \right) dt}
 for a continuous time model, or
@@ -40,7 +41,10 @@ loop is \eqn{A - B K}.
 
 Prerequisites are checked: \code{R} must be positive definite, the joint
 weight \eqn{[Q, N; N^\top, R]} positive semidefinite and \eqn{(A, B)}
-stabilizable. The optimality statement applies to the linear,
+stabilizable. Without stabilization as a requirement the minimum can be
+smaller: an unstable mode that the cost does not see (for example with
+\code{Q = 0}) is cheapest left alone. The two coincide when the cost is
+detectable. The optimality statement applies to the linear,
 unconstrained, exactly known model; LQR is not optimal for nonlinear,
 constrained or uncertain plants, and the guaranteed margins of
 continuous time LQR (infinite gain margin, 60 degree phase margin per

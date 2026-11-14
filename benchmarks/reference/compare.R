@@ -71,7 +71,8 @@ p <- prob$place[1, ]
 K <- ctrl_place(m(p$A[[1]]), m(p$B[[1]]), unlist(p$poles))
 add("place", sort(Re(eigen(m(p$A[[1]]) - m(p$B[[1]]) %*% K)$values)), ref$place[[1]])
 h <- ref$hinfsyn[[1]]
-if (is.null(h$error)) {
+if (!is.null(h$error)) stop("The python-control hinfsyn reference failed: ", h$error)
+{
   p <- prob$hinfsyn[1, ]
   P <- ctrl_ss(m(p$A[[1]]), m(p$B[[1]]), m(p$C[[1]]), m(p$D[[1]]))
   syn <- ctrl_hinfsyn(P, p$nmeas, p$ncon, tol = 1e-6)

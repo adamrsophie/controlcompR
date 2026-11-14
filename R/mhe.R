@@ -83,6 +83,11 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
   Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
   if (ncol(Y) != p) ctrl_abort("`y` must have ", p, " columns.")
   Tn <- nrow(Y)
+  part <- apply(Y, 1, function(r) any(is.na(r)) && !all(is.na(r)))
+  if (any(part)) {
+    ctrl_abort("Rows of `y` must be complete or entirely missing (NA); ",
+               "partially missing rows are not supported.")
+  }
   U <- if (is.null(u)) matrix(0, Tn, m) else input_matrix(u, seq_len(Tn), m)
   Ri <- solve(mhe$Rn)
   Qi <- solve(mhe$Qn)
@@ -111,7 +116,14 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
     L <- Tk - st + 1L
     xbar <- if (st == 1L) mhe$x0 else
       drop(s$A %*% est[st - 1L, ] + s$B %*% U[st - 1L, ])
-    Pinv <- solve(prior_P[, , st])
+    # arrival cost on the support of the prior covariance; components with
+    # zero prior variance are fixed to the prior mean
+    ep <- eigen(symmetrize(prior_P[, , st]), symmetric = TRUE)
+    pk <- ep$values > 1e-12 * max(1, max(ep$values))
+    Pinv <- ep$vectors[, pk, drop = FALSE] %*%
+      diag(1 / ep$values[pk], sum(pk)) %*% t(ep$vectors[, pk, drop = FALSE])
+    Nul <- ep$vectors[, !pk, drop = FALSE]
+    const <- sum(xbar * (Pinv %*% xbar))
     xi <- function(j) (j - 1L) * n + seq_len(n)
     wi <- function(j) L * n + (j - 1L) * q + seq_len(q)
     nz <- L * n + (L - 1L) * q
@@ -123,7 +135,9 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
       k <- st + j - 1L
       if (all(is.finite(Y[k, ]))) {
         trip_add(Hm, xi(j), xi(j), 2 * t(s$C) %*% Ri %*% s$C)
-        qv[xi(j)] <- qv[xi(j)] - 2 * drop(t(s$C) %*% Ri %*% (Y[k, ] - s$D %*% U[k, ]))
+        rk <- drop(Y[k, ] - s$D %*% U[k, ])
+        qv[xi(j)] <- qv[xi(j)] - 2 * drop(t(s$C) %*% Ri %*% rk)
+        const <- const + sum(rk * (Ri %*% rk))
       }
       if (j < L) trip_add(Hm, wi(j), wi(j), 2 * Qi)
     }
@@ -141,6 +155,14 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
         hi <- c(hi, bu)
         r <- r + n
       }
+    }
+    if (ncol(Nul)) {
+      rows <- r + seq_len(ncol(Nul))
+      trip_add(Ac, rows, xi(1), t(Nul))
+      nb <- drop(t(Nul) %*% xbar)
+      lo <- c(lo, nb)
+      hi <- c(hi, nb)
+      r <- r + ncol(Nul)
     }
     if (any(is.finite(c(mhe$x_min, mhe$x_max)))) {
       for (j in seq_len(L)) {
@@ -179,7 +201,7 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
                  res$info$status, "\".")
     }
     est[Tk, ] <- res$x[xi(L)]
-    obj[Tk] <- res$info$obj_val
+    obj[Tk] <- res$info$obj_val + const
     stime[Tk] <- res$info$solve_time
   }
   structure(list(estimates = est, status = status, objective = obj,

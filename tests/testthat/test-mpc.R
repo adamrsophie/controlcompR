@@ -95,3 +95,41 @@ test_that("MPC rejects invalid designs", {
   expect_error(ctrl_mpc(plant, 5, diag(c(1, -1)), 1), "semidefinite")
   expect_error(ctrl_mpc(plant, 5, diag(2), 1, u_min = 1, u_max = 0), "exceed")
 })
+
+test_that("simulation noise vectors are used per sample, not truncated", {
+  plant <- ctrl_c2d(ctrl_tf(1, c(1, 1)), 0.1)
+  mpc <- ctrl_mpc(plant, 5, Q = 1, R = 0.1, u_min = -5, u_max = 5)
+  est <- ctrl_mpc_estimator(mpc, "output", Qn = 1e-3, Qd = 1e-3, Rn = 1e-2)
+  set.seed(3)
+  nz <- rnorm(20, sd = 0.1)
+  a <- ctrl_simulate_mpc(mpc, 0, 20, estimator = est, noise = nz,
+                         reference = list(y = 1))
+  b <- ctrl_simulate_mpc(mpc, 0, 20, estimator = est, noise = nz[1],
+                         reference = list(y = 1))
+  expect_false(isTRUE(all.equal(a$u, b$u)))
+  expect_error(ctrl_simulate_mpc(mpc, 0, 20, noise = c(1, 2)), "length")
+})
+
+test_that("LQR terminal weight includes the output weight", {
+  plant <- ctrl_c2d(ctrl_ss(matrix(c(0, 1, 0, 0), 2, byrow = TRUE), c(0, 1),
+                            c(1, 0)), 0.1)
+  m <- ctrl_mpc(plant, 10, Q = 0, Qy = 2, R = 0.2, P = "lqr")
+  K <- ctrl_lqr(plant, diag(c(2, 0)), 0.2)$K
+  expect_equal(unname(ctrl_mpc_step(m, c(1, 0))$u), unname(drop(-K %*% c(1, 0))),
+               tolerance = 1e-6)
+})
+
+test_that("output bounds cover the applied input through feedthrough", {
+  plant <- ctrl_ss(0, 0, 0, D = 1, dt = 1)
+  m <- ctrl_mpc(plant, 2, Q = 0, Qy = 1, R = 1, y_max = 1)
+  st <- ctrl_mpc_step(m, 0, reference = list(y = 10))
+  expect_lte(unname(st$u), 1 + 1e-4)
+  st2 <- ctrl_mpc_step(m, 0, reference = list(y = 10), output_offset = 0.5)
+  expect_lte(unname(st2$u), 0.5 + 1e-4)
+})
+
+test_that("slack weights must be nonnegative", {
+  plant <- ctrl_ss(1, 1, 1, dt = 1)
+  expect_error(ctrl_mpc(plant, 3, 1, 1, x_max = 1, soft = "states",
+                        soft_weight = c(-1, 0)), "nonnegative")
+})

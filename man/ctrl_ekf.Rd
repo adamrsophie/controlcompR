@@ -42,7 +42,10 @@ Nonlinear state estimation for a discrete time \code{ctrl_nlsys} with
 additive noise, \eqn{x_{k+1} = f(k, x_k, u_k) + w_k},
 \eqn{y_k = h(k, x_k, u_k) + v_k}, using the conventions of
 \code{\link[=ctrl_kalman_filter]{ctrl_kalman_filter()}} (\code{x0}, \code{P0} are the prior at the first sample;
-each step updates with \eqn{y_k} and then predicts).
+each step updates with \eqn{y_k} and then predicts; rows of \code{y} that are
+entirely \code{NA} skip the update). Row \code{k} of the data is passed to \code{f} and
+\code{h} as the sample index \code{k - 1}, the 0-based convention of
+\code{\link[=ctrl_nl_simulate]{ctrl_nl_simulate()}}.
 }
 \details{
 \itemize{

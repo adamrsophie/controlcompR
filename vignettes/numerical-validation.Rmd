@@ -48,8 +48,9 @@ and the result is checked:
 * **Riccati equations**: ordered real Schur decomposition of the
   Hamiltonian (continuous) or symplectic pencil (discrete, generalized
   Schur), with the stabilizing subspace selected by eigenvalue location.
-  The residual and the closed-loop eigenvalues are verified; a solution
-  that fails either check raises an error instead of being returned.
+  The relative residual (accepted up to 1e-6) and the closed-loop
+  eigenvalues are verified; a solution that fails either check raises an
+  error instead of being returned.
 * **Lyapunov and Stein equations**: real Schur form, then Bartels-Stewart
   (continuous) or block back substitution (discrete).
 * **Controllability and observability**: orthogonal staircase forms

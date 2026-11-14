@@ -1,8 +1,9 @@
 #' Step-response characteristics
 #'
 #' Compute the usual transient characteristics for each output and input
-#' case of a step response. Definitions (with \eqn{y_0} the initial value
-#' and \eqn{y_\infty} the final value):
+#' case of a step response. Definitions (with \eqn{y_0} the value before
+#' the step and \eqn{y_\infty} the final value; when the model is known,
+#' a direct feedthrough jump at \eqn{t = 0} is not counted in \eqn{y_0}):
 #'
 #' * rise time: time to go from `rise[1]` to `rise[2]` (default 10 to 90
 #'   percent) of \eqn{y_\infty - y_0}, with linear interpolation;
@@ -45,10 +46,15 @@ ctrl_step_info <- function(response, sys = NULL, settle = 0.02,
     dc <- tryCatch(ctrl_dcgain(sys), error = function(e) NULL)
     if (!ctrl_is_stable(sys)) dc <- NULL
   }
+  Dm <- if (!is.null(sys)) tryCatch(as_ss(as_system(sys))$D,
+                                     error = function(e) NULL) else NULL
   rows <- list()
   for (c in seq_along(response$cases)) for (i in seq_along(response$output_names)) {
     y <- response$y[, i, c]
     y0 <- y[1]
+    # a model with direct feedthrough jumps at t = 0; the value before the
+    # step is y[1] - D u[1]
+    if (!is.null(Dm)) y0 <- y0 - sum(Dm[i, ] * response$u[1, , c])
     j <- which(response$u[length(t), , c] != 0)[1]
     if (!is.null(dc) && !is.na(j)) {
       yinf <- y0 + dc[i, j] * response$u[length(t), j, c]
@@ -102,11 +108,14 @@ step_metrics <- function(t, y, y0, yinf, dy, settle, rise, out, case, settled) {
 #' \eqn{\sqrt{\mathrm{mean}(e^2)}}, control effort \eqn{\int u^2}, maximum
 #' \eqn{|u|} and, when limits are given, the largest constraint violation.
 #'
-#' @param time Time vector.
+#' @param time Time vector, with one point per row of `y` (one extra final
+#'   point, as returned by simulations that include the final state, is
+#'   dropped).
 #' @param y Output matrix or vector.
 #' @param r Reference (same shape as `y`, or a scalar).
 #' @param u Optional control signal.
-#' @param u_min,u_max Optional input limits for violation reporting.
+#' @param u_min,u_max Optional input limits for violation reporting, a
+#'   scalar or one value per input (column of `u`).
 #' @param discrete Use rectangle sums instead of the trapezoidal rule.
 #' @return A one-row data frame.
 #' @examples
@@ -116,7 +125,16 @@ step_metrics <- function(t, y, y0, yinf, dy, settle, rise, out, case, settled) {
 ctrl_performance <- function(time, y, r = 0, u = NULL, u_min = -Inf,
                              u_max = Inf, discrete = FALSE) {
   y <- as.matrix(y)
+  time <- as.numeric(time)
+  # simulations often return one more time point (the final state) than
+  # output samples
+  if (length(time) == nrow(y) + 1L) time <- time[seq_len(nrow(y))]
+  if (length(time) != nrow(y)) {
+    ctrl_abort("`time` has ", length(time), " points but `y` has ", nrow(y),
+               " rows.")
+  }
   r <- if (length(r) == 1L) matrix(r, nrow(y), ncol(y)) else as.matrix(r)
+  if (nrow(r) == nrow(y) + 1L) r <- r[seq_len(nrow(y)), , drop = FALSE]
   if (!identical(dim(r), dim(y))) ctrl_abort("`r` must match the shape of `y`.")
   e <- r - y
   integ <- function(f) {
@@ -133,9 +151,19 @@ ctrl_performance <- function(time, y, r = 0, u = NULL, u_min = -Inf,
                     ITAE = integ(abs(e) * time), RMSE = sqrt(mean(e^2)))
   if (!is.null(u)) {
     u <- as.matrix(u)
+    if (nrow(u) != nrow(y)) {
+      ctrl_abort("`u` has ", nrow(u), " rows but `y` has ", nrow(y), ".")
+    }
+    lim <- function(v, name) {
+      if (!length(v) %in% c(1L, ncol(u))) {
+        ctrl_abort("`", name, "` must have length 1 or ", ncol(u), ".")
+      }
+      matrix(rep_len(v, ncol(u)), nrow(u), ncol(u), byrow = TRUE)
+    }
     out$control_effort <- integ(u^2)
     out$max_abs_u <- max(abs(u))
-    out$max_violation <- max(0, max(u - u_max), max(u_min - u))
+    out$max_violation <- max(0, max(u - lim(u_max, "u_max")),
+                             max(lim(u_min, "u_min") - u))
   }
   out
 }

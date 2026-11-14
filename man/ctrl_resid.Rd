@@ -15,7 +15,8 @@ ctrl_resid(model, data, lags = 20L)
 }
 \value{
 A list of class \code{ctrl_resid} with \code{residuals}, \code{acf},
-\code{ccf} (data frames with lag, value and band), \code{ljung_box} (p-value) and
+\code{ccf} (data frames with output, input, lag, value and band),
+\code{ljung_box} (p-value per output) and
 flags \code{white} and \code{independent}.
 }
 \description{
@@ -23,7 +24,9 @@ Compute the residuals of a model on data (one-step prediction errors for
 ARX models, output errors otherwise) and test them: the autocorrelation
 should be within the 99 percent band \eqn{\pm 2.58/\sqrt{N}} for white
 residuals (Ljung-Box test reported), and the cross-correlation with the
-input should vanish (residuals independent of past inputs). Output-error
+input should vanish at nonnegative lags (residuals independent of current
+and past inputs; \code{ccf} reports \eqn{\mathrm{cor}(e_{t+k}, u_t)}). All
+outputs and input-output pairs are tested. Output-error
 models are not expected to have white residuals; the cross-correlation
 test is the relevant one for them.
 }

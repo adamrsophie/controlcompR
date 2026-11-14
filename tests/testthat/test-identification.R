@@ -76,3 +76,38 @@ test_that("identification inputs are validated", {
   d <- ctrl_iddata(rnorm(50), rep(1, 50))
   expect_error(ctrl_arx(d, 2, 3, 1), "persistently exciting")
 })
+
+test_that("residual test detects a wrong input delay", {
+  set.seed(11)
+  Tn <- 600
+  u <- rnorm(Tn)
+  y <- numeric(Tn)
+  for (k in 4:Tn) y[k] <- 0.8 * y[k - 1] + 0.5 * u[k - 3] + rnorm(1, sd = 0.05)
+  d <- ctrl_iddata(y, u)
+  expect_false(ctrl_resid(ctrl_arx(d, 1, 1, 1), d)$independent)
+  expect_true(ctrl_resid(ctrl_arx(d, 1, 1, 3), d)$independent)
+})
+
+test_that("subspace identification refuses a constant input", {
+  A <- matrix(c(0.7, 0.2, -0.2, 0.7), 2)
+  sys <- ctrl_ss(A, c(1, 0), c(1, 0), dt = 1)
+  u <- rep(1, 400)
+  y <- ctrl_simulate(sys, input = u, times = 0:399)$y[, 1, 1]
+  expect_error(ctrl_n4sid(ctrl_iddata(y, u), order = 2), "persistently exciting")
+})
+
+test_that("n4sid selects order one at horizon two", {
+  set.seed(4)
+  u <- rnorm(30)
+  y <- as.numeric(stats::filter(0.5 * u, 0.6, method = "recursive"))
+  d <- ctrl_iddata(y, u, dt = 1)
+  m <- ctrl_n4sid(d, horizon = 2)
+  expect_equal(m$order, 1L)
+})
+
+test_that("validation data can reuse training offsets", {
+  tr <- ctrl_iddata(c(1, 2, 3), c(0, 1, 2), detrend = TRUE)
+  va <- ctrl_iddata(c(5, 6), c(1, 1), detrend = tr$offsets)
+  expect_equal(drop(va$y), c(3, 4))
+  expect_equal(drop(va$u), c(0, 0))
+})

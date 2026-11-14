@@ -230,6 +230,10 @@ ctrl_h2syn <- function(P, nmeas, ncon) {
 #' @export
 ctrl_hinfsyn <- function(P, nmeas, ncon, gamma = NULL, tol = 1e-3,
                          gamma_range = NULL) {
+  if (!is.numeric(tol) || length(tol) != 1L || !is.finite(tol) || tol <= 0 ||
+      tol >= 1) {
+    ctrl_abort("`tol` must be a number in (0, 1).")
+  }
   pp <- ctrl_plant_partition(P, nmeas, ncon)
   synthesis_checks(pp, "H-infinity")
   if (max(abs(pp$D11)) > 1e-12 * max(1, norm(pp$D12, "2"))) {
@@ -270,7 +274,9 @@ ctrl_hinfsyn <- function(P, nmeas, ncon, gamma = NULL, tol = 1e-3,
     if (is.null(sol)) ctrl_abort("No feasible gamma found below ", signif(hi, 4), ".")
     best <- sol
     gbest <- hi
-    while ((hi - lo) / hi > tol) {
+    it <- 0L
+    while ((hi - lo) / hi > tol && it < 200L) {
+      it <- it + 1L
       mid <- (lo + hi) / 2
       s <- feas(mid)
       history <- rbind(history, data.frame(gamma = mid, feasible = !is.null(s)))

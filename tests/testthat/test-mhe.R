@@ -39,3 +39,19 @@ test_that("constrained MHE respects state bounds where the Kalman filter does no
   expect_true(min(kf$filtered) < 0)
   expect_lte(mean((est$estimates[, 1] - xs)^2), mean((kf$filtered[, 1] - xs)^2))
 })
+
+test_that("MHE refuses partially missing measurement rows", {
+  sys <- ctrl_ss(diag(c(0.9, 0.8)), diag(2), diag(2), dt = 1)
+  mhe <- ctrl_mhe(sys, 3, Qn = 0.01, Rn = 0.1)
+  expect_error(ctrl_mhe_run(mhe, rbind(c(1, NA), c(1, 1))), "partially")
+})
+
+test_that("MHE handles singular arrival covariance and reports the full objective", {
+  sys <- ctrl_ss(0, 1, 1, dt = 1)
+  mhe <- ctrl_mhe(sys, 1, Qn = 1, Rn = 1, G = 0, P0 = 1)
+  r <- ctrl_mhe_run(mhe, c(0, 0))
+  expect_equal(drop(r$estimates), c(0, 0), tolerance = 1e-6)
+  mhe1 <- ctrl_mhe(ctrl_ss(1, 0, 1, dt = 1), 1, Qn = 1, Rn = 1, x0 = 0, P0 = 1)
+  r1 <- ctrl_mhe_run(mhe1, 2)
+  expect_equal(r1$objective[1], 2, tolerance = 1e-4)
+})

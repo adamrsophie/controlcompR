@@ -229,7 +229,6 @@ auto_time_grid <- function(s, n_points = 1000L) {
   if (any(Re(p) >= -1e-9)) tf <- min(tf, 10 / max(1e-3, max(Mod(p))))
   if (length(osc)) tf <- max(tf, 2 * pi / min(osc) * 1.5)
   fastest <- max(Mod(p), 1e-6)
-  tf <- min(tf, 1e4 / fastest)
   h <- min(tf / n_points, 0.1 / fastest)
   npts <- min(20000L, ceiling(tf / h))
   seq(0, tf, length.out = npts + 1L)

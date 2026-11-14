@@ -145,6 +145,17 @@ ctrl_feedback <- function(sys1, sys2 = 1, sign = -1) {
     d1 <- sys1$den[[1]]
     n2 <- sys2$num[[1]]
     d2 <- sys2$den[[1]]
+    # well-posedness: the feedthrough loop gain 1 - sign D1 D2 must not vanish
+    dfeed <- function(num, den) {
+      num <- strip_leading_zeros(num)
+      den <- strip_leading_zeros(den)
+      if (length(num) < length(den)) 0 else num[1] / den[1]
+    }
+    eloop <- 1 - sign * dfeed(n1, d1) * dfeed(n2, d2)
+    if (abs(eloop) < 1e-12) {
+      ctrl_abort("The feedback loop has a singular algebraic loop ",
+                 "(1 - sign D1 D2 = 0); the interconnection is not well posed.")
+    }
     den <- poly_add(poly_mul(d1, d2), -sign * poly_mul(n1, n2))
     if (all(abs(den) <= 1e-14 * max(abs(c(d1, d2, n1, n2))))) {
       ctrl_abort("The feedback interconnection is not well posed.")
@@ -171,7 +182,8 @@ ctrl_feedback <- function(sys1, sys2 = 1, sign = -1) {
                "ill-conditioned (rcond(I - sign D1 D2) = ", signif(rc, 3),
                "); the interconnection is not well posed.")
   }
-  Cy <- solve(E, cbind(s1$C, sign * s1$D %*% s2$C))
+  rhs <- cbind(s1$C, sign * s1$D %*% s2$C)
+  Cy <- if (ncol(rhs)) solve(E, rhs) else matrix(0, p1, 0)
   Dy <- solve(E, s1$D)
   Cu <- sign * cbind(matrix(0, m1, n1), s2$C) + sign * s2$D %*% Cy
   Du <- diag(m1) + sign * s2$D %*% Dy
@@ -184,10 +196,10 @@ ctrl_feedback <- function(sys1, sys2 = 1, sign = -1) {
 #' @export
 ctrl_append <- function(...) {
   ss <- lapply(list(...), function(x) as_ss(as_system(x)))
-  dt <- Reduce(function(a, b) {
-    if (a == b$dt) a else if (!nrow(b$A)) a else ctrl_abort(
-      "Cannot append models with different time domains.")
-  }, ss[-1], ss[[1]]$dt)
+  # static gains adopt the time domain of the dynamic blocks
+  dyn <- unique(vapply(Filter(function(x) nrow(x$A) > 0L, ss), `[[`, 0, "dt"))
+  if (length(dyn) > 1L) ctrl_abort("Cannot append models with different time domains.")
+  dt <- if (length(dyn)) dyn else ss[[1]]$dt
   A <- blkdiag(lapply(ss, `[[`, "A"))
   B <- blkdiag(lapply(ss, `[[`, "B"))
   C <- blkdiag(lapply(ss, `[[`, "C"))

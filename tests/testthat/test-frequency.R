@@ -82,3 +82,62 @@ test_that("Bode, Nyquist, bandwidth and root locus", {
   expect_s3_class(plot(ctrl_nichols(G)), "ggplot")
   expect_s3_class(plot(ctrl_step(G)), "ggplot")
 })
+
+test_that("delay margin is the minimum over crossovers and hidden modes count", {
+  L <- ctrl_tf(0.866 * c(1 / 1.732, 1), c(1, 0, 0)) *
+    ctrl_tf(c(1, 24, 400), c(1, 0.4, 400))
+  m <- ctrl_margin(L)
+  expect_true(m$closed_loop_stable)
+  expect_equal(m$delay_margin, min(m$all_pm$delay_margin))
+  expect_lt(m$delay_margin, 0.1)
+  Lh <- ctrl_ss(diag(c(-1, 1)), c(1, 0), c(1, 1))
+  expect_false(ctrl_margin(Lh)$closed_loop_stable)
+  expect_error(ctrl_disk_margin(Lh), "unstable")
+})
+
+test_that("gang of four uses S P for the load disturbance map", {
+  P <- ctrl_ss(matrix(c(-1, 0.5, 0, -2), 2), diag(2), matrix(c(1, 0.3, 0.2, 1), 2))
+  C <- ctrl_gain(matrix(c(2, 0.5, -0.4, 1), 2))
+  g4 <- ctrl_gangof4(P, C)
+  w <- 1.3
+  Pj <- ctrl_freqresp(P, w)$response[, , 1]
+  Cj <- matrix(c(2, 0.5, -0.4, 1), 2)
+  PS <- ctrl_freqresp(g4$PS, w)$response[, , 1]
+  expect_equal(PS, solve(diag(2) + Pj %*% Cj) %*% Pj, tolerance = 1e-10)
+  P3 <- ctrl_ss(-1, matrix(1, 1, 3), 1)
+  C3 <- ctrl_gain(matrix(1, 3, 1))
+  expect_silent(ctrl_gangof4(P3, C3))
+})
+
+test_that("discrete margins list the Nyquist frequency once", {
+  m <- ctrl_margin(ctrl_tf(0.3, c(1, 0.5), dt = 1))
+  expect_equal(sum(abs(m$all_gm$frequency - pi) < 1e-9), 1)
+})
+
+test_that("H-infinity norm is not fooled by zeros at candidate frequencies", {
+  A <- -diag(4)
+  A[cbind(1:3, 2:4)] <- 1
+  H <- ctrl_ss(A, c(0, 0, 0, 1), c(-2, 4, -3, 1))
+  expect_equal(as.numeric(ctrl_norm(H, "inf")), 0.25, tolerance = 1e-6)
+  expect_false(ctrl_robust_stability(ctrl_gain(0), ctrl_gain(1), 8 * H,
+                                     type = "additive")$robustly_stable)
+  expect_equal(as.numeric(ctrl_norm(ctrl_ss(-1, 0, 1), "inf")), 0)
+})
+
+test_that("disk phase margin follows the disk geometry", {
+  dm <- ctrl_disk_margin(ctrl_tf(0.5, 1))
+  expect_equal(dm$alpha, 6, tolerance = 1e-8)
+  expect_equal(dm$phase_margin, 2 * atan(3) * 180 / pi, tolerance = 1e-8)
+  L <- ctrl_tf(25, c(1, 10, 10, 10))
+  dm <- ctrl_disk_margin(L)
+  expect_equal(dm$phase_margin, 2 * atan(dm$alpha / 2) * 180 / pi, tolerance = 1e-8)
+  for (sk in c(-0.5, 0.5)) {
+    g <- controlcompR:::disk_gain_phase(0.8, sk)
+    a <- (1 - sk) / 2; b <- (1 + sk) / 2
+    d <- 0.8 * exp(1i * seq(0, 2 * pi, length.out = 20001))
+    z <- (1 + a * d) / (1 - b * d)
+    # largest phase on the unit circle reached by the disk boundary
+    on <- abs(Mod(z) - 1) < 1e-3
+    expect_equal(g$pm, max(abs(Arg(z[on]))) * 180 / pi, tolerance = 0.05)
+  }
+})

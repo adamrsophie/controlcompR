@@ -1,6 +1,9 @@
 # Compare controlcompR against python-control and slycot reference values.
-# Run manually from the Actions tab.
+# Runs on every push to main that changes code or the comparison, and on demand.
 on:
+  push:
+    branches: [main]
+    paths: ["R/**", "src/**", "benchmarks/reference/**", ".github/workflows/reference-comparison.yaml"]
   workflow_dispatch:
 
 name: reference-comparison

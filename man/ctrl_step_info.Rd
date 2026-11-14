@@ -21,8 +21,9 @@ A data frame with one row per output and case.
 }
 \description{
 Compute the usual transient characteristics for each output and input
-case of a step response. Definitions (with \eqn{y_0} the initial value
-and \eqn{y_\infty} the final value):
+case of a step response. Definitions (with \eqn{y_0} the value before
+the step and \eqn{y_\infty} the final value; when the model is known,
+a direct feedthrough jump at \eqn{t = 0} is not counted in \eqn{y_0}):
 }
 \details{
 \itemize{

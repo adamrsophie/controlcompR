@@ -15,8 +15,9 @@ A \verb{p x m} matrix.
 \description{
 The gain at zero frequency: \eqn{D - C A^{-1} B} in continuous time and
 \eqn{D + C (I - A)^{-1} B} in discrete time. An error is raised when the
-model has a pole at \code{s = 0} (or \code{z = 1}), because the gain is then
-infinite or undefined.
+input-output map has a pole at \code{s = 0} (or \code{z = 1}), because the gain is
+then infinite or undefined; poles there that are uncontrollable or
+unobservable are removed first.
 }
 \examples{
 ctrl_dcgain(ctrl_tf(2, c(1, 3, 2)))

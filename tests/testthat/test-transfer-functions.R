@@ -55,3 +55,16 @@ test_that("arithmetic builds the expected models", {
   expect_equal(drop(ctrl_dcgain(A - A)), 0, tolerance = 1e-12)
   expect_equal(drop(ctrl_dcgain(-A)), -1, tolerance = 1e-12)
 })
+
+test_that("conjugate pairs tolerate rounding in the real part", {
+  expect_silent(ctrl_zpk(numeric(), c(-1 + 2i, -1 - 1e-13 - 2i), 1))
+  expect_error(ctrl_zpk(numeric(), c(-1 + 2i, -1 - 3i), 1), "conjugate")
+})
+
+test_that("SISO tf2ss honors minimal", {
+  G <- ctrl_tf(c(1, 1), c(1, 1))
+  expect_equal(nrow(ctrl_tf2ss(G)$A), 0L)
+  expect_equal(nrow(ctrl_tf2ss(G, minimal = FALSE)$A), 1L)
+  s <- ctrl_tf2ss(ctrl_tf(c(1, 2), c(1, 3, 2, 1)))
+  expect_equal(s$A[1, ], c(-3, -2, -1))
+})

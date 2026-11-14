@@ -7,12 +7,19 @@
 ctrl_minreal(sys, tol = NULL)
 }
 \arguments{
-\item{sys}{A model.}
+\item{sys}{A model.
+The default tolerance first tries
+\eqn{\sqrt{\epsilon}\max(\|A\|, \|B\|, \|C\|)} (as in MATLAB), which
+removes modes that cancel to roughly half the working precision, as
+needed for realizations built from polynomial coefficients. The reduced
+model is then compared with the original at frequencies spread over the
+range of the poles; when they disagree (a badly scaled model whose small
+couplings were mistaken for zeros), the reduction is repeated with the
+much tighter staircase tolerance \eqn{10 n^2 \epsilon \|[A, B]\|}, and
+an error is raised if even that result does not match.}
 
-\item{tol}{Absolute rank tolerance for the staircase reductions. The
-default, \eqn{\sqrt{\epsilon}\max(\|A\|, \|B\|, \|C\|)} as in MATLAB,
-removes modes that cancel to roughly half the working precision, which
-is needed for realizations built from polynomial coefficients.}
+\item{tol}{Absolute rank tolerance for the staircase reductions. When
+given, it is used as is and the frequency check is skipped.}
 }
 \value{
 A \code{ctrl_ss} model with a minimal number of states.

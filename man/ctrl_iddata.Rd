@@ -14,7 +14,10 @@ ctrl_iddata(y, u, dt = 1, detrend = FALSE)
 \item{dt}{Sample interval.}
 
 \item{detrend}{Remove the sample means of \code{y} and \code{u} (stored in
-\code{offsets} so predictions can be mapped back).}
+\code{offsets} so predictions can be mapped back), or a list with \code{y} and \code{u}
+offsets to subtract, typically \code{train$offsets}. Models estimated on
+detrended data describe deviations from the offsets, so validation data
+must be shifted by the training offsets, not by their own means.}
 }
 \value{
 An object of class \code{ctrl_iddata}.

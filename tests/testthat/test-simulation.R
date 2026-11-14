@@ -39,3 +39,10 @@ test_that("discrete simulation checks the time grid and input shape", {
   df <- as.data.frame(ctrl_step(d, (0:3) * 0.1))
   expect_true(all(c("time", "case", "kind", "signal", "value") %in% names(df)))
 })
+
+test_that("default step horizon covers slow poles of stiff models", {
+  G <- ctrl_tf(1, c(0.1, 100.001, 1))
+  r <- ctrl_step(G)
+  expect_gt(max(r$time), 500)
+  expect_false(is.na(ctrl_step_info(G)$settling_time))
+})

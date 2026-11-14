@@ -40,7 +40,11 @@ discretized first with \code{\link[=ctrl_c2d]{ctrl_c2d()}}.}
 \item{R}{Input weight (scalar, vector or matrix).}
 
 \item{P}{Terminal weight: a matrix, \code{"Q"} (default, same as \code{Q}) or
-\code{"lqr"} (the DARE solution for \code{Q}, \code{R}).}
+\code{"lqr"}: the DARE solution for the stage cost
+\eqn{x^\top Q x + u^\top R u + y^\top Q_y y} with \eqn{y = Cx + Du}
+(absolute output weighting, no reference). The move penalty \code{Rd} is
+not part of this cost, so with \code{Rd} the terminal weight no longer
+equals the infinite-horizon cost to go.}
 
 \item{control_horizon}{Number of free input moves \code{Nc} (default \code{N}).}
 
@@ -79,7 +83,8 @@ subject to \eqn{x_0 = x(t)}, the dynamics, input bounds on \eqn{u_k},
 rate bounds on \eqn{\Delta u_k = u_k - u_{k-1}} (with \eqn{u_{-1}} the
 previously applied input), state bounds on \eqn{x_1, \ldots, x_N},
 output bounds on \eqn{y_1, \ldots, y_N} (using \eqn{u_{N-1}} for the
-feedthrough at \eqn{k = N}), an optional terminal constraint, and
+feedthrough at \eqn{k = N}) and, when the bounded outputs have direct
+feedthrough, on \eqn{y_0 = C x_0 + D u_0}, an optional terminal constraint, and
 \eqn{u_k = u_{N_c - 1}} for \eqn{k \ge N_c} (control horizon). Only
 \eqn{u_0} is applied (receding horizon).
 }
@@ -110,8 +115,12 @@ scheme follows when \code{P} is the LQR cost-to-go (\code{P = "lqr"}) and the
 constraints are inactive near the origin; with active constraints one
 needs a terminal set that is positively invariant under the LQR law,
 which is not computed automatically. \code{terminal = "equality"}
-(\eqn{x_N = x^r_N}) gives recursive feasibility and stability for
-constant references when the first problem is feasible.
+(\eqn{x_N = x^r_N}) gives recursive feasibility and stability for a
+constant reference only when \eqn{(x^r, u^r)} is an admissible
+equilibrium (\eqn{x^r = A x^r + B u^r} with \eqn{u^r} and \eqn{x^r}
+strictly inside the bounds), the first problem is feasible, and the
+control horizon equals the horizon with no rate bounds; otherwise the
+shifted plan need not be feasible.
 }
 \examples{
 plant <- ctrl_c2d(ctrl_ss(matrix(c(0, 1, 0, 0), 2, byrow = TRUE), c(0, 1),

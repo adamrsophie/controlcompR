@@ -76,3 +76,18 @@ test_that("step info and performance metrics follow their definitions", {
   expect_equal(perf$IAE, 1, tolerance = 1e-4)
   expect_equal(perf$ISE, 0.5, tolerance = 1e-4)
 })
+
+test_that("manual to automatic transfer is bumpless for every integral method", {
+  for (im in c("forward", "backward", "tustin")) {
+    pid <- ctrl_pid(kp = 1, ki = 1, kd = 0.5, derivative_filter = 5, dt = 1,
+                    integral_method = im)
+    o1 <- ctrl_pid_update(pid, NULL, r = 1, y = 0, manual = 2)
+    o2 <- ctrl_pid_update(pid, o1$state, r = 1, y = 0)
+    expect_equal(o2$u, 2, tolerance = 1e-12)
+  }
+})
+
+test_that("PID simulation refuses plants with feedthrough", {
+  expect_error(ctrl_simulate_pid(ctrl_gain(1, dt = 1), ctrl_pid(kp = 1, dt = 1), steps = 3),
+               "feedthrough")
+})

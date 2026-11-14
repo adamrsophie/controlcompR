@@ -11,7 +11,8 @@ ctrl_mpc_step(
   u_prev = NULL,
   disturbance = NULL,
   k = 1L,
-  warm_start = NULL
+  warm_start = NULL,
+  output_offset = NULL
 )
 }
 \arguments{
@@ -31,6 +32,10 @@ matrices with one row per stage, or functions of the stage index).}
 
 \item{warm_start}{Optional primal vector to warm start OSQP (for example
 the shifted previous solution).}
+
+\item{output_offset}{Optional known additive output offset (length \code{p}),
+for example an estimated output disturbance: output bounds then apply to
+\eqn{C x + D u + \text{offset}}.}
 }
 \value{
 A list of class \code{ctrl_mpc_step} with \code{u} (input to apply),

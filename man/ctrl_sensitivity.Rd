@@ -21,8 +21,8 @@ A list of models \code{S} and \code{T} (and \code{PS}, \code{CS}).
 For a loop transfer function \code{L} closed with unity negative feedback,
 \eqn{S = (I + L)^{-1}} and \eqn{T = L (I + L)^{-1} = I - S}. With a plant
 \code{P} and controller \code{C} (loop \eqn{L = P C}), \code{ctrl_gangof4()} also
-returns \eqn{PS} (disturbance to output, input side) and \eqn{CS}
-(noise to control signal).
+returns \eqn{S P = (I + PC)^{-1} P} (input disturbance to output) and
+\eqn{C S} (output noise to control signal).
 }
 \examples{
 L <- ctrl_tf(10, c(1, 3, 3, 1))

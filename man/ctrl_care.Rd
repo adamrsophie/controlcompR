@@ -56,8 +56,10 @@ on the stability boundary (guaranteed, for example, when
 \eqn{Q - S R^{-1} S^\top \succeq 0} and the corresponding pair is
 detectable). When the boundary condition fails, or when \eqn{U_{11}} is
 singular, an error is raised rather than an invalid solution returned.
-The returned object reports the relative residual, the symmetry error
-and the closed-loop eigenvalues so that the result can be verified.
+A solution whose relative residual exceeds 1e-6, or whose closed loop is
+not stable, raises an error. The returned object reports the relative
+residual, the symmetry error and the closed-loop eigenvalues so that the
+result can be verified.
 }
 \examples{
 # Scalar CARE with known solution sqrt(2) - 1

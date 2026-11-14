@@ -34,6 +34,11 @@
 #' eigen(plant$A - plant$B %*% K)$values
 #' @export
 ctrl_place <- function(sys, B = NULL, poles, maxiter = 50L) {
+  # ctrl_place(model, poles): the second positional argument is the poles
+  if (missing(poles) && is_ctrl_system(sys) && !is.null(B)) {
+    poles <- B
+    B <- NULL
+  }
   ab <- get_ab(sys, B, "B")
   A <- ab$A
   B <- ab$B
