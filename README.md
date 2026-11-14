@@ -13,7 +13,7 @@ simulating control systems. It follows the path
 
 **model, analysis, design, estimation, constrained control, validation**,
 
-in the spirit of [python-control](https://python-control.org) and
+in the spirit of [python-control](https://python-control.readthedocs.io/) and
 [ControlSystems.jl](https://github.com/JuliaControl/ControlSystems.jl), but
 everything runs in R. Dense linear algebra uses LAPACK through a small C
 layer (ordered real and generalized Schur forms), quadratic programs are

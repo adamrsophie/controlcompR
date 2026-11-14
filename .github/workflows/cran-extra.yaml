@@ -1,0 +1,62 @@
+name: cran-extra
+
+# Checks that mirror CRAN incoming review beyond the regular R-CMD-check:
+# PDF manual, incoming feasibility, spelling and URL validity.
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  incoming:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      _R_CHECK_CRAN_INCOMING_: true
+      _R_CHECK_CRAN_INCOMING_REMOTE_: true
+      _R_CHECK_CRAN_INCOMING_USE_ASPELL_: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+      - uses: r-lib/actions/setup-tinytex@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          r-version: devel
+          http-user-agent: release
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          extra-packages: any::rcmdcheck, any::spelling, any::urlchecker
+          needs: check
+      - name: Install LaTeX packages for the manual
+        run: tlmgr install inconsolata epstopdf-pkg && tlmgr path add
+      - name: Spelling
+        run: |
+          s <- spelling::spell_check_package()
+          print(s)
+          if (nrow(s)) stop("Spelling errors found.")
+        shell: Rscript {0}
+      - name: URLs
+        run: urlchecker::url_check()
+        shell: Rscript {0}
+      - name: Check with manual and incoming feasibility
+        run: |
+          res <- rcmdcheck::rcmdcheck(args = "--as-cran", build_args = character(),
+                                      error_on = "warning", check_dir = "check")
+          notes <- res$notes
+          known <- grepl("New submission|Possibly misspelled words in DESCRIPTION", notes) &
+            !grepl("checking CRAN incoming feasibility.*(Found the following|Version contains|URL)", notes)
+          if (any(!known)) {
+            cat(notes[!known], sep = "\n")
+            stop("Unexpected NOTE.")
+          }
+        shell: Rscript {0}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: incoming-check
+          path: check

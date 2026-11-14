@@ -36,7 +36,7 @@ when \code{minimal = TRUE}.
 \item \code{ctrl_ss2tf()} computes each SISO channel's transfer function. With
 \code{minimal = TRUE} (default) each channel is first reduced to a minimal
 realization, so uncontrollable or unobservable modes do not appear as
-cancelling pole-zero pairs. The numerator of channel \eqn{(i,j)} is
+canceling pole-zero pairs. The numerator of channel \eqn{(i,j)} is
 computed from the identity
 \eqn{c (sI - A)^{-1} b = [\det(sI - A + bc) - \det(sI - A)] /
   \det(sI - A)}.

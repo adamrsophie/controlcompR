@@ -297,7 +297,7 @@ polish_root <- function(f, w, rel = 1e-3) {
 #' are the most critical ones (gain margin closest to 1 on a log scale,
 #' smallest phase margin). `closed_loop_stable` is computed on the given
 #' realization, so unstable hidden modes of a state-space loop are not
-#' cancelled away. Margins describe distance
+#' canceled away. Margins describe distance
 #' to instability only if the nominal closed loop is stable, which is
 #' reported in `closed_loop_stable`. Margins are SISO quantities; for MIMO
 #' loops use loop-at-a-time disk margins.
