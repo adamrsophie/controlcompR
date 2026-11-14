@@ -20,9 +20,12 @@ m <- function(x) {
 rows <- list()
 add <- function(name, ours, theirs) {
   theirs <- as_num(theirs)
+  # vectors may arrive as 1 x n or n x 1 matrices; compare those as vectors
+  if (!is.null(dim(theirs)) && min(dim(theirs)) == 1L) theirs <- as.numeric(theirs)
   if (!is.null(dim(theirs)) && !identical(dim(as.matrix(ours)), dim(theirs))) {
     stop("Dimension mismatch in check ", name)
   }
+  if (length(ours) != length(theirs)) stop("Length mismatch in check ", name)
   err <- max(abs(as.numeric(ours) - as.numeric(theirs))) /
     max(1, max(abs(as.numeric(theirs))))
   rows[[length(rows) + 1L]] <<- data.frame(check = name, rel_error = err)
