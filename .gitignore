@@ -1,0 +1,16 @@
+.Rhistory
+.RData
+.Rproj.user
+*.Rcheck/
+controlcompR_*.tar.gz
+.DS_Store
+docs/
+documentation/
+.gstack/
+.claude/
+Rplots.pdf
+tests/testthat/_problems/
+tests/testthat/testthat-problems.rds
+*.o
+*.so
+*.dll
