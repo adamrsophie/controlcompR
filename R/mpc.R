@@ -500,7 +500,7 @@ ctrl_mpc_step <- function(mpc, x, reference = NULL, u_prev = NULL,
   if (!is.null(warm_start) && length(warm_start) == qpd$nz) {
     model@WarmStart(x = warm_start)
   }
-  res <- model@Solve()
+  res <- osqp_solve(model)
   status <- res$info$status
   ok <- identical(status, "solved") ||
     (mpc$accept_inaccurate && identical(status, "solved inaccurate"))

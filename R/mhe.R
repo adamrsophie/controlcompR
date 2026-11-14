@@ -1,0 +1,188 @@
+#' Moving horizon estimation for linear models
+#'
+#' Estimate the state of
+#' \eqn{x_{k+1} = A x_k + B u_k + G w_k}, \eqn{y_k = C x_k + D u_k + v_k}
+#' by solving, at each sample \eqn{T}, the finite-horizon problem over the
+#' window \eqn{s = T - N + 1, \ldots, T}:
+#' \deqn{\min_{x_s, \ldots, x_T,\, w_s, \ldots, w_{T-1}}
+#' \|x_s - \bar x_s\|^2_{P_s^{-1}} + \sum_{j=s}^{T-1} \|w_j\|^2_{Q_n^{-1}} +
+#' \sum_{j=s}^{T} \|y_j - C x_j - D u_j\|^2_{R_n^{-1}}}
+#' subject to the model equations and optional bounds on the states and the
+#' process noise. The estimate is \eqn{\hat x_{T|T} = x_T}.
+#'
+#' **Arrival cost.** The first term summarizes the data before the window.
+#' The prior mean is the prediction from the previous MHE estimate,
+#' \eqn{\bar x_s = A \hat x_{s-1|s-1} + B u_{s-1}}, and \eqn{P_s} follows the
+#' Kalman filter covariance recursion. Without active constraints this
+#' makes MHE coincide with the Kalman filter (which the tests verify); with
+#' active constraints MHE differs from, and can improve on, the Kalman
+#' filter, at the price of one QP per sample, so its cost grows with the
+#' horizon. MHE is worth it when states or noises have hard physical bounds
+#' (concentrations, saturations) that the Kalman filter would violate.
+#'
+#' Each window QP is assembled from scratch and solved by OSQP.
+#'
+#' @param sys Discrete time `ctrl_ss` model.
+#' @param horizon Window length `N` (number of measurements in the window).
+#' @param Qn,Rn Process and measurement noise covariances (positive
+#'   definite).
+#' @param G Process noise input matrix (default identity).
+#' @param x0,P0 Prior mean and covariance at the first sample.
+#' @param x_min,x_max Bounds on the states.
+#' @param w_min,w_max Bounds on the process noise.
+#' @param solver_settings OSQP settings.
+#' @return An object of class `ctrl_mhe`; run it with `ctrl_mhe_run()`.
+#' @examples
+#' sys <- ctrl_ss(0.9, 1, 1, dt = 1)
+#' mhe <- ctrl_mhe(sys, horizon = 5, Qn = 0.01, Rn = 0.1, x_min = 0)
+#' est <- ctrl_mhe_run(mhe, y = c(0.2, -0.1, 0.4, 0.3, 0.1, 0.5))
+#' est$estimates
+#' @export
+ctrl_mhe <- function(sys, horizon, Qn, Rn, G = NULL, x0 = NULL, P0 = NULL,
+                     x_min = -Inf, x_max = Inf, w_min = -Inf, w_max = Inf,
+                     solver_settings = list()) {
+  s <- as_ss(sys)
+  if (s$dt == 0) ctrl_abort("MHE needs a discrete time model.")
+  n <- nrow(s$A)
+  p <- nrow(s$C)
+  N <- as_count(horizon, "horizon")
+  G <- if (is.null(G)) diag(n) else as_real_matrix(G, "G", nrow = n)
+  q <- ncol(G)
+  Qn <- check_pd(expand_weight(Qn, q, "Qn"), "Qn")
+  Rn <- check_pd(expand_weight(Rn, p, "Rn"), "Rn")
+  x0 <- if (is.null(x0)) rep(0, n) else as.numeric(x0)
+  P0 <- if (is.null(P0)) diag(n) else check_pd(expand_weight(P0, n, "P0"), "P0")
+  structure(list(plant = s, horizon = N, Qn = Qn, Rn = Rn, G = G, x0 = x0,
+                 P0 = P0, x_min = expand_bound(x_min, n, "x_min"),
+                 x_max = expand_bound(x_max, n, "x_max"),
+                 w_min = expand_bound(w_min, q, "w_min"),
+                 w_max = expand_bound(w_max, q, "w_max"),
+                 settings = utils::modifyList(
+                   list(eps_abs = 1e-10, eps_rel = 1e-10, max_iter = 50000L,
+                        polishing = TRUE, verbose = FALSE), solver_settings)),
+            class = "ctrl_mhe")
+}
+
+#' Run a moving horizon estimator on data
+#'
+#' @param mhe A `ctrl_mhe` object.
+#' @param y Measurements (`T x p`, `NA` rows are missing samples).
+#' @param u Inputs (`T x m`) or `NULL`.
+#' @return A list of class `ctrl_mhe_result` with `estimates` (`T x n`,
+#'   row `k` is \eqn{\hat x_{k|k}}), `status` (OSQP status per sample),
+#'   `objective` and `solve_time`.
+#' @rdname ctrl_mhe
+#' @export
+ctrl_mhe_run <- function(mhe, y, u = NULL) {
+  if (!inherits(mhe, "ctrl_mhe")) ctrl_abort("`mhe` must be a `ctrl_mhe` object.")
+  s <- mhe$plant
+  n <- nrow(s$A)
+  m <- ncol(s$B)
+  p <- nrow(s$C)
+  q <- ncol(mhe$G)
+  Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
+  if (ncol(Y) != p) ctrl_abort("`y` must have ", p, " columns.")
+  Tn <- nrow(Y)
+  U <- if (is.null(u)) matrix(0, Tn, m) else input_matrix(u, seq_len(Tn), m)
+  Ri <- solve(mhe$Rn)
+  Qi <- solve(mhe$Qn)
+  Qx <- mhe$G %*% mhe$Qn %*% t(mhe$G)
+  est <- matrix(NA_real_, Tn, n, dimnames = list(NULL, s$state_names))
+  status <- character(Tn)
+  obj <- numeric(Tn)
+  stime <- numeric(Tn)
+  # prior (mean, covariance) at each sample: Kalman prediction recursion
+  prior_x <- matrix(0, Tn, n)
+  prior_P <- array(0, c(n, n, Tn))
+  P <- mhe$P0
+  prior_x[1, ] <- mhe$x0
+  for (Tk in seq_len(Tn)) {
+    prior_P[, , Tk] <- P
+    if (all(is.finite(Y[Tk, ]))) {
+      S <- s$C %*% P %*% t(s$C) + mhe$Rn
+      K <- P %*% t(s$C) %*% solve(S)
+      IKC <- diag(n) - K %*% s$C
+      P <- symmetrize(IKC %*% P %*% t(IKC) + K %*% mhe$Rn %*% t(K))
+    }
+    P <- symmetrize(s$A %*% P %*% t(s$A) + Qx)
+  }
+  for (Tk in seq_len(Tn)) {
+    st <- max(1L, Tk - mhe$horizon + 1L)
+    L <- Tk - st + 1L
+    xbar <- if (st == 1L) mhe$x0 else
+      drop(s$A %*% est[st - 1L, ] + s$B %*% U[st - 1L, ])
+    Pinv <- solve(prior_P[, , st])
+    xi <- function(j) (j - 1L) * n + seq_len(n)
+    wi <- function(j) L * n + (j - 1L) * q + seq_len(q)
+    nz <- L * n + (L - 1L) * q
+    Hm <- trip_new()
+    qv <- numeric(nz)
+    trip_add(Hm, xi(1), xi(1), 2 * Pinv)
+    qv[xi(1)] <- -2 * drop(Pinv %*% xbar)
+    for (j in seq_len(L)) {
+      k <- st + j - 1L
+      if (all(is.finite(Y[k, ]))) {
+        trip_add(Hm, xi(j), xi(j), 2 * t(s$C) %*% Ri %*% s$C)
+        qv[xi(j)] <- qv[xi(j)] - 2 * drop(t(s$C) %*% Ri %*% (Y[k, ] - s$D %*% U[k, ]))
+      }
+      if (j < L) trip_add(Hm, wi(j), wi(j), 2 * Qi)
+    }
+    Ac <- trip_new()
+    lo <- hi <- numeric()
+    r <- 0L
+    if (L > 1L) {
+      for (j in seq_len(L - 1L)) {
+        rows <- r + seq_len(n)
+        trip_add(Ac, rows, xi(j + 1L), diag(n))
+        trip_add(Ac, rows, xi(j), -s$A)
+        trip_add(Ac, rows, wi(j), -mhe$G)
+        bu <- drop(s$B %*% U[st + j - 1L, ])
+        lo <- c(lo, bu)
+        hi <- c(hi, bu)
+        r <- r + n
+      }
+    }
+    if (any(is.finite(c(mhe$x_min, mhe$x_max)))) {
+      for (j in seq_len(L)) {
+        rows <- r + seq_len(n)
+        trip_add(Ac, rows, xi(j), diag(n))
+        lo <- c(lo, mhe$x_min)
+        hi <- c(hi, mhe$x_max)
+        r <- r + n
+      }
+    }
+    if (L > 1L && any(is.finite(c(mhe$w_min, mhe$w_max)))) {
+      for (j in seq_len(L - 1L)) {
+        rows <- r + seq_len(q)
+        trip_add(Ac, rows, wi(j), diag(q))
+        lo <- c(lo, mhe$w_min)
+        hi <- c(hi, mhe$w_max)
+        r <- r + q
+      }
+    }
+    if (r == 0L) {
+      # OSQP needs at least one constraint row; add a free one
+      trip_add(Ac, 1L, 1L, matrix(1))
+      lo <- -Inf
+      hi <- Inf
+      r <- 1L
+    }
+    H <- Matrix::sparseMatrix(i = Hm$i, j = Hm$j, x = Hm$x, dims = c(nz, nz))
+    A <- Matrix::sparseMatrix(i = Ac$i, j = Ac$j, x = Ac$x, dims = c(r, nz))
+    model <- osqp::osqp(P = methods::as(Matrix::triu(H), "CsparseMatrix"),
+                        q = qv, A = methods::as(A, "CsparseMatrix"), l = lo,
+                        u = hi, pars = do.call(osqp::osqpSettings, mhe$settings))
+    res <- osqp_solve(model)
+    status[Tk] <- res$info$status
+    if (!identical(res$info$status, "solved")) {
+      ctrl_abort("MHE QP failed at sample ", Tk, " with status \"",
+                 res$info$status, "\".")
+    }
+    est[Tk, ] <- res$x[xi(L)]
+    obj[Tk] <- res$info$obj_val
+    stime[Tk] <- res$info$solve_time
+  }
+  structure(list(estimates = est, status = status, objective = obj,
+                 solve_time = stime),
+            class = "ctrl_mhe_result")
+}

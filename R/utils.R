@@ -305,3 +305,10 @@ psd_sqrt_factor <- function(X) {
   keep <- vals > max(vals, 0) * nrow(X) * .Machine$double.eps
   e$vectors[, keep, drop = FALSE] %*% diag(sqrt(vals[keep]), sum(keep))
 }
+
+# OSQP prints a polishing note even with verbose = FALSE; keep it quiet.
+osqp_solve <- function(model) {
+  res <- NULL
+  utils::capture.output(res <- model@Solve())
+  res
+}
