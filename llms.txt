@@ -1,0 +1,457 @@
+# controlcompR: Control Systems, Optimal Control, and Model Predictive Control in R
+
+***controlcompR*** is an R framework for modeling, analyzing, designing
+and simulating control systems. It follows the path
+
+**model, analysis, design, estimation, constrained control,
+validation**,
+
+in the spirit of [python-control](https://python-control.org) and
+[ControlSystems.jl](https://github.com/JuliaControl/ControlSystems.jl),
+but everything runs in R. Dense linear algebra uses LAPACK through a
+small C layer (ordered real and generalized Schur forms), quadratic
+programs are solved with [OSQP](https://osqp.org), and ODEs with
+[deSolve](https://cran.r-project.org/package=deSolve).
+
+Every numerically sensitive result is checked before it is returned:
+Riccati solutions are verified by their residual and closed-loop
+eigenvalues, H-infinity controllers are certified by an independent norm
+computation, MPC steps report solver status, bound violations and
+dynamics residuals, and problems the package cannot solve reliably are
+refused with an error rather than approximated silently.
+
+## Installation
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("adamrsophie/controlcompR")
+```
+
+## A first example
+
+``` r
+
+library(controlcompR)
+
+# a mass with friction, force input, position output
+G <- ctrl_ss(matrix(c(0, 1, 0, -0.5), 2, byrow = TRUE), c(0, 1), c(1, 0))
+
+# LQR design, closed loop and step response
+lqr <- ctrl_lqr(G, Q = diag(c(10, 1)), R = 0.1)
+cl <- ctrl_closed_loop(G, lqr)
+N <- ctrl_reference_gain(G, lqr)
+plot(ctrl_step(ctrl_series(ctrl_gain(N), cl)))
+
+# a PI loop on the transfer function: margins and peak sensitivity
+P <- ctrl_tf(1, c(1, 0.5, 0))
+C <- ctrl_tf(c(2, 0.2), c(1, 0))
+ctrl_margin(C * P)
+ctrl_norm(ctrl_feedback(1, C * P), "inf")
+```
+
+Constrained model predictive control of the discretized model:
+
+``` r
+
+Gd <- ctrl_c2d(G, 0.1)
+mpc <- ctrl_mpc(Gd, horizon = 20, Q = diag(c(10, 1)), R = 0.1,
+                u_min = -1, u_max = 1, x_min = c(-Inf, -0.5), x_max = c(Inf, 0.5))
+sim <- ctrl_simulate_mpc(mpc, x0 = c(2, 0), steps = 80)
+summary(sim)
+plot(sim)
+```
+
+## What is implemented
+
+| Area | Functionality |
+|----|----|
+| Models | state space, transfer functions, zero-pole-gain, static gains; MIMO; signal names; continuous and discrete time; conversions; zoh, foh, Tustin and matched discretization; `d2c` |
+| Interconnections | series, parallel, feedback (algebraic loops checked), append, named-signal block diagrams, sum blocks, closed loops, sensitivity functions, linear fractional transformations |
+| Analysis | poles, transmission zeros, damping, DC gain, stability with tolerances and marginal cases, staircase controllability and observability, Gramians, stabilizability, minimal realizations |
+| Matrix equations | Lyapunov, Stein and Sylvester equations; continuous and discrete Riccati equations with cross terms and verified stabilizing solutions |
+| Time responses | step, impulse, initial condition and arbitrary input responses with exact sampling; step metrics |
+| Frequency responses | Bode, Nyquist, Nichols, singular values, gain, phase, delay and disk margins, bandwidth, H2 and H-infinity norms, root locus, pole-zero maps |
+| State feedback | continuous, discrete and finite-horizon LQR, reference prefilters, robust pole placement |
+| Estimation | Luenberger observers, steady-state and time-varying Kalman filters (Joseph form, missing data, NIS, likelihood), RTS smoother, LQG |
+| PID | parallel and standard forms, derivative filter, setpoint weights, saturation, back-calculation and clamping anti-windup, bumpless transfer, Ziegler-Nichols, SIMC and AMIGO tuning, FOPDT fitting |
+| MPC | sparse QP with input, rate, state, output and terminal constraints, soft constraints, control horizon, preview references, offset-free tracking, explicit failure handling |
+| Estimation with constraints | moving horizon estimation |
+| Robust control | H2 synthesis, H-infinity synthesis (experimental, certified), mixed-sensitivity plants, small-gain robust stability tests |
+| Model reduction | Hankel singular values, balanced realization, balanced truncation and residualization with error bounds |
+| Identification | ARX, order selection, subspace (MOESP) identification, simulation and prediction fit, residual tests, conversion of `sysid` models |
+| Nonlinear systems | simulation, linearization, equilibria, discretization, EKF, UKF, nonlinear MPC (experimental) |
+
+Not available: discrete-time H-infinity synthesis, general `D11` in
+H-infinity synthesis, structured singular values and mu synthesis,
+explicit MPC, tube MPC, descriptor systems and hybrid systems. The
+[numerical validation
+article](https://adamrsophie.github.io/controlcompR/articles/numerical-validation.html)
+lists the scope and conventions in detail.
+
+## Validation
+
+The test suite checks properties rather than stored numbers: residuals
+of matrix equations, invariance under similarity transformations,
+algebraic identities, and exact agreement between independent algorithms
+(MPC without active constraints equals LQR, MHE without active
+constraints equals the Kalman filter, H-infinity norms equal dense
+frequency sweeps). A separate GitHub Actions workflow compares Riccati
+and Lyapunov solutions, norms, Hankel singular values, discretization,
+pole placement and H-infinity synthesis against python-control and
+SLICOT.
+
+## Related packages
+
+controlcompR belongs to a family of R packages by the same author:
+[symcompR](https://github.com/adamrsophie/symcompR) (symbolic
+computation), [modelcompR](https://github.com/adamrsophie/modelcompR)
+(equation-based modeling), [jaxR](https://github.com/adamrsophie/jaxR)
+(differentiable computation), [z3r](https://github.com/adamrsophie/z3r)
+(constraint solving),
+[optcompR](https://github.com/adamrsophie/optcompR) (optimization),
+[graphlearnR](https://github.com/adamrsophie/graphlearnR) (graph
+learning) and [pdecompR](https://github.com/adamrsophie/pdecompR)
+(partial differential equations). controlcompR works on its own.
+
+## License
+
+GPL-3.
+
+# Package index
+
+## Models
+
+- [`ctrl_ss()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ss.md)
+  : State-space models
+- [`ctrl_tf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf.md)
+  : Transfer-function models
+- [`ctrl_zpk()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_zpk.md)
+  : Zero-pole-gain models
+- [`ctrl_gain()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_gain.md)
+  : Static gain model
+- [`ctrl_tf2ss()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf2ss.md)
+  [`ctrl_ss2tf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf2ss.md)
+  [`ctrl_zpk2tf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf2ss.md)
+  [`ctrl_tf2zpk()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf2ss.md)
+  : Conversions between model representations
+- [`ctrl_ssdata()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ssdata.md)
+  [`ctrl_dims()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ssdata.md)
+  [`ctrl_is_discrete()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ssdata.md)
+  [`ctrl_is_continuous()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ssdata.md)
+  [`ctrl_sample_time()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ssdata.md)
+  : State-space data and dimensions
+- [`ctrl_transform()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_transform.md)
+  : Similarity transformation of a state-space model
+- [`ctrl_signal_names()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_signal_names.md)
+  : Signal names of a model
+- [`ctrl_is_proper()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_is_proper.md)
+  : Test whether a transfer function is proper
+- [`is_ctrl_ss()`](https://adamrsophie.github.io/controlcompR/reference/is_ctrl_ss.md)
+  [`is_ctrl_tf()`](https://adamrsophie.github.io/controlcompR/reference/is_ctrl_ss.md)
+  [`is_ctrl_system()`](https://adamrsophie.github.io/controlcompR/reference/is_ctrl_ss.md)
+  : Test for control system objects
+- [`` `[`( ``*`<ctrl_ss>`*`)`](https://adamrsophie.github.io/controlcompR/reference/sub-.ctrl_ss.md)
+  : Select inputs and outputs of a model
+- [`summary(`*`<ctrl_ss>`*`)`](https://adamrsophie.github.io/controlcompR/reference/summary.ctrl_ss.md)
+  : Summaries of control models
+- [`ctrl_c2d()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_c2d.md)
+  : Discretize a continuous time model
+- [`ctrl_d2c()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_d2c.md)
+  : Convert a discrete time model to continuous time
+
+## Interconnections
+
+- [`ctrl_series()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_series.md)
+  [`ctrl_parallel()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_series.md)
+  [`ctrl_feedback()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_series.md)
+  [`ctrl_append()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_series.md)
+  : Series, parallel and feedback connections
+- [`Ops(`*`<ctrl_system>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_arith.md)
+  : Arithmetic on models
+- [`ctrl_inv()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_inv.md)
+  : Inverse of a model
+- [`ctrl_connect()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_connect.md)
+  : Connect models by signal names
+- [`ctrl_sumblock()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_sumblock.md)
+  : Summing junction
+- [`ctrl_closed_loop()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_closed_loop.md)
+  : Closed-loop systems
+- [`ctrl_sensitivity()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_sensitivity.md)
+  [`ctrl_gangof4()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_sensitivity.md)
+  : Sensitivity functions
+- [`ctrl_lft()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_lft.md)
+  [`ctrl_plant_partition()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_lft.md)
+  : Generalized plants and linear fractional transformations
+
+## Structure and stability
+
+- [`ctrl_poles()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_poles.md)
+  : Poles of a model
+- [`ctrl_zeros()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_zeros.md)
+  : Invariant zeros
+- [`ctrl_damp()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_damp.md)
+  : Natural frequencies and damping ratios
+- [`ctrl_dcgain()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_dcgain.md)
+  : Steady-state (DC) gain
+- [`ctrl_is_stable()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_is_stable.md)
+  : Test asymptotic stability
+- [`ctrl_stability()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_stability.md)
+  : Stability analysis
+- [`ctrl_controllability()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_controllability.md)
+  : Controllability and stabilizability analysis
+- [`ctrl_observability()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_observability.md)
+  : Observability and detectability analysis
+- [`ctrl_ctrb()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ctrb.md)
+  [`ctrl_obsv()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ctrb.md)
+  : Controllability and observability matrices
+- [`ctrl_is_stabilizable()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_is_stabilizable.md)
+  [`ctrl_is_detectable()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_is_stabilizable.md)
+  [`ctrl_is_controllable()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_is_stabilizable.md)
+  [`ctrl_is_observable()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_is_stabilizable.md)
+  : Stabilizability and detectability tests
+- [`ctrl_gram()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_gram.md)
+  : Controllability and observability Gramians
+- [`ctrl_minreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_minreal.md)
+  : Minimal realization
+- [`ctrl_tf_minreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf_minreal.md)
+  : Pole-zero cancellation for transfer functions
+- [`ctrl_stabsep()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_stabsep.md)
+  : Stable and unstable decomposition
+
+## Matrix equations
+
+- [`ctrl_lyap()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_lyap.md)
+  : Lyapunov and Stein equations
+- [`ctrl_sylvester()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_sylvester.md)
+  : Sylvester equation
+- [`ctrl_care()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_care.md)
+  [`ctrl_dare()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_care.md)
+  : Algebraic Riccati equations
+
+## Time responses
+
+- [`ctrl_simulate()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_simulate.md)
+  : Simulate a linear model
+- [`ctrl_step()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_step.md)
+  [`ctrl_impulse()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_step.md)
+  [`ctrl_initial()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_step.md)
+  : Step, impulse and initial-condition responses
+- [`ctrl_step_info()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_step_info.md)
+  : Step-response characteristics
+- [`as.data.frame(`*`<ctrl_response>`*`)`](https://adamrsophie.github.io/controlcompR/reference/as.data.frame.ctrl_response.md)
+  : Long data frame of a time response
+
+## Frequency responses, margins and norms
+
+- [`ctrl_freqresp()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_freqresp.md)
+  : Frequency response
+- [`ctrl_freq_grid()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_freq_grid.md)
+  : Frequency grid for a model
+- [`ctrl_bode()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_bode.md)
+  [`ctrl_nyquist()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_bode.md)
+  [`ctrl_nichols()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_bode.md)
+  : Bode, Nyquist and Nichols data
+- [`ctrl_margin()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_margin.md)
+  : Gain, phase and delay margins
+- [`ctrl_disk_margin()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_disk_margin.md)
+  : Disk margins
+- [`ctrl_bandwidth()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_bandwidth.md)
+  [`ctrl_peak()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_bandwidth.md)
+  : Bandwidth and resonant peak
+- [`ctrl_norm()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_norm.md)
+  : System norms
+- [`ctrl_rlocus()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_rlocus.md)
+  : Root locus
+- [`ctrl_pzmap()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pzmap.md)
+  : Pole-zero map data
+- [`plot(`*`<ctrl_kalman_filter>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_idcompare>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_resid>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_mpc_simulation>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_nl_response>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_pid_simulation>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_response>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_bode>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_nyquist>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_nichols>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_pzmap>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  [`plot(`*`<ctrl_rlocus>`*`)`](https://adamrsophie.github.io/controlcompR/reference/ctrl_plots.md)
+  : Plot methods
+
+## State feedback and estimation
+
+- [`ctrl_lqr()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_lqr.md)
+  : Linear quadratic regulator
+- [`ctrl_dlqr_finite()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_dlqr_finite.md)
+  : Finite-horizon discrete LQR
+- [`ctrl_reference_gain()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_reference_gain.md)
+  : Reference (feedforward) gain for state feedback
+- [`ctrl_place()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_place.md)
+  : Pole placement
+- [`ctrl_observer()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_observer.md)
+  : Luenberger observer
+- [`ctrl_kalman()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman.md)
+  : Steady-state Kalman filter
+- [`ctrl_kalman_filter()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md)
+  [`ctrl_kalman_smoother()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md)
+  : Time-varying discrete Kalman filter and smoother
+- [`ctrl_lqg()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_lqg.md)
+  : LQG controller
+- [`ctrl_simulate_lqg()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_simulate_lqg.md)
+  : Stochastic closed-loop simulation of an LQG controller
+
+## PID control
+
+- [`ctrl_pid()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pid.md)
+  : PID controllers
+- [`ctrl_pid_tf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pid_tf.md)
+  : Linear transfer functions of a PID controller
+- [`ctrl_pid_update()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pid_update.md)
+  : One step of a discrete PID controller
+- [`ctrl_simulate_pid()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_simulate_pid.md)
+  : Closed-loop simulation with a discrete PID controller
+- [`ctrl_pid_tune()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pid_tune.md)
+  : PID tuning rules
+- [`ctrl_fit_fopdt()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_fit_fopdt.md)
+  : Fit a first-order plus dead-time model to a step response
+
+## Performance assessment
+
+- [`ctrl_performance()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_performance.md)
+  : Tracking and control performance metrics
+- [`ctrl_compare_controllers()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_compare_controllers.md)
+  : Compare controllers on a common scenario
+
+## Model predictive control and moving horizon estimation
+
+- [`ctrl_mpc()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_mpc.md)
+  : Linear model predictive control
+- [`ctrl_mpc_step()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_mpc_step.md)
+  : One MPC step
+- [`ctrl_mpc_qp()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_mpc_qp.md)
+  : Inspect the MPC quadratic program
+- [`ctrl_mpc_estimator()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_mpc_estimator.md)
+  : Offset-free MPC estimator
+- [`ctrl_simulate_mpc()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_simulate_mpc.md)
+  : Closed-loop MPC simulation
+- [`ctrl_mhe()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_mhe.md)
+  [`ctrl_mhe_run()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_mhe.md)
+  : Moving horizon estimation for linear models
+
+## Robust control
+
+- [`ctrl_h2syn()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_h2syn.md)
+  : H2 optimal output-feedback synthesis
+- [`ctrl_hinfsyn()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_hinfsyn.md)
+  : H-infinity output-feedback synthesis (experimental)
+- [`ctrl_augw()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_augw.md)
+  : Mixed-sensitivity generalized plant
+- [`ctrl_robust_stability()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_robust_stability.md)
+  : Robust stability under unstructured uncertainty
+
+## Model reduction
+
+- [`ctrl_hsvd()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_hsvd.md)
+  : Hankel singular values
+- [`ctrl_balreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_balreal.md)
+  [`ctrl_balred()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_balreal.md)
+  : Balanced realization and balanced truncation
+
+## System identification
+
+- [`ctrl_iddata()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_iddata.md)
+  : Identification data
+
+- [`ctrl_idsplit()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_idsplit.md)
+  : Split identification data into estimation and validation parts
+
+- [`ctrl_arx()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_arx.md)
+  : ARX model estimation
+
+- [`ctrl_arx_order()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_arx_order.md)
+  : ARX model order selection
+
+- [`ctrl_n4sid()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_n4sid.md)
+  : Subspace state-space identification (PO-MOESP)
+
+- [`ctrl_from_sysid()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_from_sysid.md)
+  :
+
+  Convert a `sysid` model
+
+- [`ctrl_compare()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_compare.md)
+  : Compare identified models with data
+
+- [`ctrl_resid()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_resid.md)
+  : Residual analysis for identified models
+
+## Nonlinear systems
+
+- [`ctrl_nlsys()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nlsys.md)
+  : Nonlinear state-space models
+- [`ctrl_nl_simulate()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_simulate.md)
+  : Simulate a nonlinear model
+- [`ctrl_nl_discretize()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_discretize.md)
+  : Discretize a continuous nonlinear model
+- [`ctrl_linearize()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_linearize.md)
+  : Linearize a nonlinear model
+- [`ctrl_equilibrium()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_equilibrium.md)
+  : Equilibrium points
+- [`ctrl_ekf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ekf.md)
+  [`ctrl_ukf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ekf.md)
+  : Extended and unscented Kalman filters
+- [`ctrl_nmpc()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nmpc.md)
+  [`ctrl_nmpc_step()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nmpc.md)
+  [`ctrl_simulate_nmpc()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nmpc.md)
+  : Nonlinear model predictive control (experimental)
+
+# Articles
+
+### Getting started
+
+- [Getting started with
+  controlcompR](https://adamrsophie.github.io/controlcompR/articles/controlcompR.md):
+- [Models, conversions and
+  interconnections](https://adamrsophie.github.io/controlcompR/articles/models.md):
+
+### Analysis
+
+- [Stability, controllability and matrix
+  equations](https://adamrsophie.github.io/controlcompR/articles/analysis.md):
+- [Time
+  responses](https://adamrsophie.github.io/controlcompR/articles/time-response.md):
+- [Frequency response and robustness
+  margins](https://adamrsophie.github.io/controlcompR/articles/frequency-response.md):
+
+### Controller and estimator design
+
+- [PID
+  control](https://adamrsophie.github.io/controlcompR/articles/pid.md):
+- [State feedback: LQR and pole
+  placement](https://adamrsophie.github.io/controlcompR/articles/state-feedback.md):
+- [State estimation and LQG
+  control](https://adamrsophie.github.io/controlcompR/articles/estimation.md):
+
+### Model predictive control
+
+- [Linear model predictive
+  control](https://adamrsophie.github.io/controlcompR/articles/mpc.md):
+- [Advanced MPC and moving horizon
+  estimation](https://adamrsophie.github.io/controlcompR/articles/advanced-mpc.md):
+
+### Robust control, identification and nonlinear systems
+
+- [Robust
+  control](https://adamrsophie.github.io/controlcompR/articles/robust-control.md):
+- [System
+  identification](https://adamrsophie.github.io/controlcompR/articles/identification.md):
+- [Nonlinear
+  systems](https://adamrsophie.github.io/controlcompR/articles/nonlinear.md):
+- [Model
+  reduction](https://adamrsophie.github.io/controlcompR/articles/model-reduction.md):
+
+### Validation
+
+- [Numerical validation, conventions and
+  scope](https://adamrsophie.github.io/controlcompR/articles/numerical-validation.md):

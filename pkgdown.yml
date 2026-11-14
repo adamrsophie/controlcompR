@@ -1,0 +1,23 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  advanced-mpc: advanced-mpc.html
+  analysis: analysis.html
+  controlcompR: controlcompR.html
+  estimation: estimation.html
+  frequency-response: frequency-response.html
+  identification: identification.html
+  model-reduction: model-reduction.html
+  models: models.html
+  mpc: mpc.html
+  nonlinear: nonlinear.html
+  numerical-validation: numerical-validation.html
+  pid: pid.html
+  robust-control: robust-control.html
+  state-feedback: state-feedback.html
+  time-response: time-response.html
+last_built: 2026-11-14T03:21Z
+urls:
+  reference: https://adamrsophie.github.io/controlcompR/reference
+  article: https://adamrsophie.github.io/controlcompR/articles
