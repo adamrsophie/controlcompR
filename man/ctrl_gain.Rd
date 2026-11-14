@@ -10,6 +10,11 @@ ctrl_gain(D, dt = NULL, input_names = NULL, output_names = NULL)
 \item{D}{Gain matrix (\verb{p x m}) or scalar.}
 
 \item{dt}{\code{NULL} or \code{0} for continuous time, or a positive sample interval.}
+
+\item{input_names}{Optional unique input names.}
+
+\item{output_names}{Optional unique output names.
+Defaults are \verb{x1, x2, ...}, \verb{u1, ...} and \verb{y1, ...}.}
 }
 \value{
 A \code{ctrl_ss} object with zero states.

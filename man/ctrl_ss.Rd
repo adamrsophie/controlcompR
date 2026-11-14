@@ -26,7 +26,11 @@ ctrl_ss(
 
 \item{dt}{\code{NULL} or \code{0} for continuous time, or a positive sample interval.}
 
-\item{state_names, input_names, output_names}{Optional unique signal names.
+\item{state_names}{Optional unique state names.}
+
+\item{input_names}{Optional unique input names.}
+
+\item{output_names}{Optional unique output names.
 Defaults are \verb{x1, x2, ...}, \verb{u1, ...} and \verb{y1, ...}.}
 }
 \value{

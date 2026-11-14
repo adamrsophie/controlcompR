@@ -14,6 +14,11 @@ variable.}
 \item{den}{Denominator coefficients (descending powers) or a list matrix.}
 
 \item{dt}{\code{NULL} or \code{0} for continuous time, or a positive sample interval.}
+
+\item{input_names}{Optional unique input names.}
+
+\item{output_names}{Optional unique output names.
+Defaults are \verb{x1, x2, ...}, \verb{u1, ...} and \verb{y1, ...}.}
 }
 \value{
 An object of class \code{c("ctrl_tf", "ctrl_system")} with fields

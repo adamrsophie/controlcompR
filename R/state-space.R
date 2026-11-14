@@ -23,7 +23,9 @@
 #' @param C Output matrix (`p x n`).
 #' @param D Feedthrough matrix (`p x m`); defaults to zero.
 #' @param dt `NULL` or `0` for continuous time, or a positive sample interval.
-#' @param state_names,input_names,output_names Optional unique signal names.
+#' @param state_names Optional unique state names.
+#' @param input_names Optional unique input names.
+#' @param output_names Optional unique output names.
 #'   Defaults are `x1, x2, ...`, `u1, ...` and `y1, ...`.
 #' @return An object of class `c("ctrl_ss", "ctrl_system")`.
 #' @seealso [ctrl_tf()], [ctrl_ssdata()], [ctrl_c2d()], [ctrl_poles()]

@@ -36,10 +36,10 @@ plot.ctrl_response <- function(x, what = c("outputs", "states", "inputs", "all")
   df <- df[df$kind %in% kinds, , drop = FALSE]
   df$panel <- paste(df$kind, df$signal, sep = ": ")
   g <- ggplot2::ggplot(df, ggplot2::aes(x = .data$time, y = .data$value,
-                                        colour = .data$case))
+                                        color = .data$case))
   g <- g + if (x$dt > 0) ggplot2::geom_step() else ggplot2::geom_line()
   g + ggplot2::facet_wrap(~panel, scales = "free_y") +
-    ggplot2::labs(x = time_label(x$dt), y = NULL, colour = NULL,
+    ggplot2::labs(x = time_label(x$dt), y = NULL, color = NULL,
                   title = paste(tools_title(x$type), "response")) +
     ggplot2::theme_bw()
 }
@@ -59,11 +59,11 @@ plot.ctrl_bode <- function(x, ...) {
   )
   long$panel <- factor(long$panel, c("magnitude (dB)", "phase (deg)"))
   g <- ggplot2::ggplot(long, ggplot2::aes(x = .data$w, y = .data$value,
-                                          colour = .data$channel)) +
+                                          color = .data$channel)) +
     ggplot2::geom_line() +
     ggplot2::scale_x_log10() +
     ggplot2::facet_grid(panel ~ ., scales = "free_y") +
-    ggplot2::labs(x = "frequency (rad per time unit)", y = NULL, colour = NULL,
+    ggplot2::labs(x = "frequency (rad per time unit)", y = NULL, color = NULL,
                   title = "Bode diagram") +
     ggplot2::theme_bw()
   if (x$dt > 0) {
@@ -80,12 +80,12 @@ plot.ctrl_nyquist <- function(x, ...) {
   df$channel <- paste(df$input, "->", df$output)
   ggplot2::ggplot(df, ggplot2::aes(x = .data$re, y = .data$im,
                                    linetype = .data$branch,
-                                   colour = .data$channel)) +
+                                   color = .data$channel)) +
     ggplot2::geom_path() +
     ggplot2::annotate("point", x = -1, y = 0, shape = 3, size = 3,
-                      colour = "red") +
+                      color = "red") +
     ggplot2::coord_equal() +
-    ggplot2::labs(x = "real", y = "imaginary", linetype = NULL, colour = NULL,
+    ggplot2::labs(x = "real", y = "imaginary", linetype = NULL, color = NULL,
                   title = "Nyquist diagram",
                   subtitle = if (!is.na(x$encirclements))
                     paste("clockwise encirclements of -1:", x$encirclements)) +
@@ -98,11 +98,11 @@ plot.ctrl_nichols <- function(x, ...) {
   df <- x$data
   df$channel <- paste(df$input, "->", df$output)
   ggplot2::ggplot(df, ggplot2::aes(x = .data$phase, y = .data$magnitude_db,
-                                   colour = .data$channel)) +
+                                   color = .data$channel)) +
     ggplot2::geom_path() +
     ggplot2::annotate("point", x = -180, y = 0, shape = 3, size = 3,
-                      colour = "red") +
-    ggplot2::labs(x = "phase (deg)", y = "magnitude (dB)", colour = NULL,
+                      color = "red") +
+    ggplot2::labs(x = "phase (deg)", y = "magnitude (dB)", color = NULL,
                   title = "Nichols chart") +
     ggplot2::theme_bw()
 }
@@ -138,8 +138,8 @@ plot.ctrl_pzmap <- function(x, ...) {
   )
   g <- ggplot2::ggplot(df, ggplot2::aes(x = .data$re, y = .data$im,
                                         shape = .data$type)) +
-    ggplot2::geom_hline(yintercept = 0, colour = "grey60") +
-    ggplot2::geom_vline(xintercept = 0, colour = "grey60") +
+    ggplot2::geom_hline(yintercept = 0, color = "grey60") +
+    ggplot2::geom_vline(xintercept = 0, color = "grey60") +
     ggplot2::geom_point(size = 3) +
     ggplot2::scale_shape_manual(values = c(pole = 4, zero = 1)) +
     ggplot2::labs(x = "real", y = "imaginary", shape = NULL,
@@ -148,7 +148,7 @@ plot.ctrl_pzmap <- function(x, ...) {
   if (x$dt > 0) {
     th <- seq(0, 2 * pi, length.out = 361)
     g <- g + ggplot2::annotate("path", x = cos(th), y = sin(th),
-                               linetype = "dashed", colour = "grey40") +
+                               linetype = "dashed", color = "grey40") +
       ggplot2::coord_equal()
   }
   g
@@ -221,11 +221,11 @@ plot.ctrl_rlocus <- function(x, ...) {
   }))
   df <- df[is.finite(df$re), , drop = FALSE]
   g <- ggplot2::ggplot(df, ggplot2::aes(x = .data$re, y = .data$im,
-                                        colour = .data$branch)) +
+                                        color = .data$branch)) +
     ggplot2::geom_path() +
     ggplot2::annotate("point", x = Re(x$poles), y = Im(x$poles), shape = 4,
                       size = 3) +
-    ggplot2::labs(x = "real", y = "imaginary", colour = "branch",
+    ggplot2::labs(x = "real", y = "imaginary", color = "branch",
                   title = "Root locus") +
     ggplot2::theme_bw()
   if (length(x$zeros)) {
@@ -235,7 +235,7 @@ plot.ctrl_rlocus <- function(x, ...) {
   if (x$dt > 0) {
     th <- seq(0, 2 * pi, length.out = 361)
     g <- g + ggplot2::annotate("path", x = cos(th), y = sin(th),
-                               linetype = "dashed", colour = "grey40")
+                               linetype = "dashed", color = "grey40")
   }
   g
 }
