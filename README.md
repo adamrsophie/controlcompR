@@ -80,11 +80,11 @@ plot(sim)
 | Estimation | Luenberger observers, steady-state and time-varying Kalman filters (Joseph form, missing data, NIS, likelihood), RTS smoother, LQG |
 | PID | parallel and standard forms, derivative filter, setpoint weights, saturation, back-calculation and clamping anti-windup, bumpless transfer, Ziegler-Nichols, SIMC and AMIGO tuning, FOPDT fitting |
 | MPC | sparse QP with input, rate, state, output and terminal constraints, soft constraints, control horizon, preview references, offset-free tracking, explicit failure handling |
-| Estimation with constraints | moving horizon estimation |
-| Robust control | H2 synthesis, H-infinity synthesis (experimental, certified), mixed-sensitivity plants, small-gain robust stability tests |
+| Estimation with constraints | moving horizon estimation with warm starts |
+| Robust control | H2 synthesis, H-infinity synthesis (experimental, certified), mixed-sensitivity plants, small-gain robust stability and robust performance tests |
 | Model reduction | Hankel singular values, balanced realization, balanced truncation and residualization with error bounds |
 | Identification | ARX, order selection, subspace (MOESP) identification, simulation and prediction fit, residual tests, conversion of `sysid` models |
-| Nonlinear systems | simulation, linearization, equilibria, discretization, EKF, UKF, nonlinear MPC (experimental) |
+| Nonlinear systems | simulation, linearization, equilibria, discretization, EKF, UKF, nonlinear MPC (experimental), trajectory optimization |
 
 Not available: discrete-time H-infinity synthesis, general `D11` in
 H-infinity synthesis, structured singular values and mu synthesis, explicit

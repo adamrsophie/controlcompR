@@ -572,14 +572,15 @@ nl_filter_finish <- function(out, sys) {
 #' \|x_N - x^r\|_P^2 + \rho \sum_k \|\max(0, x_k - x_{\max},
 #' x_{\min} - x_k)\|^2}
 #' over the box \eqn{u_{\min} \le u_k \le u_{\max}} is computed with the
-#' bounded quasi-Newton method L-BFGS-B (`stats::optim`, finite-difference
-#' gradients). Input bounds are hard; state bounds are enforced only
+#' bounded quasi-Newton method L-BFGS-B (`stats::optim`). The gradient is
+#' computed by a backward (adjoint) pass through the prediction, with the
+#' stage Jacobians of the model approximated by central differences, so it
+#' costs \eqn{O(N (n + m))} model evaluations. Input bounds are hard; state bounds are enforced only
 #' through the quadratic penalty \eqn{\rho} and can be violated.
 #'
 #' **Limitations.** The problem is nonconvex: the solver returns a local
 #' minimum that depends on the initial guess (the shifted previous
-#' solution is used), finite-difference gradients make each solve cost
-#' \eqn{O(N m)} model simulations per iteration, and no stability or
+#' solution is used), and no stability or
 #' recursive feasibility guarantee is provided. Each step reports the
 #' optimizer convergence code; nonzero codes are treated as failures.
 #'
@@ -622,7 +623,9 @@ ctrl_nmpc <- function(sys, horizon, Q, R, P = NULL, u_min = -Inf, u_max = Inf,
 #' @rdname ctrl_nmpc
 #' @param nmpc A `ctrl_nmpc` object.
 #' @param x Current state.
-#' @param x_ref,u_ref State and input references.
+#' @param x_ref,u_ref State and input references: vectors (constant) or
+#'   matrices whose row `i` is the reference at sample `i - 1` (the last row
+#'   is repeated beyond the end), or functions of the 1-based sample index.
 #' @param u_init Initial guess (`N x m` matrix).
 #' @param k Time index.
 #' @export
@@ -632,10 +635,14 @@ ctrl_nmpc_step <- function(nmpc, x, x_ref = NULL, u_ref = NULL, u_init = NULL,
   n <- s$n
   m <- s$m
   N <- nmpc$horizon
-  xr <- if (is.null(x_ref)) rep(0, n) else as.numeric(x_ref)
-  ur <- if (is.null(u_ref)) rep(0, m) else as.numeric(u_ref)
-  u0 <- if (is.null(u_init)) matrix(pmin(pmax(ur, nmpc$u_min), nmpc$u_max), N, m, byrow = TRUE) else
-    as.matrix(u_init)
+  # references: vectors (constant) or matrices whose row i is sample i - 1
+  # of the whole run (the window starts at row k + 1)
+  Xr <- ref_rows(x_ref, k + 1L, n, N + 1L, "x_ref")
+  Ur <- ref_rows(u_ref, k + 1L, m, N, "u_ref")
+  u0 <- if (is.null(u_init)) {
+    t(pmin(pmax(t(Ur), nmpc$u_min), nmpc$u_max))
+  } else as.matrix(u_init)
+  if (!identical(dim(u0), c(N, m))) ctrl_abort("`u_init` must be a ", N, " x ", m, " matrix.")
   rollout <- function(uv) {
     U <- matrix(uv, N, m)
     X <- matrix(0, N + 1L, n)
@@ -647,20 +654,41 @@ ctrl_nmpc_step <- function(nmpc, x, x_ref = NULL, u_ref = NULL, u_init = NULL,
     r <- rollout(uv)
     J <- 0
     for (j in seq_len(N)) {
-      dx <- r$X[j, ] - xr
-      du <- r$U[j, ] - ur
+      dx <- r$X[j, ] - Xr[j, ]
+      du <- r$U[j, ] - Ur[j, ]
       J <- J + sum(dx * (nmpc$Q %*% dx)) + sum(du * (nmpc$R %*% du))
     }
-    dN <- r$X[N + 1L, ] - xr
+    dN <- r$X[N + 1L, ] - Xr[N + 1L, ]
     J <- J + sum(dN * (nmpc$P %*% dN))
     v <- pmax(0, sweep(r$X[-1, , drop = FALSE], 2, nmpc$x_max),
               sweep(-r$X[-1, , drop = FALSE], 2, -nmpc$x_min))
     J + nmpc$penalty * sum(v^2)
   }
+  # exact gradient of the single-shooting cost by a backward (adjoint)
+  # pass; only the stage Jacobians are approximated, by central differences
+  grad <- function(uv) {
+    r <- rollout(uv)
+    G <- matrix(0, N, m)
+    pen_grad <- function(x) {
+      2 * nmpc$penalty * (pmax(0, x - nmpc$x_max) - pmax(0, nmpc$x_min - x))
+    }
+    lam <- 2 * drop(nmpc$P %*% (r$X[N + 1L, ] - Xr[N + 1L, ])) + pen_grad(r$X[N + 1L, ])
+    for (j in N:1) {
+      xj <- r$X[j, ]
+      uj <- r$U[j, ]
+      tj <- k + j - 1L
+      Fx <- num_jacobian(function(xx) nl_f(s, tj, xx, uj), xj)
+      Fu <- num_jacobian(function(uu) nl_f(s, tj, xj, uu), uj)
+      G[j, ] <- 2 * drop(nmpc$R %*% (uj - Ur[j, ])) + drop(t(Fu) %*% lam)
+      lam <- 2 * drop(nmpc$Q %*% (xj - Xr[j, ])) + drop(t(Fx) %*% lam) +
+        if (j > 1L) pen_grad(xj) else 0
+    }
+    as.vector(G)
+  }
   lo <- rep(nmpc$u_min, each = N)
   hi <- rep(nmpc$u_max, each = N)
   start <- pmin(pmax(as.vector(u0), lo), hi)
-  opt <- tryCatch(stats::optim(start, cost, method = "L-BFGS-B", lower = lo,
+  opt <- tryCatch(stats::optim(start, cost, grad, method = "L-BFGS-B", lower = lo,
                                upper = hi, control = list(maxit = nmpc$maxit)),
                   error = function(e) list(par = start, value = NA_real_,
                                            convergence = 99L, message = conditionMessage(e)))
@@ -712,4 +740,140 @@ ctrl_simulate_nmpc <- function(nmpc, x0, steps, x_ref = NULL, u_ref = NULL,
   colnames(X) <- sim$state_names
   colnames(U) <- sim$input_names
   list(time = (0:steps) * sim$dt, x = X, u = U, log = log, failures = sum(!log$ok))
+}
+
+#' Nonlinear trajectory optimization
+#'
+#' Compute an open-loop input sequence \eqn{u_0, \ldots, u_{N-1}} for a
+#' discrete time `ctrl_nlsys` that minimizes
+#' \deqn{\sum_{k=0}^{N-1} \|x_k - x^r_k\|_Q^2 + \|u_k - u^r_k\|_R^2 +
+#' \|x_N - x^r_N\|_P^2 + \rho \sum_k \|\max(0, x_k - x_{\max},
+#' x_{\min} - x_k)\|^2}
+#' from a given initial state, by single shooting with L-BFGS-B and the
+#' adjoint gradient of [ctrl_nmpc()]. Input bounds are hard; state bounds are
+#' penalized.
+#'
+#' **Terminal constraint.** A target `x_final` is imposed as the equality
+#' \eqn{x_N = x_f} by an augmented Lagrangian method: each outer iteration
+#' minimizes the cost plus
+#' \eqn{\nu^\top (x_N - x_f) + \frac{\rho}{2}\|x_N - x_f\|^2} and then
+#' updates \eqn{\nu \leftarrow \nu + \rho (x_N - x_f)} (multiplying
+#' \eqn{\rho} by 10 when the violation shrinks by less than a factor 4),
+#' until
+#' \eqn{\|x_N - x_f\| \le} `terminal_tol`. A moderate \eqn{\rho}
+#' (`terminal_weight`) keeps each subproblem well conditioned, unlike a
+#' single large penalty. `P` is ignored when `x_final` is given.
+#'
+#' The problem is nonconvex and the result is a local minimum that depends
+#' on `u_init`. Failures are reported in `converged` and `message`, never
+#' hidden.
+#'
+#' @inheritParams ctrl_nmpc
+#' @param x0 Initial state.
+#' @param x_ref,u_ref References (see [ctrl_nmpc_step()]).
+#' @param x_final Optional target state at the final sample.
+#' @param terminal_weight Penalty parameter \eqn{\rho} for `x_final`.
+#' @param terminal_tol Required accuracy of the terminal state.
+#' @param max_outer Maximum number of multiplier updates.
+#' @param u_init Initial guess (`N x m` matrix).
+#' @return An object of class `ctrl_trajopt` with `time`, `x` (`N + 1` rows),
+#'   `u` (`N` rows), `objective` (the cost without terminal constraint
+#'   terms), `converged`, `convergence` (optimizer code of the last
+#'   subproblem), `message`, `outer_iterations`, `multiplier` and
+#'   `terminal_error` (distance to `x_final`, `NA` without one).
+#' @examples
+#' f <- function(k, x, u, p) c(x[1] + 0.1 * x[2], x[2] + 0.1 * (-sin(x[1]) + u))
+#' sys <- ctrl_nlsys(f, nstates = 2, ninputs = 1, dt = 0.1)
+#' tr <- ctrl_nl_trajopt(sys, x0 = c(0, 0), horizon = 40, Q = 0, R = 0.01,
+#'                       x_final = c(pi / 2, 0), u_min = -2, u_max = 2)
+#' tr$terminal_error
+#' @export
+ctrl_nl_trajopt <- function(sys, x0, horizon, Q, R, P = NULL, x_ref = NULL,
+                            u_ref = NULL, x_final = NULL, terminal_weight = 100,
+                            terminal_tol = 1e-6, max_outer = 30L,
+                            u_min = -Inf, u_max = Inf, x_min = -Inf, x_max = Inf,
+                            penalty = 1e4, maxit = 1000L, u_init = NULL) {
+  N <- as_count(horizon, "horizon")
+  n <- sys$n
+  x0 <- as.numeric(x0)
+  if (length(x0) != n || any(!is.finite(x0))) {
+    ctrl_abort("`x0` must be a finite vector of length ", n, ".")
+  }
+  mk <- function(P) {
+    ctrl_nmpc(sys, N, Q, R, P = P, u_min = u_min, u_max = u_max,
+              x_min = x_min, x_max = x_max, penalty = penalty, maxit = maxit)
+  }
+  outer <- 0L
+  nu <- NULL
+  terr <- NA_real_
+  if (is.null(x_final)) {
+    st <- ctrl_nmpc_step(mk(P), x0, x_ref, u_ref, u_init, k = 0L)
+    ok <- st$ok
+  } else {
+    x_final <- as.numeric(x_final)
+    if (length(x_final) != n) ctrl_abort("`x_final` must have length ", n, ".")
+    check_scalar_number(terminal_weight, "terminal_weight", positive = TRUE)
+    rho <- terminal_weight
+    nm <- mk(rho / 2 * diag(n))
+    Xr <- ref_rows(x_ref, 1L, n, N + 1L, "x_ref")
+    nu <- numeric(n)
+    terr_prev <- Inf
+    guess <- u_init
+    ok <- FALSE
+    for (outer in seq_len(as_count(max_outer, "max_outer"))) {
+      # nu'(x - xf) + rho/2 |x - xf|^2 = rho/2 |x - xf + nu/rho|^2 + const
+      Xr[N + 1L, ] <- x_final - nu / rho
+      st <- ctrl_nmpc_step(nm, x0, Xr, u_ref, guess, k = 0L)
+      guess <- st$u_plan
+      dN <- st$x_plan[N + 1L, ] - x_final
+      terr <- sqrt(sum(dN^2))
+      if (terr <= terminal_tol) {
+        ok <- st$ok
+        break
+      }
+      nu <- nu + rho * dN
+      # standard rule: raise rho when the violation did not shrink enough
+      if (outer > 1L && terr > 0.25 * terr_prev) {
+        rho <- 10 * rho
+        nm <- mk(rho / 2 * diag(n))
+      }
+      terr_prev <- terr
+    }
+  }
+  X <- st$x_plan
+  U <- st$u_plan
+  # report the cost of the original problem (without terminal terms)
+  Xr0 <- ref_rows(x_ref, 1L, n, N + 1L, "x_ref")
+  Ur0 <- ref_rows(u_ref, 1L, sys$m, N, "u_ref")
+  Qm <- expand_weight(Q, n, "Q")
+  Rm <- expand_weight(R, sys$m, "R")
+  J <- 0
+  for (j in seq_len(N)) {
+    dx <- X[j, ] - Xr0[j, ]
+    du <- U[j, ] - Ur0[j, ]
+    J <- J + sum(dx * (Qm %*% dx)) + sum(du * (Rm %*% du))
+  }
+  if (is.null(x_final)) {
+    Pm <- if (is.null(P)) Qm else expand_weight(P, n, "P")
+    dN <- X[N + 1L, ] - Xr0[N + 1L, ]
+    J <- J + sum(dN * (Pm %*% dN))
+  }
+  colnames(X) <- sys$state_names
+  colnames(U) <- sys$input_names
+  structure(list(time = (0:N) * sys$dt, x = X, u = U, objective = J,
+                 converged = ok, convergence = st$convergence,
+                 message = if (!ok && !is.null(x_final) && !(terr <= terminal_tol))
+                   "terminal constraint not met within max_outer iterations" else st$message,
+                 outer_iterations = outer, multiplier = nu, terminal_error = terr),
+            class = "ctrl_trajopt")
+}
+
+#' @export
+print.ctrl_trajopt <- function(x, digits = 4, ...) {
+  cat("Trajectory optimization: ", nrow(x$u), " steps, objective ",
+      signif(x$objective, digits), ", converged: ", x$converged, "\n", sep = "")
+  if (is.finite(x$terminal_error)) {
+    cat("  terminal error: ", signif(x$terminal_error, digits), "\n", sep = "")
+  }
+  invisible(x)
 }

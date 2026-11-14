@@ -121,6 +121,16 @@ c(kalman_rmse = sqrt(mean((kf$filtered[, 1] - xs)^2)),
   mhe_rmse = sqrt(mean((est$estimates[, 1] - xs)^2)))
 ```
 
+Each window's QP starts from the previous solution shifted by one sample,
+primal and dual (`warm_start = TRUE`, the default). The estimates do not
+change; only the solver work does:
+
+```{r}
+cold <- ctrl_mhe_run(mhe, y, warm_start = FALSE)
+c(max_difference = max(abs(cold$estimates - est$estimates)),
+  iterations_cold = sum(cold$iterations), iterations_warm = sum(est$iterations))
+```
+
 ```{r}
 df <- data.frame(k = rep(1:Tn, 3),
                  value = c(xs, kf$filtered[, 1], est$estimates[, 1]),

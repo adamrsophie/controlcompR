@@ -140,3 +140,43 @@ test_that("discrete outputs receive the sample index", {
   expect_equal(drop(r$y), c(0, 1, 2))
   expect_error(ctrl_nl_simulate(sys, 0, times = c(0, 0.04, 0.08)), "integer multiples")
 })
+
+test_that("trajectory optimization reaches a target state", {
+  f <- function(k, x, u, p) c(x[1] + 0.1 * x[2], x[2] + 0.1 * (-sin(x[1]) + u))
+  sys <- ctrl_nlsys(f, nstates = 2, ninputs = 1, dt = 0.1)
+  tr <- ctrl_nl_trajopt(sys, x0 = c(0, 0), horizon = 40, Q = 0, R = 0.01,
+                        x_final = c(pi / 2, 0), u_min = -2, u_max = 2)
+  expect_true(tr$converged)
+  expect_lt(tr$terminal_error, 1e-6)
+  expect_true(all(abs(tr$u) <= 2 + 1e-12))
+  # the reported trajectory is the model rollout of the inputs
+  x <- c(0, 0)
+  for (k in 1:40) x <- f(k - 1, x, tr$u[k, ], NULL)
+  expect_equal(unname(tr$x[41, ]), unname(x))
+  # time-varying references in NMPC
+  nm <- ctrl_nmpc(sys, 5, Q = diag(2), R = 0.1)
+  st <- ctrl_nmpc_step(nm, c(0, 0), x_ref = cbind(seq(0, 1, length.out = 10), 0))
+  expect_true(st$ok)
+})
+
+test_that("NMPC adjoint gradient matches finite differences", {
+  f <- function(k, x, u, p) c(x[1] + 0.1 * x[2], x[2] + 0.1 * (-sin(x[1]) + u))
+  sys <- ctrl_nlsys(f, nstates = 2, ninputs = 1, dt = 0.1)
+  nm <- ctrl_nmpc(sys, 6, Q = diag(c(2, 1)), R = 0.3, P = diag(c(5, 1)),
+                  x_min = c(-0.2, -1), x_max = c(1, 1))
+  # recover cost and grad by tracing optim
+  got <- NULL
+  trace_optim <- function(par, fn, gr, ...) {
+    got <<- list(fn = fn, gr = gr)
+    list(par = par, value = fn(par), convergence = 0L, message = NULL)
+  }
+  testthat::local_mocked_bindings(optim = trace_optim, .package = "stats")
+  ctrl_nmpc_step(nm, c(0.5, 0.2), x_ref = c(0.1, 0))
+  u <- seq(-0.5, 0.7, length.out = 6)
+  num <- vapply(seq_along(u), function(i) {
+    h <- 1e-6
+    e <- replace(numeric(6), i, h)
+    (got$fn(u + e) - got$fn(u - e)) / (2 * h)
+  }, 0)
+  expect_equal(got$gr(u), num, tolerance = 1e-5)
+})

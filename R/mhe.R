@@ -68,12 +68,16 @@ ctrl_mhe <- function(sys, horizon, Qn, Rn, G = NULL, x0 = NULL, P0 = NULL,
 #' @param mhe A `ctrl_mhe` object.
 #' @param y Measurements (`T x p`, `NA` rows are missing samples).
 #' @param u Inputs (`T x m`) or `NULL`.
+#' @param warm_start Start each window's QP from the previous window's
+#'   solution, shifted by one sample (the new last state is the model
+#'   prediction and the new last disturbance is zero). This changes only
+#'   the number of OSQP iterations, not the solution.
 #' @return A list of class `ctrl_mhe_result` with `estimates` (`T x n`,
 #'   row `k` is \eqn{\hat x_{k|k}}), `status` (OSQP status per sample),
-#'   `objective` and `solve_time`.
+#'   `objective`, `iterations` and `solve_time`.
 #' @rdname ctrl_mhe
 #' @export
-ctrl_mhe_run <- function(mhe, y, u = NULL) {
+ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
   if (!inherits(mhe, "ctrl_mhe")) ctrl_abort("`mhe` must be a `ctrl_mhe` object.")
   s <- mhe$plant
   n <- nrow(s$A)
@@ -96,6 +100,9 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
   status <- character(Tn)
   obj <- numeric(Tn)
   stime <- numeric(Tn)
+  iters <- integer(Tn)
+  zprev <- NULL
+  st_prev <- 0L
   # prior (mean, covariance) at each sample: Kalman prediction recursion
   prior_x <- matrix(0, Tn, n)
   prior_P <- array(0, c(n, n, Tn))
@@ -194,6 +201,24 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
     model <- osqp::osqp(P = methods::as(Matrix::triu(H), "CsparseMatrix"),
                         q = qv, A = methods::as(A, "CsparseMatrix"), l = lo,
                         u = hi, pars = do.call(osqp::osqpSettings, mhe$settings))
+    lay <- c(dyn = L - 1L, nul = ncol(Nul),
+             xb = if (any(is.finite(c(mhe$x_min, mhe$x_max)))) L else 0L,
+             wb = if (L > 1L && any(is.finite(c(mhe$w_min, mhe$w_max)))) L - 1L else 0L,
+             free = as.integer(r == 1L && L == 1L && !ncol(Nul) &&
+                                 !any(is.finite(c(mhe$x_min, mhe$x_max)))))
+    if (isTRUE(warm_start) && !is.null(zprev)) {
+      sh <- st - st_prev
+      yw <- c(shift_blocks(yprev, n, lay_prev[["dyn"]], lay[["dyn"]], sh),
+              rep(0, lay[["nul"]]),
+              shift_blocks(yprev[-seq_len(n * lay_prev[["dyn"]] + lay_prev[["nul"]])],
+                           n, lay_prev[["xb"]], lay[["xb"]], sh),
+              shift_blocks(yprev[-seq_len(n * (lay_prev[["dyn"]] + lay_prev[["xb"]]) +
+                                            lay_prev[["nul"]])],
+                           q, lay_prev[["wb"]], lay[["wb"]], sh),
+              rep(0, lay[["free"]]))
+      model@WarmStart(x = mhe_shift(zprev, sh, L, n, q, s, U[Tk - 1L, ]),
+                      y = if (length(yw) == r) yw else NULL)
+    }
     res <- osqp_solve(model)
     status[Tk] <- res$info$status
     if (!identical(res$info$status, "solved")) {
@@ -203,8 +228,36 @@ ctrl_mhe_run <- function(mhe, y, u = NULL) {
     est[Tk, ] <- res$x[xi(L)]
     obj[Tk] <- res$info$obj_val + const
     stime[Tk] <- res$info$solve_time
+    iters[Tk] <- as.integer(res$info$iter %||% NA_integer_)
+    zprev <- res$x
+    yprev <- res$y
+    lay_prev <- lay
+    st_prev <- st
   }
   structure(list(estimates = est, status = status, objective = obj,
-                 solve_time = stime),
+                 iterations = iters, solve_time = stime),
             class = "ctrl_mhe_result")
+}
+
+# Warm start for the next window from the previous solution z (states
+# x_1..x_Lp, then disturbances w_1..w_{Lp-1}). The window start moved by
+# `shift` (0 while the window grows, 1 once it is full); the new last state
+# is the model prediction and the new last disturbance is zero.
+mhe_shift <- function(z, shift, L, n, q, s, u_last) {
+  Lp <- L - 1L + shift
+  X <- matrix(z[seq_len(Lp * n)], n)
+  W <- if (Lp > 1L) matrix(z[Lp * n + seq_len((Lp - 1L) * q)], q) else matrix(0, q, 0)
+  xn <- drop(s$A %*% X[, Lp] + s$B %*% u_last)
+  X <- cbind(X, xn)[, shift + seq_len(L), drop = FALSE]
+  W <- cbind(W, rep(0, q))[, shift + seq_len(L - 1L), drop = FALSE]
+  c(as.vector(X), as.vector(W))
+}
+
+# Blocks of `size` entries: drop the first `shift`, keep `new` blocks,
+# padding with zeros.
+shift_blocks <- function(v, size, prev, new, shift) {
+  if (!new) return(numeric())
+  b <- if (prev) v[seq_len(prev * size)] else numeric()
+  b <- c(b[-seq_len(min(shift, prev) * size)], rep(0, new * size))
+  b[seq_len(new * size)]
 }

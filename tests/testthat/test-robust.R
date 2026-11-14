@@ -108,3 +108,20 @@ test_that("hinfsyn validates the tolerance", {
   P <- ctrl_ss(-1, cbind(1, 1), rbind(1, 1), rbind(c(0, 1), c(1, 0)))
   expect_error(ctrl_hinfsyn(P, 1, 1, tol = -1), "tol")
 })
+
+test_that("robust performance matches the SISO condition", {
+  G <- ctrl_tf(1, c(1, 1))
+  K <- ctrl_tf(c(2, 1), c(1, 0))
+  Wp <- ctrl_tf(c(0.5, 0.5), c(1, 0.01))
+  Wu <- ctrl_tf(c(1, 0.2), c(0.1, 1))
+  rp <- ctrl_robust_performance(G, K, Wp, Wu)
+  w <- 10^seq(-4, 4, length.out = 200001)
+  s <- 1i * w
+  Gw <- 1 / (s + 1); Kw <- (2 * s + 1) / s
+  S <- 1 / (1 + Gw * Kw); T <- 1 - S
+  ref <- max(Mod((0.5 * s + 0.5) / (s + 0.01)) * Mod(S) + Mod((s + 0.2) / (0.1 * s + 1)) * Mod(T))
+  expect_equal(rp$peak, ref, tolerance = 1e-6)
+  expect_true(rp$exact)
+  expect_equal(rp$robust_performance, ref < 1)
+  expect_error(ctrl_robust_performance(G, K, ctrl_tf2ss(ctrl_append(Wp, Wp)), Wu), "scalar")
+})

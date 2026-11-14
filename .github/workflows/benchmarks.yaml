@@ -1,0 +1,31 @@
+# Timing and memory benchmarks. Runs on pushes to main that change the
+# benchmark script, and on demand; results are printed in the job log.
+on:
+  push:
+    branches: [main]
+    paths: ["benchmarks/performance.R", ".github/workflows/benchmarks.yaml"]
+  workflow_dispatch:
+
+name: benchmarks
+
+permissions: read-all
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05
+        with:
+          extra-packages: local::.
+          needs: check
+
+      - name: Run benchmarks
+        run: Rscript benchmarks/performance.R

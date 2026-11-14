@@ -51,6 +51,15 @@ digital controller and DAC); a discrete plant must have the controller's
 sample interval. The measured output is the first plant output unless
 \code{output} is given.
 }
+\details{
+With direct feedthrough \eqn{D_p} from the plant input to the measured
+output, the measurement depends on the input of the same sample. The
+unsaturated controller output is affine in the measurement,
+\eqn{v = \alpha - \beta y}, so the loop
+\eqn{u = \mathrm{sat}(\alpha - \beta (y_0 + D_p u))} is solved exactly;
+it has a unique solution when \eqn{1 + \beta D_p > 0} and an error is
+raised otherwise.
+}
 \examples{
 plant <- ctrl_tf(1, c(1, 1, 0))
 pid <- ctrl_pid(kp = 2, ki = 0.5, kd = 1, derivative_filter = 10,

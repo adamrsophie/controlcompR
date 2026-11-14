@@ -20,7 +20,7 @@ ctrl_mhe(
   solver_settings = list()
 )
 
-ctrl_mhe_run(mhe, y, u = NULL)
+ctrl_mhe_run(mhe, y, u = NULL, warm_start = TRUE)
 }
 \arguments{
 \item{sys}{Discrete time \code{ctrl_ss} model.}
@@ -45,13 +45,18 @@ definite).}
 \item{y}{Measurements (\verb{T x p}, \code{NA} rows are missing samples).}
 
 \item{u}{Inputs (\verb{T x m}) or \code{NULL}.}
+
+\item{warm_start}{Start each window's QP from the previous window's
+solution, shifted by one sample (the new last state is the model
+prediction and the new last disturbance is zero). This changes only
+the number of OSQP iterations, not the solution.}
 }
 \value{
 An object of class \code{ctrl_mhe}; run it with \code{ctrl_mhe_run()}.
 
 A list of class \code{ctrl_mhe_result} with \code{estimates} (\verb{T x n},
 row \code{k} is \eqn{\hat x_{k|k}}), \code{status} (OSQP status per sample),
-\code{objective} and \code{solve_time}.
+\code{objective}, \code{iterations} and \code{solve_time}.
 }
 \description{
 Estimate the state of

@@ -152,6 +152,7 @@ reference:
   - ctrl_hinfsyn
   - ctrl_augw
   - ctrl_robust_stability
+  - ctrl_robust_performance
 - title: Model reduction
   contents:
   - ctrl_hsvd
@@ -175,3 +176,4 @@ reference:
   - ctrl_equilibrium
   - ctrl_ekf
   - ctrl_nmpc
+  - ctrl_nl_trajopt

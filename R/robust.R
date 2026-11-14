@@ -500,7 +500,7 @@ ctrl_augw <- function(G, W1 = NULL, W2 = NULL, W3 = NULL) {
 #' `margin` is the largest scaling of the uncertainty that is tolerated.
 #' The result says nothing about structured or real parametric
 #' uncertainty, for which it can be conservative, and nothing about robust
-#' *performance*.
+#' *performance* (see [ctrl_robust_performance()]).
 #'
 #' @param G Nominal plant.
 #' @param K Controller (negative feedback).
@@ -536,6 +536,101 @@ ctrl_robust_stability <- function(G, K, W, type = c("multiplicative_output",
   peak <- if (nominal) as.numeric(ctrl_norm(M, "inf")) else Inf
   list(robustly_stable = nominal && peak < 1, nominally_stable = nominal,
        peak = peak, margin = 1 / peak, type = type)
+}
+
+#' Robust performance under multiplicative output uncertainty
+#'
+#' Test whether the performance specification
+#' \eqn{\|W_p S_p\|_\infty < 1} holds for every perturbed plant
+#' \eqn{G_p = (I + W_u \Delta) G} with \eqn{\|\Delta\|_\infty \le 1}, where
+#' \eqn{S_p = (I + G_p K)^{-1}}. Since
+#' \eqn{S_p = S (I + W_u \Delta T)^{-1}}, the condition
+#' \deqn{\sup_\omega \left(|W_p(j\omega)|\, \bar\sigma(S(j\omega)) +
+#' |W_u(j\omega)|\, \bar\sigma(T(j\omega))\right) < 1}
+#' together with nominal internal stability is sufficient. For SISO loops
+#' it is also necessary (the classical robust performance condition). For
+#' MIMO loops with the scalar weights used here it can be conservative; it
+#' is not a structured singular value computation.
+#'
+#' The supremum is evaluated on a dense frequency grid refined by a local
+#' one-dimensional search around the largest grid value, so the reported
+#' peak is a lower bound on the true supremum that is accurate to the
+#' search tolerance; it is not a certified bound like [ctrl_norm()].
+#'
+#' @param G Nominal plant.
+#' @param K Controller (negative feedback).
+#' @param Wp Scalar performance weight (SISO system or number).
+#' @param Wu Scalar uncertainty weight (SISO system or number).
+#' @param n Number of grid frequencies.
+#' @return A list with `robust_performance`, `nominally_stable`,
+#'   `robust_stability` (\eqn{\sup |W_u| \bar\sigma(T) < 1}),
+#'   `nominal_performance` (\eqn{\sup |W_p| \bar\sigma(S) < 1}), `peak`,
+#'   `frequency` (where the peak occurs), `exact` (`TRUE` for SISO loops)
+#'   and `curve` (a data frame with `frequency` and `value`).
+#' @examples
+#' G <- ctrl_tf(1, c(1, 1))
+#' K <- ctrl_tf(c(2, 1), c(1, 0))
+#' Wp <- ctrl_tf(c(0.5, 0.5), c(1, 0.01))
+#' Wu <- ctrl_tf(c(1, 0.2), c(0.1, 1))
+#' rp <- ctrl_robust_performance(G, K, Wp, Wu)
+#' rp$peak
+#' @export
+ctrl_robust_performance <- function(G, K, Wp, Wu, n = 2000L) {
+  G <- as_ss(as_system(G))
+  K <- as_ss(as_system(K))
+  ny <- nrow(G$C)
+  as_weight <- function(W, name) {
+    W <- if (is_ctrl_system(W)) as_system(W) else ctrl_gain(as.numeric(W))
+    s <- as_ss(W)
+    if (nrow(s$C) != 1L || ncol(s$B) != 1L) {
+      ctrl_abort("`", name, "` must be a scalar (SISO) weight.")
+    }
+    s
+  }
+  Wp <- as_weight(Wp, "Wp")
+  Wu <- as_weight(Wu, "Wu")
+  nominal <- loop_internally_stable(G, K)
+  L <- ctrl_series(K, G)
+  S <- ctrl_feedback(ctrl_gain(diag(ny), dt = L$dt), L)
+  dt <- S$dt
+  sv <- function(sys, w) {
+    z <- if (dt > 0) exp(1i * w * dt) else 1i * w
+    R <- eval_system(sys, z)
+    vapply(seq_along(w), function(k) max(svd(as.matrix(R[, , k]), 0, 0)$d), 0)
+  }
+  f <- function(w) {
+    sS <- sv(S, w)
+    # T = I - S for output sensitivity
+    T <- ctrl_parallel(ctrl_gain(diag(ny), dt = dt), -S)
+    list(p = Mod(eval_system(Wp, if (dt > 0) exp(1i * w * dt) else 1i * w)[1, 1, ]) * sS,
+         u = Mod(eval_system(Wu, if (dt > 0) exp(1i * w * dt) else 1i * w)[1, 1, ]) * sv(T, w))
+  }
+  w <- ctrl_freq_grid(ctrl_append(S, Wp, Wu), n = n)
+  w <- sort(unique(c(if (dt == 0) 0, w)))
+  v <- f(w)
+  tot <- v$p + v$u
+  i <- which.max(tot)
+  peak <- tot[i]
+  wpk <- w[i]
+  lo <- w[max(1L, i - 1L)]
+  hi <- w[min(length(w), i + 1L)]
+  if (hi > lo) {
+    g <- function(x) {
+      r <- f(x)
+      r$p + r$u
+    }
+    o <- stats::optimize(g, c(lo, hi), maximum = TRUE, tol = 1e-10 * max(1, hi))
+    if (o$objective > peak) {
+      peak <- o$objective
+      wpk <- o$maximum
+    }
+  }
+  if (!nominal) peak <- Inf
+  list(robust_performance = nominal && peak < 1, nominally_stable = nominal,
+       robust_stability = nominal && max(v$u) < 1,
+       nominal_performance = nominal && max(v$p) < 1, peak = peak,
+       frequency = wpk, exact = ny == 1L && ncol(G$B) == 1L,
+       curve = data.frame(frequency = w, value = tot))
 }
 
 # Internal stability of the negative feedback loop u = -K y, from the joint

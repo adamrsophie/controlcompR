@@ -55,3 +55,21 @@ test_that("MHE handles singular arrival covariance and reports the full objectiv
   r1 <- ctrl_mhe_run(mhe1, 2)
   expect_equal(r1$objective[1], 2, tolerance = 1e-4)
 })
+
+test_that("MHE warm starts give the same estimates with fewer iterations", {
+  set.seed(2)
+  sys <- ctrl_ss(matrix(c(1, 0.1, 0, 0.95), 2, byrow = TRUE), c(0, 0.1), c(1, 0), dt = 1)
+  x <- c(0, 0)
+  y <- numeric(60)
+  u <- sin(1:60 / 5)
+  for (k in 1:60) {
+    y[k] <- x[1] + rnorm(1, sd = 0.1)
+    x <- drop(sys$A %*% x + sys$B * u[k]) + rnorm(2, sd = 0.01)
+  }
+  mhe <- ctrl_mhe(sys, 8, Qn = 1e-4, Rn = 0.01, x_min = c(-5, -5), x_max = c(5, 5),
+                  solver_settings = list(check_termination = 1L))
+  cold <- ctrl_mhe_run(mhe, y, u, warm_start = FALSE)
+  warm <- ctrl_mhe_run(mhe, y, u, warm_start = TRUE)
+  expect_equal(warm$estimates, cold$estimates, tolerance = 1e-6)
+  expect_lt(sum(warm$iterations[-(1:8)]), sum(cold$iterations[-(1:8)]))
+})

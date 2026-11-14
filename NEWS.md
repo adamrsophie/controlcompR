@@ -22,14 +22,16 @@
     rules.
   * Linear MPC with OSQP: input, rate, state, output and terminal
     constraints, soft constraints, offset-free tracking and explicit
-    failure handling; moving horizon estimation.
+    failure handling; moving horizon estimation with warm starts.
   * Robust control: H2 synthesis and experimental, certified H-infinity
     synthesis for continuous time with `D11 = 0`; mixed-sensitivity
-    plants; robust stability tests for unstructured uncertainty.
+    plants; robust stability and robust performance tests for unstructured
+    uncertainty.
   * Model reduction by balanced truncation and residualization.
   * System identification: ARX, order selection, subspace identification,
     validation tools and conversion of `sysid` models.
   * Nonlinear systems: simulation, linearization, equilibria,
-    discretization, EKF, UKF and experimental nonlinear MPC.
+    discretization, EKF, UKF, experimental nonlinear MPC with adjoint
+    gradients and trajectory optimization with terminal constraints.
   * Fifteen articles and a reference comparison against python-control
     and SLICOT.

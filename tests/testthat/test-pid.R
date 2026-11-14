@@ -87,7 +87,30 @@ test_that("manual to automatic transfer is bumpless for every integral method", 
   }
 })
 
-test_that("PID simulation refuses plants with feedthrough", {
-  expect_error(ctrl_simulate_pid(ctrl_gain(1, dt = 1), ctrl_pid(kp = 1, dt = 1), steps = 3),
-               "feedthrough")
+test_that("PID simulation solves the feedthrough loop", {
+  sim <- ctrl_simulate_pid(ctrl_gain(1, dt = 1), ctrl_pid(kp = 1, dt = 1), steps = 3)
+  expect_equal(sim$u, rep(0.5, 3))
+  expect_equal(sim$y, rep(0.5, 3))
+  sim <- ctrl_simulate_pid(ctrl_gain(1, dt = 1), ctrl_pid(kp = 0, ki = 0, dt = 1),
+                           steps = 3, disturbance = 1)
+  expect_equal(sim$y, rep(1, 3))
+  pid <- ctrl_pid(kp = 10, dt = 1, u_max = 0.2)
+  sim <- ctrl_simulate_pid(ctrl_gain(1, dt = 1), pid, steps = 2)
+  expect_equal(sim$u, rep(0.2, 2))
+  # each sample satisfies the controller law at the measured output
+  plant <- ctrl_ss(0.5, 1, 1, D = 0.3, dt = 0.1)
+  pid <- ctrl_pid(kp = 2, ki = 1, kd = 0.1, derivative_filter = 20, dt = 0.1,
+                  integral_method = "tustin")
+  sim <- ctrl_simulate_pid(plant, pid, steps = 20)
+  x <- 0
+  st <- NULL
+  for (k in 1:20) {
+    o <- ctrl_pid_update(pid, st, 1, sim$y[k])
+    expect_equal(o$u, sim$u[k], tolerance = 1e-12)
+    expect_equal(sim$y[k], x + 0.3 * sim$u[k], tolerance = 1e-12)
+    st <- o$state
+    x <- 0.5 * x + sim$u[k]
+  }
+  expect_error(ctrl_simulate_pid(ctrl_gain(-1, dt = 1), ctrl_pid(kp = 1, dt = 1), steps = 2),
+               "well posed")
 })

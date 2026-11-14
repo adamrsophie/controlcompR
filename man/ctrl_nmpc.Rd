@@ -51,7 +51,9 @@ ctrl_simulate_nmpc(
 
 \item{x}{Current state.}
 
-\item{x_ref, u_ref}{State and input references.}
+\item{x_ref, u_ref}{State and input references: vectors (constant) or
+matrices whose row \code{i} is the reference at sample \code{i - 1} (the last row
+is repeated beyond the end), or functions of the 1-based sample index.}
 
 \item{u_init}{Initial guess (\verb{N x m} matrix).}
 
@@ -75,15 +77,16 @@ sample the input sequence minimizing
 \|x_N - x^r\|_P^2 + \rho \sum_k \|\max(0, x_k - x_{\max},
 x_{\min} - x_k)\|^2}
 over the box \eqn{u_{\min} \le u_k \le u_{\max}} is computed with the
-bounded quasi-Newton method L-BFGS-B (\code{stats::optim}, finite-difference
-gradients). Input bounds are hard; state bounds are enforced only
+bounded quasi-Newton method L-BFGS-B (\code{stats::optim}). The gradient is
+computed by a backward (adjoint) pass through the prediction, with the
+stage Jacobians of the model approximated by central differences, so it
+costs \eqn{O(N (n + m))} model evaluations. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \eqn{\rho} and can be violated.
 }
 \details{
 \strong{Limitations.} The problem is nonconvex: the solver returns a local
 minimum that depends on the initial guess (the shifted previous
-solution is used), finite-difference gradients make each solve cost
-\eqn{O(N m)} model simulations per iteration, and no stability or
+solution is used), and no stability or
 recursive feasibility guarantee is provided. Each step reports the
 optimizer convergence code; nonzero codes are treated as failures.
 }

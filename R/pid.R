@@ -251,6 +251,23 @@ ctrl_pid_update <- function(pid, state = NULL, r, y, manual = NULL) {
                     manual_prev = FALSE))
 }
 
+# Solve u = sat(alpha - beta * (y0 + Dp * u)) for one sample. The PID
+# update is affine in the measurement before saturation, so alpha and beta
+# come from two evaluations.
+pid_loop_solve <- function(pid, st, r, y0, Dp) {
+  v0 <- ctrl_pid_update(pid, st, r, y0)$u_unsat
+  v1 <- ctrl_pid_update(pid, st, r, y0 + 1)$u_unsat
+  beta <- v0 - v1
+  kk <- beta * Dp
+  if (!(1 + kk > 1e-12)) {
+    ctrl_abort("The PID loop through the plant feedthrough is not well posed ",
+               "(1 + beta Dp = ", signif(1 + kk, 4), ").")
+  }
+  # unsaturated solution of u = v0 - kk u, else the active bound
+  u <- v0 / (1 + kk)
+  min(max(u, pid$u_min), pid$u_max)
+}
+
 #' Closed-loop simulation with a discrete PID controller
 #'
 #' Simulate a plant under the discrete PID implementation, including
@@ -260,6 +277,14 @@ ctrl_pid_update <- function(pid, state = NULL, r, y, manual = NULL) {
 #' digital controller and DAC); a discrete plant must have the controller's
 #' sample interval. The measured output is the first plant output unless
 #' `output` is given.
+#'
+#' With direct feedthrough \eqn{D_p} from the plant input to the measured
+#' output, the measurement depends on the input of the same sample. The
+#' unsaturated controller output is affine in the measurement,
+#' \eqn{v = \alpha - \beta y}, so the loop
+#' \eqn{u = \mathrm{sat}(\alpha - \beta (y_0 + D_p u))} is solved exactly;
+#' it has a unique solution when \eqn{1 + \beta D_p > 0} and an error is
+#' raised otherwise.
 #'
 #' @param plant SISO plant (or a plant whose input `input` is driven).
 #' @param pid A `ctrl_pid` object with positive `dt`.
@@ -295,11 +320,7 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
   if (abs(sd$dt - dt) > 1e-12 * dt) {
     ctrl_abort("The discrete plant and controller sample intervals differ.")
   }
-  if (sd$D[output, 1] != 0) {
-    ctrl_abort("The plant has direct feedthrough to the measured output; the ",
-               "sampled loop with a saturating PID is then an algebraic loop. ",
-               "Add a measurement delay or use a strictly proper plant.")
-  }
+  Dp <- sd$D[output, 1]
   n <- nrow(sd$A)
   times <- (0:(steps - 1L)) * dt
   sig <- function(v, name) {
@@ -319,10 +340,15 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
                     stringsAsFactors = FALSE)
   st <- NULL
   for (k in seq_len(steps)) {
-    ytrue <- drop(sd$C[output, , drop = FALSE] %*% x)
+    mk <- if (is.na(man[k])) NULL else man[k]
+    # y = C x + Dp (u + d): with feedthrough, u and y are solved together
+    y0 <- drop(sd$C[output, , drop = FALSE] %*% x) + Dp * d[k]
+    u_k <- if (Dp == 0) 0 else if (!is.null(mk)) {
+      min(max(mk, pid$u_min), pid$u_max)
+    } else pid_loop_solve(pid, st, r[k], y0 + nz[k], Dp)
+    ytrue <- y0 + Dp * u_k
     ym <- ytrue + nz[k]
-    step <- ctrl_pid_update(pid, st, r[k], ym,
-                            manual = if (is.na(man[k])) NULL else man[k])
+    step <- ctrl_pid_update(pid, st, r[k], ym, manual = mk)
     st <- step$state
     u <- step$u
     out$y[k] <- ym

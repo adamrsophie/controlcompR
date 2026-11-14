@@ -83,6 +83,18 @@ plot(sim)
 ctrl_performance(sim$time, sim$y, sim$r, u = sim$u, u_min = -1.5, u_max = 1.5)
 ```
 
+A plant with direct feedthrough makes the measurement depend on the
+input of the same sample. The controller output before saturation is
+affine in the measurement, so the simulator solves this algebraic loop
+exactly (with saturation) instead of inserting a hidden delay:
+
+```{r}
+lead <- ctrl_c2d(ctrl_tf(c(0.5, 1), c(1, 1)), pid$dt)   # D = 0.5
+sim_ft <- ctrl_simulate_pid(lead, ctrl_pid(kp = 1, ki = 2, dt = pid$dt),
+                            reference = 1, steps = 5)
+sim_ft[, c("time", "y", "u")]
+```
+
 ## Anti-windup
 
 When the actuator saturates, an unprotected integrator keeps growing and
