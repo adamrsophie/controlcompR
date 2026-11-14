@@ -13,7 +13,7 @@ This is the first submission of controlcompR.
   installed (`_R_CHECK_FORCE_SUGGESTS_=false`).
 * R-hub v2 (R devel): linux, windows, macos-arm64, valgrind, clang-asan,
   clang-ubsan and atlas.
-* win-builder: R devel (1 note, as below).
+* win-builder: R devel and R release 4.6.2 (1 note each, as below).
 
 ## R CMD check results
 
