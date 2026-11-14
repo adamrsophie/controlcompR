@@ -30,10 +30,12 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
         with:
-          extra-packages: any::rcmdcheck, any::spelling, any::urlchecker
+          extra-packages: any::rcmdcheck, any::spelling, any::urlchecker, any::V8
           needs: check
       - name: Install LaTeX packages for the manual
-        run: tlmgr install inconsolata epstopdf-pkg && tlmgr path add
+        run: |
+          tlmgr install inconsolata epstopdf-pkg courier psnfss makeindex && tlmgr path add
+          sudo apt-get update && sudo apt-get install -y aspell aspell-en tidy
       - name: Spelling
         run: |
           s <- spelling::spell_check_package()
@@ -48,8 +50,10 @@ jobs:
           res <- rcmdcheck::rcmdcheck(args = "--as-cran", build_args = character(),
                                       error_on = "warning", check_dir = "check")
           notes <- res$notes
-          known <- grepl("New submission|Possibly misspelled words in DESCRIPTION", notes) &
-            !grepl("checking CRAN incoming feasibility.*(Found the following|Version contains|URL)", notes)
+          # The incoming note always reports a new submission; it may also list
+          # technical words in DESCRIPTION. Anything else is unexpected.
+          known <- grepl("New submission", notes, fixed = TRUE) &
+            !grepl("Found the following|Version contains|URL|Size of tarball", notes)
           if (any(!known)) {
             cat(notes[!known], sep = "\n")
             stop("Unexpected NOTE.")
@@ -60,3 +64,26 @@ jobs:
         with:
           name: incoming-check
           path: check
+
+  nosuggests:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      _R_CHECK_FORCE_SUGGESTS_: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          dependencies: '"hard"'
+          extra-packages: any::rcmdcheck, any::knitr, any::rmarkdown, any::testthat
+          needs: check
+      - name: Check without optional packages
+        run: |
+          stopifnot(!requireNamespace("sysid", quietly = TRUE))
+          rcmdcheck::rcmdcheck(args = c("--no-manual", "--as-cran"),
+                               error_on = "warning", check_dir = "check")
+        shell: Rscript {0}
