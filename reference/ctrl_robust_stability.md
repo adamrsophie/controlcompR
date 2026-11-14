@@ -58,7 +58,8 @@ number of unstable poles as `G` for the additive and multiplicative
 forms). The `margin` is the largest scaling of the uncertainty that is
 tolerated. The result says nothing about structured or real parametric
 uncertainty, for which it can be conservative, and nothing about robust
-*performance*.
+*performance* (see
+[`ctrl_robust_performance()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_robust_performance.md)).
 
 ## Examples
 

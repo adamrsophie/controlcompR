@@ -113,7 +113,7 @@ process noise. The estimate is \(\hat x_{T|T} = x_T\).</p>
 <span>  solver_settings <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">ctrl_mhe_run</span><span class="op">(</span><span class="va">mhe</span>, <span class="va">y</span>, u <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">ctrl_mhe_run</span><span class="op">(</span><span class="va">mhe</span>, <span class="va">y</span>, u <span class="op">=</span> <span class="cn">NULL</span>, warm_start <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -164,13 +164,20 @@ definite).</p></dd>
 <dt id="arg-u">u<a class="anchor" aria-label="anchor" href="#arg-u"></a></dt>
 <dd><p>Inputs (<code>T x m</code>) or <code>NULL</code>.</p></dd>
 
+
+<dt id="arg-warm-start">warm_start<a class="anchor" aria-label="anchor" href="#arg-warm-start"></a></dt>
+<dd><p>Start each window's QP from the previous window's
+solution, shifted by one sample (the new last state is the model
+prediction and the new last disturbance is zero). This changes only
+the number of OSQP iterations, not the solution.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>ctrl_mhe</code>; run it with <code>ctrl_mhe_run()</code>.</p>
 <p>A list of class <code>ctrl_mhe_result</code> with <code>estimates</code> (<code>T x n</code>,
 row <code>k</code> is \(\hat x_{k|k}\)), <code>status</code> (OSQP status per sample),
-<code>objective</code> and <code>solve_time</code>.</p>
+<code>objective</code>, <code>iterations</code> and <code>solve_time</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

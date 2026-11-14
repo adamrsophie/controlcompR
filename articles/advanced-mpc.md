@@ -47,7 +47,7 @@ sim_s <- ctrl_simulate_mpc(soft, c(0, 1), steps = 60)
 summary(sim_s)
 #> MPC simulation: 60 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 60
-#>   solve time: mean 4.56e-05 s, max 6.2e-05 s; mean iterations 74.17
+#>   solve time: mean 3.49e-05 s, max 4.96e-05 s; mean iterations 74.17
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0.94
 #>   max slack: 0.94
@@ -131,6 +131,19 @@ c(kalman_rmse = sqrt(mean((kf$filtered[, 1] - xs)^2)),
 #>  0.05471087  0.03395546
 ```
 
+Each window’s QP starts from the previous solution shifted by one
+sample, primal and dual (`warm_start = TRUE`, the default). The
+estimates do not change; only the solver work does:
+
+``` r
+
+cold <- ctrl_mhe_run(mhe, y, warm_start = FALSE)
+c(max_difference = max(abs(cold$estimates - est$estimates)),
+  iterations_cold = sum(cold$iterations), iterations_warm = sum(est$iterations))
+#>  max_difference iterations_cold iterations_warm 
+#>               0            6750            6250
+```
+
 ``` r
 
 df <- data.frame(k = rep(1:Tn, 3),
@@ -141,4 +154,4 @@ ggplot2::ggplot(df, ggplot2::aes(k, value, color = series)) +
   ggplot2::theme_bw()
 ```
 
-![](advanced-mpc_files/figure-html/unnamed-chunk-6-1.png)
+![](advanced-mpc_files/figure-html/unnamed-chunk-7-1.png)

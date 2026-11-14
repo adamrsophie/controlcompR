@@ -51,6 +51,39 @@ for (k in c(2, 5, 20)) {
 The returned `margin = 1 / peak` is the largest scaling of the
 uncertainty that the loop tolerates.
 
+## Robust performance
+
+Robust stability says nothing about how well the perturbed loops
+perform. With a performance weight W_p on the sensitivity, the
+requirement \\W_p S_p\\\_\infty \< 1 for every plant (I + W_u\Delta)G
+holds when \sup\_\omega \\ \|W_p\|\\\bar\sigma(S) +
+\|W_u\|\\\bar\sigma(T) \< 1 , which is exact for SISO loops and
+sufficient (possibly conservative) for MIMO loops with scalar weights. A
+PI controller with integral action is needed for the performance weight
+below, which demands small sensitivity at low frequency:
+
+``` r
+
+Wp <- ctrl_tf(c(0.5, 0.5), c(1, 0.01))   # |S| below 2 % at low frequency
+Wu <- ctrl_tf(c(0.5, 0.1), c(0.25, 1))  # 10 % at DC, 200 % at high frequency
+for (kp in c(0.5, 1, 8)) {
+  K <- ctrl_tf(c(kp, 1), c(1, 0))
+  rp <- ctrl_robust_performance(G, K, Wp, Wu)
+  cat("kp =", kp, ": peak", signif(rp$peak, 3),
+      " robust performance:", rp$robust_performance,
+      " robust stability:", rp$robust_stability, "\n")
+}
+#> kp = 0.5 : peak 1.04  robust performance: FALSE  robust stability: TRUE 
+#> kp = 1 : peak 0.902  robust performance: TRUE  robust stability: TRUE 
+#> kp = 8 : peak 1.54  robust performance: FALSE  robust stability: FALSE
+```
+
+The `curve` element holds the frequency-wise test value for plotting.
+The peak is found on a dense grid with local refinement; it is not a
+certified bound like the H-infinity norm. A gain that is too low misses
+the performance target, a gain that is too high loses robust stability
+itself, and the middle gain meets both.
+
 ## Generalized plants
 
 Optimal synthesis works with a generalized plant `P` with exogenous
@@ -177,7 +210,7 @@ ggplot2::ggplot(df, ggplot2::aes(w, magnitude, color = curve)) +
   ggplot2::theme_bw()
 ```
 
-![](robust-control_files/figure-html/unnamed-chunk-7-1.png)
+![](robust-control_files/figure-html/unnamed-chunk-8-1.png)
 
 The sensitivity stays below \gamma / \|W_1\| at all frequencies, as the
 norm bound guarantees. Plant poles on the imaginary axis (integrators)

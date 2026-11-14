@@ -27,7 +27,7 @@ ctrl_mhe(
   solver_settings = list()
 )
 
-ctrl_mhe_run(mhe, y, u = NULL)
+ctrl_mhe_run(mhe, y, u = NULL, warm_start = TRUE)
 ```
 
 ## Arguments
@@ -76,13 +76,20 @@ ctrl_mhe_run(mhe, y, u = NULL)
 
   Inputs (`T x m`) or `NULL`.
 
+- warm_start:
+
+  Start each window's QP from the previous window's solution, shifted by
+  one sample (the new last state is the model prediction and the new
+  last disturbance is zero). This changes only the number of OSQP
+  iterations, not the solution.
+
 ## Value
 
 An object of class `ctrl_mhe`; run it with `ctrl_mhe_run()`.
 
 A list of class `ctrl_mhe_result` with `estimates` (`T x n`, row `k` is
-\\\hat x\_{k\|k}\\), `status` (OSQP status per sample), `objective` and
-`solve_time`.
+\\\hat x\_{k\|k}\\), `status` (OSQP status per sample), `objective`,
+`iterations` and `solve_time`.
 
 ## Details
 

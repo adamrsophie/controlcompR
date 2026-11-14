@@ -116,6 +116,25 @@ ctrl_performance(sim$time, sim$y, sim$r, u = sim$u, u_min = -1.5, u_max = 1.5)
 #> 1 1.96389 1.001498 4.29645 0.29033       2.388996       1.5             0
 ```
 
+A plant with direct feedthrough makes the measurement depend on the
+input of the same sample. The controller output before saturation is
+affine in the measurement, so the simulator solves this algebraic loop
+exactly (with saturation) instead of inserting a hidden delay:
+
+``` r
+
+lead <- ctrl_c2d(ctrl_tf(c(0.5, 1), c(1, 1)), pid$dt)   # D = 0.5
+sim_ft <- ctrl_simulate_pid(lead, ctrl_pid(kp = 1, ki = 2, dt = pid$dt),
+                            reference = 1, steps = 5)
+sim_ft[, c("time", "y", "u")]
+#>   time         y         u
+#> 1 0.00 0.3333333 0.6666667
+#> 2 0.02 0.3466225 0.6800441
+#> 3 0.04 0.3597357 0.6930661
+#> 4 0.06 0.3726728 0.7057395
+#> 5 0.08 0.3854339 0.7180715
+```
+
 ## Anti-windup
 
 When the actuator saturates, an unprotected integrator keeps growing and
@@ -140,14 +159,14 @@ sapply(runs, function(s) c(overshoot = max(s$y) - 0.35, max_integrator = max(s$I
 plot(runs$none)
 ```
 
-![](pid_files/figure-html/unnamed-chunk-6-1.png)
+![](pid_files/figure-html/unnamed-chunk-7-1.png)
 
 ``` r
 
 plot(runs$backcalc)
 ```
 
-![](pid_files/figure-html/unnamed-chunk-6-2.png)
+![](pid_files/figure-html/unnamed-chunk-7-2.png)
 
 ## Bumpless transfer
 
@@ -210,4 +229,4 @@ saturation and noise before using a tuned controller.
 plot(ctrl_rlocus(ctrl_tf(1, c(1, 3, 2, 0))))
 ```
 
-![](pid_files/figure-html/unnamed-chunk-9-1.png)
+![](pid_files/figure-html/unnamed-chunk-10-1.png)

@@ -229,6 +229,8 @@
   : Mixed-sensitivity generalized plant
 - [`ctrl_robust_stability()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_robust_stability.md)
   : Robust stability under unstructured uncertainty
+- [`ctrl_robust_performance()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_robust_performance.md)
+  : Robust performance under multiplicative output uncertainty
 
 ## Model reduction
 
@@ -285,3 +287,5 @@
   [`ctrl_nmpc_step()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nmpc.md)
   [`ctrl_simulate_nmpc()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nmpc.md)
   : Nonlinear model predictive control (experimental)
+- [`ctrl_nl_trajopt()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_trajopt.md)
+  : Nonlinear trajectory optimization

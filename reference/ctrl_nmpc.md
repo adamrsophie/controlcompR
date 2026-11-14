@@ -6,9 +6,12 @@ x^r\\\_Q^2 + \\u_k - u^r\\\_R^2 + \\x_N - x^r\\\_P^2 + \rho \sum_k
 \\\max(0, x_k - x\_{\max}, x\_{\min} - x_k)\\^2\$\$ over the box
 \\u\_{\min} \le u_k \le u\_{\max}\\ is computed with the bounded
 quasi-Newton method L-BFGS-B
-([`stats::optim`](https://rdrr.io/r/stats/optim.html), finite-difference
-gradients). Input bounds are hard; state bounds are enforced only
-through the quadratic penalty \\\rho\\ and can be violated.
+([`stats::optim`](https://rdrr.io/r/stats/optim.html)). The gradient is
+computed by a backward (adjoint) pass through the prediction, with the
+stage Jacobians of the model approximated by central differences, so it
+costs \\O(N (n + m))\\ model evaluations. Input bounds are hard; state
+bounds are enforced only through the quadratic penalty \\\rho\\ and can
+be violated.
 
 ## Usage
 
@@ -80,7 +83,9 @@ ctrl_simulate_nmpc(
 
 - x_ref, u_ref:
 
-  State and input references.
+  State and input references: vectors (constant) or matrices whose row
+  `i` is the reference at sample `i - 1` (the last row is repeated
+  beyond the end), or functions of the 1-based sample index.
 
 - u_init:
 
@@ -114,10 +119,9 @@ An object of class `ctrl_nmpc`.
 
 **Limitations.** The problem is nonconvex: the solver returns a local
 minimum that depends on the initial guess (the shifted previous solution
-is used), finite-difference gradients make each solve cost \\O(N m)\\
-model simulations per iteration, and no stability or recursive
-feasibility guarantee is provided. Each step reports the optimizer
-convergence code; nonzero codes are treated as failures.
+is used), and no stability or recursive feasibility guarantee is
+provided. Each step reports the optimizer convergence code; nonzero
+codes are treated as failures.
 
 ## Examples
 

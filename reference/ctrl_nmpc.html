@@ -5,16 +5,20 @@ $$\sum_{k=0}^{N-1} \|x_k - x^r\|_Q^2 + \|u_k - u^r\|_R^2 +
 \|x_N - x^r\|_P^2 + \rho \sum_k \|\max(0, x_k - x_{\max},
 x_{\min} - x_k)\|^2$$
 over the box \(u_{\min} \le u_k \le u_{\max}\) is computed with the
-bounded quasi-Newton method L-BFGS-B (stats::optim, finite-difference
-gradients). Input bounds are hard; state bounds are enforced only
+bounded quasi-Newton method L-BFGS-B (stats::optim). The gradient is
+computed by a backward (adjoint) pass through the prediction, with the
+stage Jacobians of the model approximated by central differences, so it
+costs \(O(N (n + m))\) model evaluations. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \(\rho\) and can be violated."><meta property="og:description" content="Single-shooting nonlinear MPC for a discrete time ctrl_nlsys: at each
 sample the input sequence minimizing
 $$\sum_{k=0}^{N-1} \|x_k - x^r\|_Q^2 + \|u_k - u^r\|_R^2 +
 \|x_N - x^r\|_P^2 + \rho \sum_k \|\max(0, x_k - x_{\max},
 x_{\min} - x_k)\|^2$$
 over the box \(u_{\min} \le u_k \le u_{\max}\) is computed with the
-bounded quasi-Newton method L-BFGS-B (stats::optim, finite-difference
-gradients). Input bounds are hard; state bounds are enforced only
+bounded quasi-Newton method L-BFGS-B (stats::optim). The gradient is
+computed by a backward (adjoint) pass through the prediction, with the
+stage Jacobians of the model approximated by central differences, so it
+costs \(O(N (n + m))\) model evaluations. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \(\rho\) and can be violated."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
@@ -91,8 +95,10 @@ $$\sum_{k=0}^{N-1} \|x_k - x^r\|_Q^2 + \|u_k - u^r\|_R^2 +
 \|x_N - x^r\|_P^2 + \rho \sum_k \|\max(0, x_k - x_{\max},
 x_{\min} - x_k)\|^2$$
 over the box \(u_{\min} \le u_k \le u_{\max}\) is computed with the
-bounded quasi-Newton method L-BFGS-B (<code><a href="https://rdrr.io/r/stats/optim.html" class="external-link">stats::optim</a></code>, finite-difference
-gradients). Input bounds are hard; state bounds are enforced only
+bounded quasi-Newton method L-BFGS-B (<code><a href="https://rdrr.io/r/stats/optim.html" class="external-link">stats::optim</a></code>). The gradient is
+computed by a backward (adjoint) pass through the prediction, with the
+stage Jacobians of the model approximated by central differences, so it
+costs \(O(N (n + m))\) model evaluations. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \(\rho\) and can be violated.</p>
     </div>
 
@@ -166,7 +172,9 @@ through the quadratic penalty \(\rho\) and can be violated.</p>
 
 
 <dt id="arg-x-ref-u-ref">x_ref, u_ref<a class="anchor" aria-label="anchor" href="#arg-x-ref-u-ref"></a></dt>
-<dd><p>State and input references.</p></dd>
+<dd><p>State and input references: vectors (constant) or
+matrices whose row <code>i</code> is the reference at sample <code>i - 1</code> (the last row
+is repeated beyond the end), or functions of the 1-based sample index.</p></dd>
 
 
 <dt id="arg-u-init">u_init<a class="anchor" aria-label="anchor" href="#arg-u-init"></a></dt>
@@ -201,8 +209,7 @@ through the quadratic penalty \(\rho\) and can be violated.</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p><strong>Limitations.</strong> The problem is nonconvex: the solver returns a local
 minimum that depends on the initial guess (the shifted previous
-solution is used), finite-difference gradients make each solve cost
-\(O(N m)\) model simulations per iteration, and no stability or
+solution is used), and no stability or
 recursive feasibility guarantee is provided. Each step reports the
 optimizer convergence code; nonzero codes are treated as failures.</p>
     </div>

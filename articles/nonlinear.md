@@ -172,7 +172,7 @@ sim_n$failures
 #> [1] 0
 tail(sim_n$x, 1)
 #>          angle         rate
-#> [61,] 3.141344 0.0007897509
+#> [61,] 3.141344 0.0007897792
 df <- data.frame(t = sim_n$time, angle = sim_n$x[, 1])
 ggplot2::ggplot(df, ggplot2::aes(t, angle)) + ggplot2::geom_line() +
   ggplot2::geom_hline(yintercept = pi, linetype = "dashed") + ggplot2::theme_bw()
@@ -182,6 +182,41 @@ ggplot2::ggplot(df, ggplot2::aes(t, angle)) + ggplot2::geom_line() +
 
 The problem is nonconvex: the result is a local optimum that depends on
 the initial guess (started from rest at the bottom, this controller
-stalls at a local optimum instead of swinging up), finite-difference
-gradients make each solve expensive, and no stability guarantee is
-provided. Treat NMPC results as experiments, verified by simulation.
+stalls at a local optimum instead of swinging up), and no stability
+guarantee is provided. The gradient is exact up to the finite-difference
+stage Jacobians: a backward (adjoint) pass costs O(N(n + m)) model
+evaluations instead of the O(N^2 m) of differencing the whole cost.
+Treat NMPC results as experiments, verified by simulation.
+
+## Trajectory optimization
+
+Where NMPC stalls, an open-loop plan computed once can succeed.
+[`ctrl_nl_trajopt()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_trajopt.md)
+finds an input sequence over a fixed horizon from a given state, here a
+minimum-effort swing-up from rest at the bottom to the upright position
+in three seconds. The terminal state is an equality constraint, enforced
+by an augmented Lagrangian method and reported as `terminal_error`:
+
+``` r
+
+pd10 <- ctrl_nl_discretize(pendulum, dt = 0.1, method = "rk4")
+tr <- ctrl_nl_trajopt(pd10, x0 = c(0, 0), horizon = 30, Q = 0, R = 0.01,
+                      x_final = c(pi, 0), u_min = -5, u_max = 5,
+                      terminal_tol = 1e-4)
+tr
+#> Trajectory optimization: 30 steps, objective 6.346, converged: TRUE
+#>   terminal error: 3.623e-05
+df <- data.frame(t = rep(tr$time[-1], 2),
+                 value = c(tr$x[-1, 1], tr$u[, 1]),
+                 series = rep(c("angle", "torque"), each = 30))
+ggplot2::ggplot(df, ggplot2::aes(t, value)) + ggplot2::geom_step() +
+  ggplot2::facet_wrap(~series, ncol = 1, scales = "free_y") + ggplot2::theme_bw()
+```
+
+![](nonlinear_files/figure-html/unnamed-chunk-10-1.png)
+
+The torque saturates and reverses: the pendulum is pumped before it can
+be brought up, which a controller planning only 20 samples ahead does
+not discover. The plan is open loop; in practice it is tracked with a
+feedback law (for example LQR on the linearization along the
+trajectory), and like NMPC it is a local optimum.

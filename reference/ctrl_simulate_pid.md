@@ -69,6 +69,15 @@ ctrl_simulate_pid(
 A data frame with `time`, `r`, `y` (measured), `y_true`, `u`, `u_unsat`,
 `P`, `I`, `D`, `saturated` and `mode`, with class `ctrl_pid_simulation`.
 
+## Details
+
+With direct feedthrough \\D_p\\ from the plant input to the measured
+output, the measurement depends on the input of the same sample. The
+unsaturated controller output is affine in the measurement, \\v =
+\alpha - \beta y\\, so the loop \\u = \mathrm{sat}(\alpha - \beta (y_0 +
+D_p u))\\ is solved exactly; it has a unique solution when \\1 + \beta
+D_p \> 0\\ and an error is raised otherwise.
+
 ## Examples
 
 ``` r

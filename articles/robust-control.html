@@ -169,6 +169,38 @@ unreliable (up to 200 percent error) at high frequency:</p>
 the uncertainty that the loop tolerates.</p>
 </div>
 <div class="section level2">
+<h2 id="robust-performance">Robust performance<a class="anchor" aria-label="anchor" href="#robust-performance"></a>
+</h2>
+<p>Robust stability says nothing about how well the perturbed loops
+perform. With a performance weight <span class="math inline">W_p</span>
+on the sensitivity, the requirement <span class="math inline">\|W_p
+S_p\|_\infty &lt; 1</span> for every plant <span class="math inline">(I
++ W_u\Delta)G</span> holds when <span class="math display">
+\sup_\omega \; |W_p|\,\bar\sigma(S) + |W_u|\,\bar\sigma(T) &lt; 1 ,
+</span> which is exact for SISO loops and sufficient (possibly
+conservative) for MIMO loops with scalar weights. A PI controller with
+integral action is needed for the performance weight below, which
+demands small sensitivity at low frequency:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">Wp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.5</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span>   <span class="co"># |S| below 2 % at low frequency</span></span>
+<span><span class="va">Wu</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.25</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>  <span class="co"># 10 % at DC, 200 % at high frequency</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">kp</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span>, <span class="fl">8</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">K</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">kp</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">rp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_robust_performance.html">ctrl_robust_performance</a></span><span class="op">(</span><span class="va">G</span>, <span class="va">K</span>, <span class="va">Wp</span>, <span class="va">Wu</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"kp ="</span>, <span class="va">kp</span>, <span class="st">": peak"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">signif</a></span><span class="op">(</span><span class="va">rp</span><span class="op">$</span><span class="va">peak</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>      <span class="st">" robust performance:"</span>, <span class="va">rp</span><span class="op">$</span><span class="va">robust_performance</span>,</span>
+<span>      <span class="st">" robust stability:"</span>, <span class="va">rp</span><span class="op">$</span><span class="va">robust_stability</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="co">#&gt; kp = 0.5 : peak 1.04  robust performance: FALSE  robust stability: TRUE </span></span>
+<span><span class="co">#&gt; kp = 1 : peak 0.902  robust performance: TRUE  robust stability: TRUE </span></span>
+<span><span class="co">#&gt; kp = 8 : peak 1.54  robust performance: FALSE  robust stability: FALSE</span></span></code></pre></div>
+<p>The <code>curve</code> element holds the frequency-wise test value
+for plotting. The peak is found on a dense grid with local refinement;
+it is not a certified bound like the H-infinity norm. A gain that is too
+low misses the performance target, a gain that is too high loses robust
+stability itself, and the middle gain meets both.</p>
+</div>
+<div class="section level2">
 <h2 id="generalized-plants">Generalized plants<a class="anchor" aria-label="anchor" href="#generalized-plants"></a>
 </h2>
 <p>Optimal synthesis works with a generalized plant <code>P</code> with
@@ -176,7 +208,7 @@ exogenous inputs <code>w</code> (disturbances, noise, references),
 controls <code>u</code>, performance outputs <code>z</code> and
 measurements <code>y</code>. <code><a href="../reference/ctrl_lft.html">ctrl_lft()</a></code> closes the loop
 <code>u = K y</code>:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co"># w = (process noise on both states, sensor noise), u = force</span></span>
 <span><span class="co"># z = (position, control effort), y = noisy position</span></span>
@@ -192,7 +224,7 @@ of <code>z</code> to unit white noise <code>w</code>. The solution uses
 two Riccati equations, one for the regulator and one for the filter
 (Zhou, Doyle and Glover, Theorem 14.7). It needs <span class="math inline">D_{11} = 0</span>, <span class="math inline">D_{12}</span> of full column rank, <span class="math inline">D_{21}</span> of full row rank, <span class="math inline">(A, B_2)</span> stabilizable and <span class="math inline">(C_2, A)</span> detectable; all are checked. LQG is
 the special case above:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">h2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_h2syn.html">ctrl_h2syn</a></span><span class="op">(</span><span class="va">P</span>, nmeas <span class="op">=</span> <span class="fl">1</span>, ncon <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">h2</span></span>
 <span><span class="co">#&gt; H2 optimal controller: closed-loop H2 norm 3.29439</span></span>
@@ -215,7 +247,7 @@ Y_\infty) &lt; \gamma^2</span>.</p>
 closed loop must be internally stable and its H-infinity norm, computed
 by a different algorithm (Bruinsma-Steinbuch), must be below <span class="math inline">\gamma</span>. Otherwise the function stops with an
 error.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">hinf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_hinfsyn.html">ctrl_hinfsyn</a></span><span class="op">(</span><span class="va">P</span>, nmeas <span class="op">=</span> <span class="fl">1</span>, ncon <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">hinf</span></span>
 <span><span class="co">#&gt; H-infinity controller (experimental): gamma = 2.89653, certified closed-loop H-infinity norm 2.89652</span></span>
@@ -231,7 +263,7 @@ error.</p>
 <p>Each controller is best in its own norm: the H-infinity design lowers
 the worst-case gain at the price of a much larger H2 norm. The bisection
 log shows the search:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">hinf</span><span class="op">$</span><span class="va">history</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       gamma feasible</span></span>
 <span><span class="co">#&gt; 7  2.843206    FALSE</span></span>
@@ -256,7 +288,7 @@ frequency (noise and robustness). <code><a href="../reference/ctrl_augw.html">ct
 generalized plant; with the <span class="math inline">D_{11} = 0</span>
 restriction the sensitivity weight <code>W1</code> must be strictly
 proper:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">G</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">W1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span>   <span class="co"># integral-like: demands small S at low frequency</span></span>
 <span><span class="va">P_ms</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_augw.html">ctrl_augw</a></span><span class="op">(</span><span class="va">G</span>, W1 <span class="op">=</span> <span class="va">W1</span>, W2 <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
@@ -279,7 +311,7 @@ proper:</p>
 <span><span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">df</span>, <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">w</span>, <span class="va">magnitude</span>, color <span class="op">=</span> <span class="va">curve</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_x_log10</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_continuous.html" class="external-link">scale_y_log10</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_bw</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p><img src="robust-control_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="672"></p>
+<p><img src="robust-control_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="672"></p>
 <p>The sensitivity stays below <span class="math inline">\gamma /
 |W_1|</span> at all frequencies, as the norm bound guarantees. Plant
 poles on the imaginary axis (integrators) are not driven by
@@ -294,7 +326,7 @@ the controller on the true plant.</p>
 robustness measures for single loops. The disk margin is the more
 reliable of them because it covers simultaneous gain and phase
 changes:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_disk_margin.html">ctrl_disk_margin</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Disk margin (skew 0): alpha = 1.314 at w = 2.648</span></span>
 <span><span class="co">#&gt;   gain margin: [0.2071, 4.828] (-13.68 to 13.68 dB)</span></span>
