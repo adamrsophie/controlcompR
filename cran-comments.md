@@ -13,7 +13,7 @@ This is the first submission of controlcompR.
   installed (`_R_CHECK_FORCE_SUGGESTS_=false`).
 * R-hub v2 (R devel): linux, windows, macos-arm64, valgrind, clang-asan,
   clang-ubsan and atlas.
-* win-builder: R devel and R release (results to be confirmed before submission).
+* win-builder: R devel (1 note, as below).
 
 ## R CMD check results
 
@@ -24,7 +24,7 @@ This is the first submission of controlcompR.
   method references (Bruinsma, Steinbuch, Stellato, Van Dooren, Van
   Overschee, De Moor, et al.) and standard control theory terms and
   acronyms (Kalman, Luenberger, Lyapunov, Riccati, Schur, Tustin,
-  bumpless, controllability, ARX, LQG, LQR, MPC, PID). All acronyms are
+  bumpless, controllability, observability, ARX, LQG, LQR, MPC, PID). All acronyms are
   spelled out in the Description.
 
 ## Notes for reviewers
