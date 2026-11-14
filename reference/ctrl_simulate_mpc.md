@@ -104,7 +104,7 @@ sim <- ctrl_simulate_mpc(mpc, x0 = c(2, 0), steps = 80)
 summary(sim)
 #> MPC simulation: 80 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 80
-#>   solve time: mean 0.000206 s, max 0.000543 s; mean iterations 124.4
+#>   solve time: mean 0.00026 s, max 0.00067 s; mean iterations 124.4
 #>   max input bound violation: 4.95e-11
 #>   max state bound violation (true plant): 1.11e-16
 #>   max slack: 0
