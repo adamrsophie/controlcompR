@@ -35,6 +35,7 @@ Imports:
     ggplot2,
     Matrix,
     osqp (>= 1.0.0),
+    rlang,
     stats,
     utils
 Suggests:

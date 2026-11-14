@@ -1,5 +1,6 @@
 #' @useDynLib controlcompR, .registration = TRUE
 #' @importFrom stats rnorm setNames
+#' @importFrom rlang .data
 #' @keywords internal
 "_PACKAGE"
 
