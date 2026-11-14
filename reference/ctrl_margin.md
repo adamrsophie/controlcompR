@@ -37,7 +37,7 @@ per time unit), the smallest added delay that brings a crossover onto
 the critical point. The reported gain and phase margins are the most
 critical ones (gain margin closest to 1 on a log scale, smallest phase
 margin). `closed_loop_stable` is computed on the given realization, so
-unstable hidden modes of a state-space loop are not cancelled away.
+unstable hidden modes of a state-space loop are not canceled away.
 Margins describe distance to instability only if the nominal closed loop
 is stable, which is reported in `closed_loop_stable`. Margins are SISO
 quantities; for MIMO loops use loop-at-a-time disk margins.

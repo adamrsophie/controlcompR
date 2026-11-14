@@ -12,7 +12,7 @@
 - `ctrl_ss2tf()` computes each SISO channel's transfer function. With
   `minimal = TRUE` (default) each channel is first reduced to a minimal
   realization, so uncontrollable or unobservable modes do not appear as
-  cancelling pole-zero pairs. The numerator of channel \\(i,j)\\ is
+  canceling pole-zero pairs. The numerator of channel \\(i,j)\\ is
   computed from the identity \\c (sI - A)^{-1} b = \[\det(sI - A + bc) -
   \det(sI - A)\] / \det(sI - A)\\.
 
