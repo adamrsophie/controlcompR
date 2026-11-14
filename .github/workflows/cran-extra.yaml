@@ -86,7 +86,7 @@ jobs:
           needs: check
       - name: Check without optional packages
         run: |
-          if (requireNamespace("sysid", quietly = TRUE)) remove.packages("sysid")
+          for (lib in .libPaths()) if (dir.exists(file.path(lib, "sysid"))) unlink(file.path(lib, "sysid"), recursive = TRUE)
           stopifnot(!requireNamespace("sysid", quietly = TRUE))
           rcmdcheck::rcmdcheck(args = c("--no-manual", "--as-cran"),
                                error_on = "warning", check_dir = "check")
