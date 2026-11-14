@@ -1,0 +1,38 @@
+# Compare controlcompR against python-control and slycot reference values.
+# Run manually from the Actions tab.
+on:
+  workflow_dispatch:
+
+name: reference-comparison
+
+permissions: read-all
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install python-control and slycot
+        run: pip install control slycot numpy scipy
+
+      - name: Compute reference values
+        run: python benchmarks/reference/reference.py
+
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05
+        with:
+          extra-packages: any::jsonlite, local::.
+          needs: check
+
+      - name: Compare
+        run: Rscript benchmarks/reference/compare.R
