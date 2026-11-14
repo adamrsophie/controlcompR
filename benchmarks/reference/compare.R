@@ -9,6 +9,12 @@ ref <- jsonlite::read_json("benchmarks/reference/reference-values.json",
 # JSON arrays: a list of rows becomes a row-major matrix, a list of scalars a vector
 as_num <- function(x) {
   if (!is.list(x)) return(as.numeric(x))
+  # complex arrays are stored as {"re": ..., "im": ...}; values compared here are real
+  if (identical(sort(names(x)), c("im", "re"))) {
+    im <- as_num(x$im)
+    if (any(abs(im) > 1e-12)) stop("Unexpected complex reference value.")
+    return(as_num(x$re))
+  }
   if (all(vapply(x, is.list, TRUE))) return(do.call(rbind, lapply(x, as_num)))
   as.numeric(unlist(x))
 }
