@@ -67,7 +67,7 @@ A <- matrix(c(0, 1, -2, -3), 2, byrow = TRUE)
 B <- matrix(c(0, 1))
 sol <- ctrl_care(A, B, diag(2), 1)
 sol$residual
-#> [1] 1.755417e-16
+#> [1] 1.412282e-15
 sol$poles
 #> [1] -1.000000+0i -2.236068+0i
 ```

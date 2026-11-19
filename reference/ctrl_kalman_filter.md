@@ -63,8 +63,9 @@ x\_{k\|k} = \hat x\_{k\|k-1} + K_k e_k, \quad \hat x\_{k+1\|k} = A \hat
 x\_{k\|k} + B u_k.\$\$ The covariance update uses the Joseph form
 \\P\_{k\|k} = (I - K_k C) P\_{k\|k-1} (I - K_k C)^\top + K_k R_n
 K_k^\top\\, which keeps it symmetric positive semidefinite in floating
-point. Rows of `y` containing `NA` are treated as missing measurements
-(the update is skipped).
+point. Rows of `y` that are entirely `NA` are treated as missing
+measurements (the update is skipped); partially missing rows, infinite
+values and non-numeric data are errors.
 
 `ctrl_kalman_smoother()` applies the Rauch-Tung-Striebel backward pass
 to the filter output.

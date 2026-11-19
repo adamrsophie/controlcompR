@@ -113,7 +113,7 @@ Wc
 #> attr(,"residual")
 #> [1] 1.110223e-16
 #> attr(,"separation")
-#> [1] 0.6666667
+#> [1] 1
 max(abs(sys$A %*% Wc + Wc %*% t(sys$A) + sys$B %*% t(sys$B)))
 #> [1] 2.220446e-16
 ```
@@ -143,7 +143,7 @@ ric
 #>        [,1]   [,2]
 #> [1,] 0.3707 0.1379
 #> [2,] 0.1379 0.2354
-#> relative residual: 3.25e-16, symmetry error before symmetrization: 8.17e-17
+#> relative residual: 7.45e-16, symmetry error before symmetrization: 4.9e-16
 #> closed-loop poles: -2.236+0i, -2.646+0i
 ```
 

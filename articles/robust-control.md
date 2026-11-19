@@ -195,10 +195,6 @@ P_ms <- ctrl_augw(G, W1 = W1, W2 = 0.1)
 syn <- ctrl_hinfsyn(P_ms, nmeas = 1, ncon = 1)
 syn$gamma
 #> [1] 0.6896671
-#> attr(,"frequency")
-#> [1] 0.7816826
-#> attr(,"bounds")
-#> [1] 1.047269 1.047269
 K <- syn$K
 L <- ctrl_series(K, G)
 S <- ctrl_feedback(1, L)

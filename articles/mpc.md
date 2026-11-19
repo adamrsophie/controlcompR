@@ -54,10 +54,10 @@ step <- ctrl_mpc_step(mpc, x = c(2, 0))
 step
 #> MPC step: status "solved"
 #>   u = -1
-#>   objective: 539.874, iterations: 325, max bound violation: 1.24e-09
+#>   objective: 539.874, iterations: 1175, max bound violation: 1.97e-09
 head(step$x_plan)
 #>       [,1]          [,2]
-#> [1,] 2.000  3.679849e-13
+#> [1,] 2.000 -9.391703e-13
 #> [2,] 1.995 -1.000000e-01
 #> [3,] 1.980 -2.000000e-01
 #> [4,] 1.955 -3.000000e-01
@@ -86,9 +86,9 @@ sim <- ctrl_simulate_mpc(mpc, x0 = c(2, 0), steps = 80)
 summary(sim)
 #> MPC simulation: 80 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 80
-#>   solve time: mean 0.000144 s, max 0.000367 s; mean iterations 120.6
-#>   max input bound violation: 4.81e-11
-#>   max state bound violation (true plant): 2.22e-16
+#>   solve time: mean 0.000603 s, max 0.00182 s; mean iterations 392.2
+#>   max input bound violation: 3.26e-11
+#>   max state bound violation (true plant): 0
 #>   max slack: 0
 plot(sim)
 ```
@@ -236,7 +236,7 @@ ctrl_compare_controllers(list(saturated_lqr = sat_lqr, mpc = mpc_run),
 #> 2           mpc 3.957788 5.612446 4.915165 0.8523824      0.8770798         1
 #>   max_violation  convention
 #> 1  0.000000e+00 trapezoidal
-#> 2  3.304623e-11 trapezoidal
+#> 2  1.252676e-10 trapezoidal
 ```
 
 The saturated LQR is faster here only because it ignores the velocity

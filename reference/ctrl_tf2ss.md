@@ -4,8 +4,11 @@
   polynomial forms (SISO).
 
 - `ctrl_tf2ss()` realizes a proper transfer function in state space.
-  SISO models use the controllable canonical form. MIMO models are
-  realized element by element and then reduced with
+  SISO models use the controllable canonical form; when the poles are
+  much faster or slower than one rad per time unit, the states are
+  scaled by a power of two of the pole size so that the realization
+  stays well conditioned. MIMO models are realized element by element
+  and then reduced with
   [`ctrl_minreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_minreal.md)
   when `minimal = TRUE`.
 

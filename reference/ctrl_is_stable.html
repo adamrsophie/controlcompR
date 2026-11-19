@@ -87,7 +87,10 @@
 
 <dt id="arg-tol">tol<a class="anchor" aria-label="anchor" href="#arg-tol"></a></dt>
 <dd><p>Boundary tolerance. Defaults to a multiple of machine precision
-scaled by the norm of <code>A</code>.</p></dd>
+scaled by the norm of the balanced <code>A</code>. For a model whose time scales
+differ by about 1e13 or more, the slowest stable poles can fall inside
+this band and are classified as marginal; pass a smaller <code>tol</code> when
+such poles are known to be accurate.</p></dd>
 
 </dl></div>
     <div class="section level2">

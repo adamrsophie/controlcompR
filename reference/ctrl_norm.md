@@ -3,7 +3,12 @@
 - `"2"`: the H2 norm. For an asymptotically stable continuous model it
   is \\\sqrt{\mathrm{tr}(C W_c C^\top)}\\ when `D = 0` and infinite
   otherwise; for a discrete model it is \\\sqrt{\mathrm{tr}(C W_c
-  C^\top + D D^\top)}\\.
+  C^\top + D D^\top)}\\. The Gramian is computed after diagonal
+  balancing; a realization whose Gramian is ill-conditioned for other
+  reasons (nearly canceling input or output directions) loses relative
+  accuracy, and
+  [`ctrl_minreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_minreal.md)
+  first helps.
 
 - `"inf"`: the H-infinity norm \\\sup\_\omega
   \sigma\_{\max}(G(j\omega))\\ of an asymptotically stable model,
@@ -14,7 +19,10 @@
   \\\sigma\_{\max} \> \gamma\\. The iteration stops when the relative
   gap between the bounds is below `tol`. Discrete models are mapped to
   continuous time with the norm-preserving bilinear transformation \\s =
-  (z - 1)/(z + 1)\\.
+  (z - 1)/(z + 1)\\. An upper bound is accepted only when no sampled
+  gain on a verification grid (with local refinement) exceeds it;
+  otherwise the search continues, and `bounds[2]` is `Inf` when no upper
+  bound could be established.
 
 ## Usage
 

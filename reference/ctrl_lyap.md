@@ -45,9 +45,11 @@ vectorization of the full problem is used, so the cost is \\O(n^3)\\.
 
 The solution is unique exactly when \\\lambda_i + \lambda_j \ne 0\\
 (continuous) or \\\lambda_i \lambda_j \ne 1\\ (discrete) for all pairs
-of eigenvalues of `A`. If the smallest such separation, relative to the
-scale of `A`, is below `tol`, an error is raised instead of returning an
-unreliable solution.
+of eigenvalues of `A`. The separation is \\\min \|\lambda_i +
+\lambda_j\| / (\|\lambda_i\| + \|\lambda_j\|)\\ (continuous; zero when a
+sum is within rounding of the spectral radius) or \\\min \|1 - \lambda_i
+\lambda_j\| / \max(1, \max\|\lambda\|)^2\\ (discrete). If it is below
+`tol`, an error is raised instead of returning an unreliable solution.
 
 ## Examples
 

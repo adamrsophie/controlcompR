@@ -299,10 +299,6 @@ proper:</p>
 <span><span class="va">syn</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_hinfsyn.html">ctrl_hinfsyn</a></span><span class="op">(</span><span class="va">P_ms</span>, nmeas <span class="op">=</span> <span class="fl">1</span>, ncon <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">syn</span><span class="op">$</span><span class="va">gamma</span></span>
 <span><span class="co">#&gt; [1] 0.6896671</span></span>
-<span><span class="co">#&gt; attr(,"frequency")</span></span>
-<span><span class="co">#&gt; [1] 0.7816826</span></span>
-<span><span class="co">#&gt; attr(,"bounds")</span></span>
-<span><span class="co">#&gt; [1] 1.047269 1.047269</span></span>
 <span><span class="va">K</span> <span class="op">&lt;-</span> <span class="va">syn</span><span class="op">$</span><span class="va">K</span></span>
 <span><span class="va">L</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_series.html">ctrl_series</a></span><span class="op">(</span><span class="va">K</span>, <span class="va">G</span><span class="op">)</span></span>
 <span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_series.html">ctrl_feedback</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">L</span><span class="op">)</span></span>

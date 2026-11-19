@@ -48,8 +48,8 @@ ctrl_dare(A, B, Q, R, S = NULL, check_weights = TRUE)
 A list of class `ctrl_riccati` with `P` (stabilizing solution), `K` (the
 associated gain \\R^{-1}(B^\top P + S^\top)\\ or \\(R + B^\top P
 B)^{-1}(B^\top P A + S^\top)\\), `poles` (eigenvalues of \\A - B K\\),
-`residual` (relative Frobenius residual), `symmetry_error`, `rcond_u11`
-and `discrete`.
+`residual` (relative Frobenius residual of the equilibrated equation),
+`symmetry_error`, `rcond_u11` and `discrete`.
 
 ## Details
 
@@ -70,7 +70,14 @@ raised rather than an invalid solution returned. A solution whose
 relative residual exceeds 1e-6, or whose closed loop is not stable,
 raises an error. The returned object reports the relative residual, the
 symmetry error and the closed-loop eigenvalues so that the result can be
-verified.
+verified. Before solving, the equation is equilibrated: a symplectic
+diagonal state scaling from balancing the Hamiltonian matrix (so states
+in very different units carry comparable weight), a common time scale
+(continuous time) and a common weight factor, all by powers of two. The
+residual is reported for the equilibrated equation. The Schur method is
+backward stable in the normwise sense, so weights that differ by many
+orders of magnitude within one state or input direction can still lose
+relative accuracy.
 
 ## References
 

@@ -8,12 +8,12 @@ the complex response for positive and negative frequencies and, for SISO
 models without poles on the stability boundary, the winding number of
 \\1 + L\\ around the origin (the number of clockwise encirclements of
 \\-1\\); with `P` open-loop unstable poles the closed loop has \\Z = N +
-P\\ unstable poles. The winding number is computed on its own contour:
-for continuous models the imaginary axis is extended until the remaining
-tail of \\L - D\\ cannot reach \\-1\\, and the contour is refined until
-the phase of \\1 + L\\ changes by less than \\\pi/8\\ between samples.
-When this cannot be established (for example \\1 + D = 0\\),
-`encirclements` is `NA`. `ctrl_nichols()` returns phase against
+P\\ unstable poles. The winding number is obtained from the argument
+principle, \\N = Z - P\\, by counting the unstable roots of the
+closed-loop and open-loop characteristic polynomials, so it does not
+depend on how finely the plotted curve is sampled. It is `NA` when \\1 +
+L\\ vanishes on the contour (a closed-loop pole on the stability
+boundary, or \\1 + D = 0\\). `ctrl_nichols()` returns phase against
 magnitude in dB.
 
 ## Usage

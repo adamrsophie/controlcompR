@@ -132,7 +132,7 @@ H-infinity synthesis).</p></dd>
 <code>K</code> (the associated gain \(R^{-1}(B^\top P + S^\top)\) or
 \((R + B^\top P B)^{-1}(B^\top P A + S^\top)\)), <code>poles</code>
 (eigenvalues of \(A - B K\)), <code>residual</code> (relative Frobenius
-residual), <code>symmetry_error</code>, <code>rcond_u11</code> and <code>discrete</code>.</p>
+residual of the equilibrated equation), <code>symmetry_error</code>, <code>rcond_u11</code> and <code>discrete</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -152,7 +152,14 @@ singular, an error is raised rather than an invalid solution returned.
 A solution whose relative residual exceeds 1e-6, or whose closed loop is
 not stable, raises an error. The returned object reports the relative
 residual, the symmetry error and the closed-loop eigenvalues so that the
-result can be verified.</p>
+result can be verified. Before solving, the equation is equilibrated: a
+symplectic diagonal state scaling from balancing the Hamiltonian matrix
+(so states in very different units carry comparable weight), a common
+time scale (continuous time) and a common weight factor, all by powers
+of two. The residual is reported for the equilibrated equation. The
+Schur method is backward stable in the normwise sense, so weights that
+differ by many orders of magnitude within one state or input direction
+can still lose relative accuracy.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

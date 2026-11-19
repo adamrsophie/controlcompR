@@ -195,7 +195,7 @@ gramian:</p>
 <span><span class="co">#&gt; attr(,"residual")</span></span>
 <span><span class="co">#&gt; [1] 1.110223e-16</span></span>
 <span><span class="co">#&gt; attr(,"separation")</span></span>
-<span><span class="co">#&gt; [1] 0.6666667</span></span>
+<span><span class="co">#&gt; [1] 1</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">sys</span><span class="op">$</span><span class="va">A</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">Wc</span> <span class="op">+</span> <span class="va">Wc</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">sys</span><span class="op">$</span><span class="va">A</span><span class="op">)</span> <span class="op">+</span> <span class="va">sys</span><span class="op">$</span><span class="va">B</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">sys</span><span class="op">$</span><span class="va">B</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 2.220446e-16</span></span></code></pre></div>
 <p>The solvers check that the equation has a unique solution (no
@@ -223,7 +223,7 @@ LAPACK <code>dgges</code>. The discrete solver does not need
 <span><span class="co">#&gt;        [,1]   [,2]</span></span>
 <span><span class="co">#&gt; [1,] 0.3707 0.1379</span></span>
 <span><span class="co">#&gt; [2,] 0.1379 0.2354</span></span>
-<span><span class="co">#&gt; relative residual: 3.25e-16, symmetry error before symmetrization: 8.17e-17</span></span>
+<span><span class="co">#&gt; relative residual: 7.45e-16, symmetry error before symmetrization: 4.9e-16</span></span>
 <span><span class="co">#&gt; closed-loop poles: -2.236+0i, -2.646+0i</span></span></code></pre></div>
 <p>The result carries the residual, the symmetry error before
 symmetrization and the closed-loop poles, so the solution can be checked

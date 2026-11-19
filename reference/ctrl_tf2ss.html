@@ -4,7 +4,10 @@
 ctrl_zpk2tf() and ctrl_tf2zpk() convert between zero-pole-gain
 and polynomial forms (SISO).
 ctrl_tf2ss() realizes a proper transfer function in state space.
-SISO models use the controllable canonical form. MIMO models are
+SISO models use the controllable canonical form; when the poles are
+much faster or slower than one rad per time unit, the states are
+scaled by a power of two of the pole size so that the realization
+stays well conditioned. MIMO models are
 realized element by element and then reduced with ctrl_minreal()
 when minimal = TRUE.
 ctrl_ss2tf() computes each SISO channel's transfer function. With
@@ -20,7 +23,10 @@ computed from the identity
 ctrl_zpk2tf() and ctrl_tf2zpk() convert between zero-pole-gain
 and polynomial forms (SISO).
 ctrl_tf2ss() realizes a proper transfer function in state space.
-SISO models use the controllable canonical form. MIMO models are
+SISO models use the controllable canonical form; when the poles are
+much faster or slower than one rad per time unit, the states are
+scaled by a power of two of the pole size so that the realization
+stays well conditioned. MIMO models are
 realized element by element and then reduced with ctrl_minreal()
 when minimal = TRUE.
 ctrl_ss2tf() computes each SISO channel's transfer function. With
@@ -105,7 +111,10 @@ computed from the identity
 <ul><li><p><code>ctrl_zpk2tf()</code> and <code>ctrl_tf2zpk()</code> convert between zero-pole-gain
 and polynomial forms (SISO).</p></li>
 <li><p><code>ctrl_tf2ss()</code> realizes a proper transfer function in state space.
-SISO models use the controllable canonical form. MIMO models are
+SISO models use the controllable canonical form; when the poles are
+much faster or slower than one rad per time unit, the states are
+scaled by a power of two of the pole size so that the realization
+stays well conditioned. MIMO models are
 realized element by element and then reduced with <code><a href="ctrl_minreal.html">ctrl_minreal()</a></code>
 when <code>minimal = TRUE</code>.</p></li>
 <li><p><code>ctrl_ss2tf()</code> computes each SISO channel's transfer function. With

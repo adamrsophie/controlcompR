@@ -48,7 +48,14 @@ stability and satisfies the a priori bound \$\$\\G - G_r\\\_\infty \le 2
 \sum\_{i \> r} \sigma_i\$\$ (continuous and discrete time). With
 `method = "matchdc"` the discarded states are residualized (singular
 perturbation approximation), which matches the DC gain and satisfies the
-same bound.
+same bound. The bound is checked against the error sampled on a
+frequency grid, with the full model evaluated on a diagonally balanced
+realization and its rounding error estimated from the conditioning of
+\\zI - A\\. A sampled error above the bound by more than that accuracy
+raises an error; otherwise `error_bound` is the larger of the a priori
+bound and the sampled error plus its accuracy (relevant only when the
+bound is at rounding level or attained, as when a single Hankel singular
+value is discarded).
 
 Unstable models are first split with
 [`ctrl_stabsep()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_stabsep.md);
