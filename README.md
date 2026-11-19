@@ -3,9 +3,13 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/adamrsophie/controlcompR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/adamrsophie/controlcompR/actions/workflows/R-CMD-check.yaml)
 [![reference-comparison](https://github.com/adamrsophie/controlcompR/actions/workflows/reference-comparison.yaml/badge.svg)](https://github.com/adamrsophie/controlcompR/actions/workflows/reference-comparison.yaml)
+[![Codecov test coverage](https://codecov.io/gh/adamrsophie/controlcompR/graph/badge.svg)](https://app.codecov.io/gh/adamrsophie/controlcompR)
 [![pkgdown](https://github.com/adamrsophie/controlcompR/actions/workflows/pkgdown.yaml/badge.svg)](https://adamrsophie.github.io/controlcompR/)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/adamrsophie/controlcompR/blob/main/LICENSE.md)
+[![Archived on Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/adamrsophie/controlcompR/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/adamrsophie/controlcompR)
+<!-- DOI badge: Zenodo mints a concept DOI on the first GitHub release; replace XXXXXXXX and uncomment. -->
+<!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXXX) -->
 <!-- badges: end -->
 
 ***controlcompR*** is an R framework for modeling, analyzing, designing and
