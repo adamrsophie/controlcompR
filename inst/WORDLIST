@@ -111,6 +111,8 @@ eig
 eigenproblem
 eigenstructure
 encirclements
+equilibrate
+equilibrated
 equilibria
 et
 exponentials
@@ -145,6 +147,7 @@ nonconvex
 noninteractive
 nonsquare
 nonstiff
+normwise
 observability
 optcompR
 overfit

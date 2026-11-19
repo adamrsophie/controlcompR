@@ -59,15 +59,21 @@ get_ab <- function(sys, B, bname) {
 staircase <- function(A, B, tol = NULL) {
   n <- nrow(A)
   U <- diag(n)
-  # rounding grows over the staircase stages, so scale with n^2
-  tol <- tol %||% (10 * max(n, ncol(B), 1)^2 * .Machine$double.eps *
-                     max(norm(A, "2"), norm(B, "2"), 1))
+  # rounding grows over the staircase stages, so scale with n^2. The first
+  # stage is a rank decision on B and the later ones on blocks of A, so
+  # each is relative to that matrix (the rank of (A, B) does not change
+  # when A or B is multiplied by a constant)
+  fixed <- !is.null(tol)
+  rel <- 10 * max(n, ncol(B), 1)^2 * .Machine$double.eps
+  tol_b <- if (fixed) tol else rel * norm(B, "2")
+  tol_a <- if (fixed) tol else rel * norm(A, "2")
+  tol <- tol_b
   k <- 0L
   M <- B
   while (k < n) {
     if (!length(M) || ncol(M) == 0L) break
     s <- svd(M, nu = nrow(M), nv = 0)
-    r <- sum(s$d > tol)
+    r <- sum(s$d > (if (k == 0L) tol_b else tol_a))
     if (r == 0L) break
     T <- blkdiag(diag(k), s$u)
     A <- t(T) %*% A %*% T

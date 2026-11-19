@@ -228,7 +228,11 @@ poly_to_string <- function(p, var = "s", digits = 4) {
 # Default tolerance for eigenvalue classification relative to the matrix scale.
 default_eig_tol <- function(A) {
   if (!length(A)) return(0)
-  1e3 * nrow(A) * .Machine$double.eps * max(1, norm(A, "1"))
+  # the norm of the balanced matrix: a diagonal similarity does not change
+  # the eigenvalues, and an unbalanced matrix (a companion form, for
+  # example) can have a norm far above its spectral radius
+  Ab <- tryCatch(expm::balance(A, job = "S")$z, error = function(e) A)
+  1e3 * nrow(A) * .Machine$double.eps * norm(Ab, "1")
 }
 
 # Frobenius-norm relative residual.

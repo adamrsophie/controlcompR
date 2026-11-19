@@ -252,7 +252,11 @@ Ops.ctrl_system <- function(e1, e2) {
         if (e2 == 0) ctrl_abort("Division of a model by zero.")
         scale_system(as_system(e1), 1 / e2)
       } else if (is.numeric(e2)) {
-        ctrl_series(as_system(e1), as_system(1 / e2))
+        # right division by a square matrix: G M^-1
+        M <- as.matrix(e2)
+        if (nrow(M) != ncol(M)) ctrl_abort("A model can only be divided by a square matrix.")
+        e1s <- as_system(e1)
+        ctrl_series(ctrl_gain(solve(M), dt = e1s$dt), e1s)
       } else {
         ctrl_series(ctrl_inv(e2), e1)
       }

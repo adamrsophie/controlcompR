@@ -41,8 +41,9 @@
   * `ctrl_robust_performance()` samples its peaks (including zero and
     infinite frequency) and reports a separate `certified` flag from a
     rigorous upper bound; the SISO exactness flag is `criterion_exact`.
-  * Nyquist encirclement counts are `NA` when the frequency sweep cannot
-    resolve the contour.
+  * Nyquist encirclement counts come from the argument principle (unstable
+    closed-loop minus open-loop roots) and are `NA` when a closed-loop pole
+    lies on the stability boundary or `1 + D = 0`.
   * `ctrl_zeros()` stops with an error for systems whose pencil is
     singular (no full normal rank).
   * Step, impulse and initial responses are applied at time zero; grids
@@ -57,4 +58,12 @@
   * NMPC simulation needs a discrete plant with the controller's sample
     interval; the `"hold"` fallback is clipped to the input bounds and
     the first held input is set by `u0`.
-  * Numeric scalars scale every channel of MIMO models.
+  * Numeric scalars scale every channel of MIMO models; dividing a model
+    by a square numeric matrix multiplies by its inverse on the input side.
+  * Riccati solvers equilibrate the equation (state units, time scale and
+    weight scale) before solving; the reported residual is that of the
+    equilibrated equation.
+  * The Kalman filter, EKF, UKF and MHE reject non-numeric data and rows
+    that are only partly missing; an entirely `NA` row is a missing
+    sample.
+  * Fast or slow SISO transfer functions are realized with scaled states.

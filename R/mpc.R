@@ -511,14 +511,22 @@ mpc_solver <- function(mpc, qpd) {
   # the minimizer is unchanged. The Hessian is fixed, so the factor is the
   # same at setup and at every update.
   osc <- mpc_objective_scale(qpd$H)
+  if (!is.null(ws$model)) {
+    # a cached solver does not survive serialization (saveRDS, parallel
+    # workers): its external pointer is then invalid, so build it again
+    ok <- tryCatch({
+      ws$model@Update(q = qpd$q / osc, l = qpd$l, u = qpd$u)
+      TRUE
+    }, error = function(e) FALSE)
+    if (ok) return(ws$model)
+    ws$model <- NULL
+  }
   if (is.null(ws$model)) {
     settings <- do.call(osqp::osqpSettings, mpc$settings)
     Hu <- methods::as(Matrix::triu(qpd$H / osc), "CsparseMatrix")
     ws$model <- osqp::osqp(P = Hu, q = qpd$q / osc,
                            A = methods::as(qpd$A, "CsparseMatrix"),
                            l = qpd$l, u = qpd$u, pars = settings)
-  } else {
-    ws$model@Update(q = qpd$q / osc, l = qpd$l, u = qpd$u)
   }
   ws$model
 }

@@ -5,7 +5,7 @@
 #'   otherwise; for a discrete model it is
 #'   \eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. The Gramian is
 #'   computed after diagonal balancing; a realization whose Gramian is
-#'   ill-conditioned for other reasons (nearly cancelling input or output
+#'   ill-conditioned for other reasons (nearly canceling input or output
 #'   directions) loses relative accuracy, and [ctrl_minreal()] first helps.
 #' * `"inf"`: the H-infinity norm \eqn{\sup_\omega \sigma_{\max}(G(j\omega))}
 #'   of an asymptotically stable model, computed with the
@@ -81,6 +81,11 @@ hinf_norm <- function(s, tol) {
   n <- nrow(A)
   smax <- function(w) {
     G <- eval_system(s, 1i * w)[, , 1]
+    if (!all(is.finite(G))) {
+      ctrl_abort("The frequency response could not be evaluated at w = ",
+                 signif(w, 4), " (singular jw I - A); the realization is too ",
+                 "badly conditioned. Try ctrl_minreal() or rescale the model.")
+    }
     max(svd(as.matrix(G), 0, 0)$d)
   }
   p <- as.complex(eigen(A, only.values = TRUE)$values)
@@ -219,8 +224,9 @@ ctrl_gangof4 <- function(P, C) {
   sens <- ctrl_sensitivity(L)
   # S is the output sensitivity (I + PC)^-1; the load disturbance map is
   # S P (signal flows through P first) and the noise-to-control map is C S
-  list(S = sens$S, T = sens$T, PS = ctrl_series(P, sens$S),
-       CS = ctrl_series(sens$S, C))
+  # formed as feedback interconnections (P (I + C P)^-1 and C (I + P C)^-1)
+  # so the open-loop poles do not remain as hidden modes
+  list(S = sens$S, T = sens$T, PS = ctrl_feedback(P, C), CS = ctrl_feedback(C, P))
 }
 
 #' Disk margins

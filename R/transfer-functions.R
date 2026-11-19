@@ -247,7 +247,10 @@ print.ctrl_zpk <- function(x, digits = 4, ...) {
 #' * `ctrl_zpk2tf()` and `ctrl_tf2zpk()` convert between zero-pole-gain
 #'   and polynomial forms (SISO).
 #' * `ctrl_tf2ss()` realizes a proper transfer function in state space.
-#'   SISO models use the controllable canonical form. MIMO models are
+#'   SISO models use the controllable canonical form; when the poles are
+#'   much faster or slower than one rad per time unit, the states are
+#'   scaled by a power of two of the pole size so that the realization
+#'   stays well conditioned. MIMO models are
 #'   realized element by element and then reduced with [ctrl_minreal()]
 #'   when `minimal = TRUE`.
 #' * `ctrl_ss2tf()` computes each SISO channel's transfer function. With
@@ -340,12 +343,23 @@ siso_tf2ss <- function(num, den, dt) {
   }
   # strictly proper remainder: num - d * den
   rem <- numf - d * den
+  # realize in the scaled variable p = s / w0, with w0 the size of the
+  # roots, and map back with A = w0 Ap, B = w0 Bp: the companion form of a
+  # fast or slow model then has entries of the size of its poles instead
+  # of powers of them
+  k <- seq_len(n)
+  w0 <- max(abs(den[-1])^(1 / k))
+  # ordinary models keep the textbook form; a power of two keeps the
+  # scaling exact
+  w0 <- if (!is.finite(w0) || w0 <= 0 || (w0 >= 1 / 16 && w0 <= 16)) 1 else
+    2^round(log2(w0))
+  sk <- w0^(-k)
   A <- matrix(0, n, n)
-  A[1, ] <- -den[-1]
+  A[1, ] <- -den[-1] * sk
   if (n > 1L) A[cbind(2:n, 1:(n - 1L))] <- 1
   B <- matrix(c(1, rep(0, n - 1L)), n, 1)
-  C <- matrix(rem[-1], 1, n)
-  list(A = A, B = B, C = C, D = matrix(d, 1, 1))
+  C <- matrix(rem[-1] * sk, 1, n)
+  list(A = w0 * A, B = w0 * B, C = C, D = matrix(d, 1, 1))
 }
 
 #' @rdname ctrl_tf2ss

@@ -491,3 +491,87 @@ test_that("matched discretization and ZOH inversion of slow and fast poles", {
 test_that("an indefinite state weight is not masked by a large input weight", {
   expect_error(ctrl_care(-1, 1, Q = -1, R = 1e13), "positive semidefinite")
 })
+
+test_that("companion forms of fast filters keep rank and stability", {
+  den <- c(1, 2.613e4, 3.414e8, 2.613e12, 1e16)
+  G <- ctrl_tf(1e16, den)
+  S <- ctrl_tf2ss(G, minimal = FALSE)
+  expect_true(ctrl_is_stable(S))
+  expect_equal(ctrl_controllability(S)$rank, 4L)
+  expect_true(ctrl_is_observable(S))
+  expect_equal(ctrl_dcgain(G), 1, tolerance = 1e-8, ignore_attr = TRUE)
+  expect_true(ctrl_is_controllable(ctrl_ss(-1, 1e-15, 1)))
+  expect_equal(ctrl_controllability(1e6 * matrix(c(-1, 1, 0, -2), 2), c(1e-8, 1e-8))$rank,
+               ctrl_controllability(matrix(c(-1, 1, 0, -2), 2), c(1e-8, 1e-8))$rank)
+})
+
+test_that("closed-loop maps have no hidden open-loop modes", {
+  G <- ctrl_tf(1, c(1, 1))
+  K <- ctrl_tf(c(2, 1), c(1, 0))
+  r <- ctrl_robust_stability(G, K, 0.1, type = "additive")
+  expect_equal(r$peak, 0.2, tolerance = 1e-6)
+  g <- ctrl_gangof4(ctrl_ss(1, 1, 1), ctrl_gain(3))
+  expect_equal(as.numeric(ctrl_norm(g$PS, "inf")), 0.5, tolerance = 1e-6)
+  expect_true(ctrl_is_stable(ctrl_gangof4(G, K)$CS))
+})
+
+test_that("models divide by numeric matrices on the right", {
+  G <- ctrl_ss(-diag(2), diag(2), diag(2))
+  M <- matrix(c(2, 1, 1, 2), 2)
+  expect_equal(ctrl_dcgain(G / M), solve(M), ignore_attr = TRUE)
+  expect_equal(ctrl_dcgain(G / diag(2)), diag(2), ignore_attr = TRUE)
+})
+
+test_that("Riccati solutions do not depend on state units or weight scale", {
+  A <- matrix(c(0, 1e-6, 0, 0), 2, byrow = TRUE)
+  K <- ctrl_lqr(ctrl_ss(A, c(0, 1e6), c(1, 0)), diag(c(1, 1e-12)), 1)$K
+  expect_equal(as.numeric(K), c(1, sqrt(3) * 1e-6), tolerance = 1e-8)
+  A <- matrix(c(0, 1, 0, 0), 2, byrow = TRUE)
+  for (f in c(1e-12, 1e8)) {
+    expect_equal(as.numeric(ctrl_care(A, c(0, 1), f * diag(2), f)$K), c(1, sqrt(3)),
+                 tolerance = 1e-8)
+  }
+  expect_equal(as.numeric(ctrl_care(-1, 1, 1e10, 1e10)$K), sqrt(2) - 1, tolerance = 1e-10)
+  Sd <- ctrl_c2d(ctrl_ss(A, c(0, 1), c(1, 0)), 0.1)
+  expect_equal(ctrl_kalman(Sd, Qn = 1e6 * diag(2), Rn = 1e6)$L,
+               ctrl_kalman(Sd, Qn = diag(2), Rn = 1)$L, tolerance = 1e-8)
+  expect_equal(as.numeric(ctrl_care(-1e-14, 1e-14, 1e-14, 1e-14)$K), sqrt(2) - 1,
+               tolerance = 1e-8)
+})
+
+test_that("gain margin includes a crossover at infinite frequency", {
+  m <- ctrl_margin(ctrl_tf(0.5 * c(-1, 1), c(1, 1)))
+  expect_equal(m$gain_margin, 2)
+})
+
+test_that("numeric matrix weights are used in full", {
+  G <- ctrl_ss(-diag(2), diag(2), diag(2))
+  W <- matrix(c(0.1, 5, 5, 0.1), 2)
+  r <- ctrl_robust_stability(G, ctrl_gain(diag(2)), W)
+  expect_equal(r$peak, ctrl_robust_stability(G, ctrl_gain(diag(2)), ctrl_gain(W))$peak)
+  expect_error(ctrl_robust_stability(G, ctrl_gain(diag(2)), 1:3), "scalar")
+})
+
+test_that("a solved MPC controller survives serialization", {
+  Sd <- ctrl_c2d(ctrl_ss(matrix(c(0, 1, 0, 0), 2, byrow = TRUE), c(0, 1), c(1, 0)), 0.1)
+  m <- ctrl_mpc(Sd, 10, Q = diag(2), R = 0.1, u_min = -1, u_max = 1)
+  u1 <- ctrl_mpc_step(m, c(1, 0))$u
+  expect_equal(ctrl_mpc_step(unserialize(serialize(m, NULL)), c(1, 0))$u, u1,
+               tolerance = 1e-6)
+})
+
+test_that("stiff but regular models", {
+  S <- ctrl_ss(diag(c(-1e-3, -1e11)), c(1e-3, 1e11), c(1, 1))
+  expect_equal(ctrl_dcgain(S), 2, ignore_attr = TRUE)
+  expect_silent(ctrl_lyap(S$A, diag(2)))
+  expect_error(ctrl_lyap(matrix(c(0, 1, 0, 0), 2), diag(2)), "unique")
+})
+
+test_that("small validation gaps", {
+  Pd <- ctrl_ss(0.5, cbind(1, 1), rbind(1, 1), matrix(0, 2, 2), dt = 0.1)
+  expect_equal(ctrl_lft(Pd, ctrl_gain(-0.2), 1, 1)$dt, 0.1)
+  expect_error(ctrl_iddata(c(1, Inf, 2, 3), 1:4), "finite")
+  P <- ctrl_augw(ctrl_tf(1, c(1, 3, 2)), W1 = ctrl_tf(1, c(1, 0.01)), W2 = 0.1)
+  expect_error(ctrl_hinfsyn(P, 1, 1, gamma_range = c(5, 1)), "gamma_range")
+  expect_null(attr(ctrl_hinfsyn(P, 1, 1)$gamma, "bounds"))
+})

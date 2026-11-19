@@ -54,7 +54,10 @@ sort_poles <- function(p, dt) {
 #'
 #' @param sys A model.
 #' @param tol Boundary tolerance. Defaults to a multiple of machine precision
-#'   scaled by the norm of `A`.
+#'   scaled by the norm of the balanced `A`. For a model whose time scales
+#'   differ by about 1e13 or more, the slowest stable poles can fall inside
+#'   this band and are classified as marginal; pass a smaller `tol` when
+#'   such poles are known to be accurate.
 #' @param cluster_tol Tolerance for grouping eigenvalues into clusters.
 #' @return An object of class `ctrl_stability` with `classification`
 #'   (`"asymptotically stable"`, `"marginally stable"` or `"unstable"`),
@@ -204,7 +207,7 @@ ctrl_dcgain <- function(sys) {
   if (!n) return(s$D)
   M <- if (s$dt > 0) diag(n) - s$A else -s$A
   rc <- rcond(M)
-  if (rc < 1e3 * .Machine$double.eps && n > 0L) {
+  if (rc < n * .Machine$double.eps && n > 0L) {
     # a pole at the origin may be uncontrollable or unobservable and then
     # does not affect the gain; retry on a minimal realization
     r <- ctrl_minreal(s)

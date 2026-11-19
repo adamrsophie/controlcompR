@@ -37,9 +37,12 @@ vectorization of the full problem is used, so the cost is
 
 The solution is unique exactly when \eqn{\lambda_i + \lambda_j \ne 0}
 (continuous) or \eqn{\lambda_i \lambda_j \ne 1} (discrete) for all pairs
-of eigenvalues of \code{A}. If the smallest such separation, relative to the
-scale of \code{A}, is below \code{tol}, an error is raised instead of returning an
-unreliable solution.
+of eigenvalues of \code{A}. The separation is \eqn{\min |\lambda_i +
+\lambda_j| / (|\lambda_i| + |\lambda_j|)} (continuous; zero when a sum
+is within rounding of the spectral radius) or
+\eqn{\min |1 - \lambda_i \lambda_j| / \max(1, \max|\lambda|)^2}
+(discrete). If it is below \code{tol}, an error is raised instead of
+returning an unreliable solution.
 }
 \examples{
 A <- matrix(c(-1, 2, 0, -3), 2)

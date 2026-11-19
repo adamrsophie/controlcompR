@@ -21,7 +21,9 @@ ctrl_iddata <- function(y, u, dt = 1, detrend = FALSE) {
   storage.mode(Y) <- "double"
   storage.mode(U) <- "double"
   if (nrow(Y) != nrow(U)) ctrl_abort("`y` and `u` must have the same number of samples.")
-  if (anyNA(Y) || anyNA(U)) ctrl_abort("Identification data must not contain NA.")
+  if (any(!is.finite(Y)) || any(!is.finite(U))) {
+    ctrl_abort("Identification data must be finite (no NA, NaN or Inf).")
+  }
   check_scalar_number(dt, "dt", positive = TRUE)
   off <- list(y = rep(0, ncol(Y)), u = rep(0, ncol(U)))
   if (is.list(detrend)) {

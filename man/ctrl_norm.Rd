@@ -24,7 +24,7 @@ frequency in rad per time unit) and \code{bounds}.
 otherwise; for a discrete model it is
 \eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. The Gramian is
 computed after diagonal balancing; a realization whose Gramian is
-ill-conditioned for other reasons (nearly cancelling input or output
+ill-conditioned for other reasons (nearly canceling input or output
 directions) loses relative accuracy, and \code{\link[=ctrl_minreal]{ctrl_minreal()}} first helps.
 \item \code{"inf"}: the H-infinity norm \eqn{\sup_\omega \sigma_{\max}(G(j\omega))}
 of an asymptotically stable model, computed with the

@@ -14,9 +14,12 @@
 #'
 #' The solution is unique exactly when \eqn{\lambda_i + \lambda_j \ne 0}
 #' (continuous) or \eqn{\lambda_i \lambda_j \ne 1} (discrete) for all pairs
-#' of eigenvalues of `A`. If the smallest such separation, relative to the
-#' scale of `A`, is below `tol`, an error is raised instead of returning an
-#' unreliable solution.
+#' of eigenvalues of `A`. The separation is \eqn{\min |\lambda_i +
+#' \lambda_j| / (|\lambda_i| + |\lambda_j|)} (continuous; zero when a sum
+#' is within rounding of the spectral radius) or
+#' \eqn{\min |1 - \lambda_i \lambda_j| / \max(1, \max|\lambda|)^2}
+#' (discrete). If it is below `tol`, an error is raised instead of
+#' returning an unreliable solution.
 #'
 #' @param A Square matrix.
 #' @param Q Square matrix of the same size (usually symmetric).
@@ -46,13 +49,14 @@ ctrl_lyap <- function(A, Q, discrete = FALSE, tol = 1e-12) {
   lam <- sch$values
   # continuous: relative to the spectral scale itself (the equation is
   # invariant under scaling A); discrete: the unit circle sets the scale
-  sep <- if (discrete) {
-    min(Mod(1 - outer(lam, lam))) / max(1, max(Mod(lam)))^2
+  if (discrete) {
+    sep <- min(Mod(1 - outer(lam, lam))) / max(1, max(Mod(lam)))^2
+    singular <- sep < tol
   } else {
-    sc <- max(Mod(lam))
-    if (sc == 0) 0 else min(Mod(outer(lam, lam, "+"))) / sc
+    sep <- sum_separation(lam, lam)
+    singular <- sep < tol
   }
-  if (sep < tol) {
+  if (singular) {
     ctrl_abort("The ", if (discrete) "discrete" else "continuous",
                " Lyapunov equation has no unique solution: A has eigenvalues ",
                if (discrete) "with lambda_i * lambda_j = 1"
@@ -128,8 +132,7 @@ ctrl_sylvester <- function(A, B, C, tol = 1e-12) {
   if (!length(C)) return(C)
   sa <- schur_real(A)
   sb <- schur_real(B)
-  scale <- max(Mod(sa$values), Mod(sb$values))
-  sep <- if (scale == 0) 0 else min(Mod(outer(sa$values, sb$values, "+"))) / scale
+  sep <- sum_separation(sa$values, sb$values)
   if (sep < tol) {
     ctrl_abort("The Sylvester equation has no unique solution: A and -B ",
                "share an eigenvalue (relative separation ", signif(sep, 3), ").")
@@ -169,4 +172,17 @@ ctrl_gram <- function(sys, type = c("c", "o")) {
   } else {
     ctrl_lyap(t(sys$A), t(sys$C) %*% sys$C, discrete = d)
   }
+}
+
+# Smallest |a_i + b_j| relative to |a_i| + |b_j| (pairwise, so a stiff
+# but well separated spectrum is not penalized), but never more than
+# allowed by rounding at the scale of the whole spectrum: a sum within a
+# few units of rounding of max |lambda| is numerically zero.
+sum_separation <- function(a, b) {
+  scale <- max(Mod(a), Mod(b))
+  if (scale == 0) return(0)
+  s <- Mod(outer(a, b, "+"))
+  d <- outer(Mod(a), Mod(b), "+")
+  if (any(s <= 10 * length(d) * .Machine$double.eps * scale)) return(0)
+  min(s / d)
 }

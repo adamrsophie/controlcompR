@@ -24,11 +24,14 @@
 #' A solution whose relative residual exceeds 1e-6, or whose closed loop is
 #' not stable, raises an error. The returned object reports the relative
 #' residual, the symmetry error and the closed-loop eigenvalues so that the
-#' result can be verified. The Schur method is backward stable in the
-#' normwise sense: when the weights of different states or inputs differ by
-#' many orders of magnitude, the solution in the weakly weighted directions
-#' can lose relative accuracy without raising the normwise residual, so
-#' scale the weights to comparable size.
+#' result can be verified. Before solving, the equation is equilibrated: a
+#' symplectic diagonal state scaling from balancing the Hamiltonian matrix
+#' (so states in very different units carry comparable weight), a common
+#' time scale (continuous time) and a common weight factor, all by powers
+#' of two. The residual is reported for the equilibrated equation. The
+#' Schur method is backward stable in the normwise sense, so weights that
+#' differ by many orders of magnitude within one state or input direction
+#' can still lose relative accuracy.
 #'
 #' @param A State matrix (`n x n`).
 #' @param B Input matrix (`n x m`).
@@ -44,7 +47,7 @@
 #'   `K` (the associated gain \eqn{R^{-1}(B^\top P + S^\top)} or
 #'   \eqn{(R + B^\top P B)^{-1}(B^\top P A + S^\top)}), `poles`
 #'   (eigenvalues of \eqn{A - B K}), `residual` (relative Frobenius
-#'   residual), `symmetry_error`, `rcond_u11` and `discrete`.
+#'   residual of the equilibrated equation), `symmetry_error`, `rcond_u11` and `discrete`.
 #' @references Arnold, W. F. and Laub, A. J. (1984). Generalized eigenproblem
 #'   algorithms and software for algebraic Riccati equations. *Proceedings of
 #'   the IEEE*, 72(12), 1746-1754.
@@ -99,13 +102,48 @@ riccati_inputs <- function(A, B, Q, R, S, check_weights) {
 
 riccati_solve <- function(A, B, Q, R, S, discrete, check_weights) {
   w <- riccati_inputs(A, B, Q, R, S, check_weights)
-  A <- w$A
-  B <- w$B
-  Q <- w$Q
-  R <- w$R
-  S <- w$S
   n <- w$n
-  m <- w$m
+  if (n == 0L) return(riccati_core(w$A, w$B, w$Q, w$R, w$S, discrete))
+  # Equilibrate before solving; the gain and the closed loop do not change.
+  # 1. symplectic diagonal state scaling x = T xb from balancing the
+  #    Hamiltonian matrix, so that states in very different units carry
+  #    comparable weight (Ab = T^-1 A T, Bb = T^-1 B, Qb = T Q T, Sb = T S)
+  G <- w$B %*% solve(w$R, t(w$B))
+  H <- rbind(cbind(w$A, -G), cbind(-w$Q, -t(w$A)))
+  bs <- tryCatch(expm::balance(H, job = "S")$scale, error = function(e) rep(1, 2 * n))
+  e <- round(log2(sqrt(bs[seq_len(n)] / bs[n + seq_len(n)])))
+  e[!is.finite(e)] <- 0
+  t <- 2^pmin(pmax(e, -100), 100)
+  A <- w$A * outer(1 / t, t)
+  B <- w$B / t
+  Q <- w$Q * outer(t, t)
+  S <- w$S * t
+  R <- w$R
+  # 2. continuous time: a common time scale (A, B and the weights divided
+  #    by alpha leave P and K unchanged)
+  alpha <- 1
+  if (!discrete) {
+    na <- norm(A, "1")
+    if (is.finite(na) && na > 0) alpha <- 2^round(log2(na))
+    A <- A / alpha
+    B <- B / alpha
+    Q <- Q / alpha
+    R <- R / alpha
+    S <- S / alpha
+  }
+  # 3. a common weight factor, which scales P only
+  rho <- max(norm(Q, "1"), norm(R, "1"), norm(S, "1"))
+  rho <- if (is.finite(rho) && rho > 0) 2^round(log2(rho)) else 1
+  out <- riccati_core(A, B, Q / rho, R / rho, S / rho, discrete)
+  out$P <- rho * out$P / outer(t, t)
+  out$K <- out$K * rep(1 / t, each = nrow(out$K))
+  out$poles <- out$poles * alpha
+  out
+}
+
+riccati_core <- function(A, B, Q, R, S, discrete) {
+  n <- nrow(A)
+  m <- ncol(B)
   if (n == 0L) {
     return(structure(list(P = matrix(0, 0, 0), K = matrix(0, m, 0),
                           poles = complex(), residual = 0, symmetry_error = 0,

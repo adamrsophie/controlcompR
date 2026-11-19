@@ -163,16 +163,18 @@ simulate_continuous <- function(A, B, U, times, x0, hold) {
   X <- matrix(0, nt, n)
   X[1, ] <- x0
   h <- diff(times)
+  # one set of step matrices per distinct interval (to 12 digits),
+  # indexed once before the loop
   key <- signif(h, 12)
-  cache <- new.env(parent = emptyenv())
+  id <- match(key, unique(key))
+  cache <- vector("list", max(c(0L, id)))
   x <- x0
   for (k in seq_len(nt - 1L)) {
-    kk <- format(key[k], digits = 12)
-    mats <- cache[[kk]]
+    mats <- cache[[id[k]]]
     if (is.null(mats)) {
       mats <- if (hold == "zoh") zoh_matrices(A, B, h[k]) else
         foh_matrices(A, B, h[k])
-      cache[[kk]] <- mats
+      cache[[id[k]]] <- mats
     }
     x <- if (hold == "zoh") {
       drop(mats$A %*% x + mats$B %*% U[k, ])

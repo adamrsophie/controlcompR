@@ -30,7 +30,10 @@ The converted model.
 \item \code{ctrl_zpk2tf()} and \code{ctrl_tf2zpk()} convert between zero-pole-gain
 and polynomial forms (SISO).
 \item \code{ctrl_tf2ss()} realizes a proper transfer function in state space.
-SISO models use the controllable canonical form. MIMO models are
+SISO models use the controllable canonical form; when the poles are
+much faster or slower than one rad per time unit, the states are
+scaled by a power of two of the pole size so that the realization
+stays well conditioned. MIMO models are
 realized element by element and then reduced with \code{\link[=ctrl_minreal]{ctrl_minreal()}}
 when \code{minimal = TRUE}.
 \item \code{ctrl_ss2tf()} computes each SISO channel's transfer function. With

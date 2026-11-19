@@ -22,6 +22,8 @@
 ctrl_lft <- function(P, K, nmeas, ncon) {
   pp <- ctrl_plant_partition(P, nmeas, ncon)
   k <- as_ss(K)
+  # a static gain adopts the plant's time domain, as in ctrl_feedback()
+  if (!nrow(k$A)) k$dt <- pp$dt
   if (k$dt != pp$dt) ctrl_abort("`P` and `K` must share the time domain.")
   if (ncol(k$B) != nmeas || nrow(k$C) != ncon) {
     ctrl_abort("`K` must map ", nmeas, " measurements to ", ncon, " controls.")
@@ -255,9 +257,15 @@ ctrl_hinfsyn <- function(P, nmeas, ncon, gamma = NULL, tol = 1e-3,
   } else {
     if (is.null(gamma_range)) {
       h2 <- ctrl_h2syn(P, nmeas, ncon)
-      hi <- 1.01 * ctrl_norm(h2$closed_loop, "inf")
+      hi <- 1.01 * as.numeric(ctrl_norm(h2$closed_loop, "inf"))
       lo <- 0
     } else {
+      if (!is.numeric(gamma_range) || length(gamma_range) != 2L ||
+          any(!is.finite(gamma_range)) || gamma_range[1] < 0 ||
+          gamma_range[1] >= gamma_range[2]) {
+        ctrl_abort("`gamma_range` must be two finite numbers with ",
+                   "0 <= lower < upper.")
+      }
       lo <- gamma_range[1]
       hi <- gamma_range[2]
     }
@@ -532,7 +540,12 @@ ctrl_robust_stability <- function(G, K, W, type = c("multiplicative_output",
   ny <- nrow(G$C)
   nu <- ncol(G$B)
   k <- if (type == "multiplicative_input") nu else ny
-  W <- if (is_ctrl_system(W)) as_ss(W) else ctrl_gain(as.numeric(W) * diag(k))
+  W <- if (is_ctrl_system(W)) as_ss(W) else {
+    W <- as.matrix(W)
+    if (length(W) == 1L) ctrl_gain(as.numeric(W) * diag(k))
+    else if (identical(dim(W), c(k, k))) ctrl_gain(W)
+    else ctrl_abort("A numeric `W` must be a scalar or a ", k, " x ", k, " matrix.")
+  }
   if (ncol(W$B) == 1L && k > 1L) W <- do.call(ctrl_append, rep(list(W), k))
   L <- ctrl_series(K, G)
   Li <- ctrl_series(G, K)
@@ -541,7 +554,9 @@ ctrl_robust_stability <- function(G, K, W, type = c("multiplicative_output",
   M <- switch(type,
     multiplicative_output = ctrl_series(W, cl),
     multiplicative_input = ctrl_series(W, ctrl_feedback(Li, ctrl_gain(diag(nu)))),
-    additive = ctrl_series(W, ctrl_series(ctrl_feedback(ctrl_gain(diag(ny)), L), K)))
+    # K (I + G K)^-1 formed as one feedback interconnection, so the
+    # controller's own poles do not remain as hidden modes
+    additive = ctrl_series(W, ctrl_feedback(K, G)))
   peak <- if (nominal) as.numeric(ctrl_norm(M, "inf")) else Inf
   list(robustly_stable = nominal && peak < 1, nominally_stable = nominal,
        peak = peak, margin = 1 / peak, type = type)

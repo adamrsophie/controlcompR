@@ -31,7 +31,7 @@ A list of class \code{ctrl_riccati} with \code{P} (stabilizing solution),
 \code{K} (the associated gain \eqn{R^{-1}(B^\top P + S^\top)} or
 \eqn{(R + B^\top P B)^{-1}(B^\top P A + S^\top)}), \code{poles}
 (eigenvalues of \eqn{A - B K}), \code{residual} (relative Frobenius
-residual), \code{symmetry_error}, \code{rcond_u11} and \code{discrete}.
+residual of the equilibrated equation), \code{symmetry_error}, \code{rcond_u11} and \code{discrete}.
 }
 \description{
 \code{ctrl_care()} computes the stabilizing solution of the continuous time
@@ -59,11 +59,14 @@ singular, an error is raised rather than an invalid solution returned.
 A solution whose relative residual exceeds 1e-6, or whose closed loop is
 not stable, raises an error. The returned object reports the relative
 residual, the symmetry error and the closed-loop eigenvalues so that the
-result can be verified. The Schur method is backward stable in the
-normwise sense: when the weights of different states or inputs differ by
-many orders of magnitude, the solution in the weakly weighted directions
-can lose relative accuracy without raising the normwise residual, so
-scale the weights to comparable size.
+result can be verified. Before solving, the equation is equilibrated: a
+symplectic diagonal state scaling from balancing the Hamiltonian matrix
+(so states in very different units carry comparable weight), a common
+time scale (continuous time) and a common weight factor, all by powers
+of two. The residual is reported for the equilibrated equation. The
+Schur method is backward stable in the normwise sense, so weights that
+differ by many orders of magnitude within one state or input direction
+can still lose relative accuracy.
 }
 \examples{
 # Scalar CARE with known solution sqrt(2) - 1

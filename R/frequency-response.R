@@ -378,6 +378,15 @@ ctrl_margin <- function(L) {
     wpc <- c(0, wpc)
   }
   gm_tab <- data.frame(frequency = numeric(), gain_margin = numeric())
+  # a biproper continuous loop with L(j Inf) real and negative crosses the
+  # negative real axis at infinite frequency
+  if (dt == 0) {
+    nn <- strip_leading_zeros(num)
+    dd <- strip_leading_zeros(den)
+    if (length(nn) == length(dd) && nn[1] / dd[1] < 0) {
+      gm_tab <- data.frame(frequency = Inf, gain_margin = abs(dd[1] / nn[1]))
+    }
+  }
   for (w in unique(wpc)) {
     v <- evalL(w)
     if (!is.finite(Mod(v))) next
