@@ -303,6 +303,9 @@ test_that("standard responses start at time zero (RT06)", {
   expect_equal(ctrl_step(Gd, times = c(1, 1.5))$y[, 1, 1],
                ctrl_step(Gd, times = seq(0, 1.5, 0.5))$y[3:4, 1, 1])
   expect_error(ctrl_step(G, times = c(-1, 0)), "at or after 0")
+  # metrics need the pre-step sample
+  expect_error(ctrl_step_info(st, sys = G), "start at time 0")
+  expect_error(ctrl_fit_fopdt(st), "start at time 0")
 })
 
 test_that("an exactly known final value does not imply settling (RT07)", {

@@ -493,6 +493,7 @@ ctrl_pid_tune <- function(method = c("ziegler_nichols", "simc", "amigo"),
 ctrl_fit_fopdt <- function(response) {
   if (is_ctrl_system(response)) response <- ctrl_step(response)
   t <- response$time
+  if (t[1] != 0) ctrl_abort("`response` must start at time 0 (the step instant).")
   y <- response$y[, 1, 1]
   # the gain is the output change per unit input step
   u <- response$u[, , 1]

@@ -41,6 +41,10 @@ ctrl_step_info <- function(response, sys = NULL, settle = 0.02,
   if (!inherits(response, "ctrl_response")) {
     ctrl_abort("`response` must be a `ctrl_response` or a model.")
   }
+  # the first sample is the value before the step
+  if (response$time[1] != 0) {
+    ctrl_abort("`response` must start at time 0 (the step instant).")
+  }
   t <- response$time
   dc <- NULL
   amp <- 1

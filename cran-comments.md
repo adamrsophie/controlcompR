@@ -13,9 +13,11 @@ This is the first submission of controlcompR.
   packages needed to build vignettes and run tests (knitr, rmarkdown,
   testthat), and without the optional `sysid` package
   (`_R_CHECK_FORCE_SUGGESTS_=false`).
+* GitHub Actions, Ubuntu R 4.3 (the declared minimum).
 * R-hub v2 (R devel): linux, windows, macos-arm64, valgrind, clang-asan,
-  clang-ubsan and atlas.
-* win-builder: R devel and R release 4.6.2 (1 note each, as below).
+  clang-ubsan and atlas (to be rerun on the submitted version).
+* win-builder: R devel and R release (to be rerun on the submitted
+  version; the previous build gave 1 note each, as below).
 
 ## R CMD check results
 
