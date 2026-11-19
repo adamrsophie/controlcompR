@@ -20,12 +20,15 @@ layer (ordered real and generalized Schur forms), quadratic programs are
 solved with [OSQP](https://osqp.org), and ODEs with
 [deSolve](https://cran.r-project.org/package=deSolve).
 
-Every numerically sensitive result is checked before it is returned:
-Riccati solutions are verified by their residual and closed-loop
-eigenvalues, H-infinity controllers are certified by an independent norm
-computation, MPC steps report solver status, bound violations and
-dynamics residuals, and problems the package cannot solve reliably are
-refused with an error rather than approximated silently.
+Key results carry checks of their own: Riccati solutions are verified by
+their residual and closed-loop eigenvalues, H-infinity controllers by an
+independent norm computation, balanced truncation by a sampled check of
+its error bound, and MPC steps report solver status, bound violations and
+dynamics residuals. Some quantities are sampled rather than certified
+(for example the robust performance peak and Nyquist encirclement
+counts, which return `NA` when the frequency sweep cannot resolve them),
+and nonlinear estimators and controllers are local approximations. Each
+help page states the method, its assumptions and what is verified.
 
 ## Installation
 

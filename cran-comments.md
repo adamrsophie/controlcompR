@@ -9,8 +9,10 @@ This is the first submission of controlcompR.
 * GitHub Actions, Ubuntu R devel, with the PDF and HTML manual, the CRAN
   incoming feasibility check (remote checks and aspell enabled), spelling
   and URL checks.
-* GitHub Actions, Ubuntu R release, with only the hard dependencies
-  installed (`_R_CHECK_FORCE_SUGGESTS_=false`).
+* GitHub Actions, Ubuntu R release, with the hard dependencies plus the
+  packages needed to build vignettes and run tests (knitr, rmarkdown,
+  testthat), and without the optional `sysid` package
+  (`_R_CHECK_FORCE_SUGGESTS_=false`).
 * R-hub v2 (R devel): linux, windows, macos-arm64, valgrind, clang-asan,
   clang-ubsan and atlas.
 * win-builder: R devel and R release 4.6.2 (1 note each, as below).

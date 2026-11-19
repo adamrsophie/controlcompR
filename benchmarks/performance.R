@@ -3,8 +3,10 @@
 #   Rscript benchmarks/performance.R
 #
 # Each row reports the median and maximum elapsed time over `reps` runs and
-# the peak additional memory (Mb) seen by the garbage collector during one
-# run. Peak memory comes from gc(reset = TRUE) and is approximate.
+# the peak additional R heap memory (Mb) seen by the garbage collector
+# during one run. Peak memory comes from gc(reset = TRUE), is approximate,
+# and excludes native allocations (LAPACK, OSQP and the package's C code);
+# it is not the process resident set size.
 library(controlcompR)
 set.seed(1)
 
@@ -84,4 +86,5 @@ for (ws in c(FALSE, TRUE)) {
 
 out <- as.data.frame(do.call(rbind, rows))
 print(out, row.names = FALSE)
-cat("Times in seconds; peak_mb is the peak extra memory during one run.\n")
+cat("Times in seconds; peak_mb is the peak extra R heap memory during one run",
+    "(from gc(); native allocations by LAPACK, OSQP or C code are not counted).\n")

@@ -68,7 +68,7 @@ jobs:
           name: incoming-check
           path: check
 
-  nosuggests:
+  no-sysid:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -84,7 +84,7 @@ jobs:
           dependencies: '"hard"'
           extra-packages: any::rcmdcheck, any::knitr, any::rmarkdown, any::testthat
           needs: check
-      - name: Check without optional packages
+      - name: Check without the optional sysid package
         run: |
           for (lib in .libPaths()) if (dir.exists(file.path(lib, "sysid"))) unlink(file.path(lib, "sysid"), recursive = TRUE)
           stopifnot(!requireNamespace("sysid", quietly = TRUE))

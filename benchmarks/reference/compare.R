@@ -37,9 +37,11 @@ add <- function(name, ours, theirs) {
     stop("Length mismatch in check ", name, ": ", length(ours), " vs ",
          length(theirs), " (", paste(signif(theirs, 4), collapse = ", "), ")")
   }
-  err <- max(abs(as.numeric(ours) - as.numeric(theirs))) /
-    max(1, max(abs(as.numeric(theirs))))
-  rows[[length(rows) + 1L]] <<- data.frame(check = name, rel_error = err)
+  # mixed error: absolute below unit scale, relative above it
+  abs_err <- max(abs(as.numeric(ours) - as.numeric(theirs)))
+  err <- abs_err / max(1, max(abs(as.numeric(theirs))))
+  rows[[length(rows) + 1L]] <<- data.frame(check = name, abs_error = abs_err,
+                                           mixed_error = err)
 }
 for (i in seq_along(ref$care)) {
   p <- lapply(prob$care[i, ], function(v) m(v[[1]]))
@@ -80,7 +82,7 @@ if (!is.null(h$error)) stop("The python-control hinfsyn reference failed: ", h$e
   add("hinfsyn gamma", syn$gamma, h$gamma)
 }
 res <- do.call(rbind, rows)
-res$pass <- res$rel_error < ifelse(grepl("hinfsyn", res$check), 1e-3, 1e-7)
+res$pass <- res$mixed_error < ifelse(grepl("hinfsyn", res$check), 1e-3, 1e-7)
 print(res, row.names = FALSE)
 cat("python-control", ref$versions$control, "\n")
 if (!all(res$pass)) stop("Reference comparison failed.")
