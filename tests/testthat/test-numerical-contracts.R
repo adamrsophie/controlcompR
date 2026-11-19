@@ -107,11 +107,16 @@ test_that("balanced reduction bounds dominate the error in any state units (NC01
     expect_lte(err, attr(Sr, "error_bound") * (1 + 1e-6))
   }
   # a badly conditioned realization either gets a bound that holds or is
-  # rejected (which happens depends on the platform's linear algebra)
+  # rejected (which happens depends on the platform's linear algebra). The
+  # transformation has condition number 1e11, so the rounded matrices can
+  # describe a different (even unstable) model; compare only when it is
+  # still the stable model S.
   Tb <- diag(10^c(-5, -1, 2, 6)) %*% qr.Q(qr(matrix(rnorm(16), 4)))
   Sb <- ctrl_ss(solve(Tb, S$A %*% Tb), solve(Tb, S$B), S$C %*% Tb)
   res <- tryCatch(suppressWarnings(ctrl_balred(Sb, 3)), error = function(e) e)
-  if (inherits(res, "error")) {
+  if (!ctrl_is_stable(Sb)) {
+    expect_true(inherits(res, "error") || nrow(res$A) == 3L)
+  } else if (inherits(res, "error")) {
     expect_match(conditionMessage(res), "certify")
   } else {
     expect_lte(ctrl_norm(S - res, "inf"), attr(res, "error_bound") * (1 + 1e-6))

@@ -359,6 +359,13 @@ check_reduction_bound <- function(full, red, bound, method) {
   lower <- max(vapply(seq_along(w), function(k) smax(ef[, , k]), 0))
   # the peak can fall between samples; the H-infinity norm of the error
   # system locates it (its upper bound, when one is established)
+  # truncating a stable balanced realization keeps it stable; a reduced
+  # model that is not stable shows the balancing failed
+  if (!ctrl_is_stable(red)) {
+    ctrl_abort("Balanced reduction could not certify its error bound: the ",
+               "reduced model is not stable. The Gramians are too ",
+               "ill-conditioned for the reduction to be reliable.")
+  }
   en <- tryCatch({
     nv <- ctrl_norm(fs - as_ss(red), "inf")
     b <- attr(nv, "bounds")
