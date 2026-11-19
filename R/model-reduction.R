@@ -357,6 +357,14 @@ check_reduction_bound <- function(full, red, bound, method) {
   ef <- gf - eval_system(as_ss(red), z)
   smax <- function(v) if (any(!is.finite(v))) 0 else max(svd(as.matrix(v), 0, 0)$d, 0)
   lower <- max(vapply(seq_along(w), function(k) smax(ef[, , k]), 0))
+  # the peak can fall between samples; the H-infinity norm of the error
+  # system locates it (its upper bound, when one is established)
+  en <- tryCatch({
+    nv <- ctrl_norm(fs - as_ss(red), "inf")
+    b <- attr(nv, "bounds")
+    if (length(b) == 2L) b[2] else as.numeric(nv)
+  }, error = function(e) NA_real_)
+  if (length(en) == 1L && is.finite(en)) lower <- max(lower, en)
   acc <- max(noise)
   # the projection itself is computed with rounding relative to the size
   # of the transfer matrix
