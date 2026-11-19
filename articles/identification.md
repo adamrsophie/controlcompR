@@ -72,13 +72,13 @@ errors meaningless; use an output-error or Box-Jenkins model from
 tab <- ctrl_arx_order(parts$estimation, na = 1:4, nb = 1:4,
                       validation = parts$validation)
 head(tab)
-#>    na nb nk npar       aic       bic validation_fit
-#> 6   2  2  1    4 -1860.907 -1843.332       86.94238
-#> 7   3  2  1    5 -1855.716 -1833.756       86.94243
-#> 10  2  3  1    5 -1855.619 -1833.659       86.94238
-#> 11  3  3  1    6 -1855.017 -1828.665       86.94300
-#> 8   4  2  1    6 -1851.988 -1825.647       86.94205
-#> 14  2  4  1    6 -1850.504 -1824.162       86.94152
+#>    na nb nk npar nobs       aic       bic validation_fit
+#> 6   2  2  1    4  596 -1853.477 -1835.916       86.94246
+#> 7   3  2  1    5  596 -1851.607 -1829.656       86.94247
+#> 10  2  3  1    5  596 -1851.515 -1829.564       86.94241
+#> 8   4  2  1    6  596 -1851.988 -1825.647       86.94205
+#> 11  3  3  1    6  596 -1850.923 -1824.582       86.94305
+#> 14  2  4  1    6  596 -1850.504 -1824.162       86.94152
 ```
 
 Information criteria (BIC penalizes complexity more than AIC) and the

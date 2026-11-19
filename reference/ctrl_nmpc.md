@@ -39,7 +39,8 @@ ctrl_simulate_nmpc(
   x_ref = NULL,
   u_ref = NULL,
   plant = NULL,
-  on_failure = c("stop", "hold")
+  on_failure = c("stop", "hold"),
+  u0 = NULL
 )
 ```
 
@@ -105,11 +106,24 @@ ctrl_simulate_nmpc(
 
 - plant:
 
-  Simulation model (default: the prediction model).
+  Simulation model (default: the prediction model). It must be a
+  discrete time `ctrl_nlsys` with the controller's sample interval and
+  dimensions; discretize a continuous plant with
+  [`ctrl_nl_discretize()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_discretize.md)
+  first.
 
 - on_failure:
 
-  `"stop"` or `"hold"` (apply the previous input).
+  `"stop"` or `"hold"` (apply the previous input). The held input is
+  clipped to the input bounds; the log records the fallback, and
+  `"hold (clipped)"` when clipping changed it. A held input does not
+  guarantee that state constraints stay satisfied.
+
+- u0:
+
+  Input held before the first sample, used by the `"hold"` fallback when
+  the first optimization fails. The default is the admissible point of
+  the input bounds closest to zero.
 
 ## Value
 

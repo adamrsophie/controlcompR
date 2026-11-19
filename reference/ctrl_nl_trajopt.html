@@ -181,8 +181,9 @@ penalized.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An object of class <code>ctrl_trajopt</code> with <code>time</code>, <code>x</code> (<code>N + 1</code> rows),
-<code>u</code> (<code>N</code> rows), <code>objective</code> (the cost without terminal constraint
-terms), <code>converged</code>, <code>convergence</code> (optimizer code of the last
+<code>u</code> (<code>N</code> rows), <code>objective</code> (the stated cost, including the soft
+state bound penalty but not the terminal constraint terms), <code>cost</code>
+(its <code>quadratic</code> and <code>penalty</code> parts), <code>converged</code>, <code>convergence</code> (optimizer code of the last
 subproblem), <code>message</code>, <code>outer_iterations</code>, <code>multiplier</code> and
 <code>terminal_error</code> (distance to <code>x_final</code>, <code>NA</code> without one).</p>
     </div>

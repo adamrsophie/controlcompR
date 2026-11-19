@@ -50,10 +50,12 @@ A data frame with one row per output and case.
 - peak and peak time: largest \\\|y - y_0\|\\.
 
 When `sys` (the model) is supplied the final value is its DC gain times
-the step amplitude (exact, for stable models). Otherwise the last sample
-is used and `settled` reports whether the response varies by less than
-the band over the last 5 percent of the horizon. Characteristics depend
-on these conventions, so state them when reporting numbers.
+the step amplitude (exact, for stable models; `final_value_known` is
+`TRUE`) and `settled` reports whether the response is inside the band at
+the end of the simulated horizon. Otherwise the last sample is used and
+`settled` reports whether the response varies by less than the band over
+the last 5 percent of the horizon. Characteristics depend on these
+conventions, so state them when reporting numbers.
 
 ## Examples
 
@@ -62,6 +64,6 @@ G <- ctrl_tf(4, c(1, 1.2, 4))
 ctrl_step_info(G)
 #>   output    case rise_time settling_time overshoot undershoot     peak
 #> 1     y1 step u1 0.6607187      5.623333  37.23241          0 1.372324
-#>   peak_time final_value settled
-#> 1     1.645           1    TRUE
+#>   peak_time final_value settled final_value_known
+#> 1     1.645           1    TRUE              TRUE
 ```

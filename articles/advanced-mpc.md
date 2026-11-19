@@ -47,7 +47,7 @@ sim_s <- ctrl_simulate_mpc(soft, c(0, 1), steps = 60)
 summary(sim_s)
 #> MPC simulation: 60 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 60
-#>   solve time: mean 3.39e-05 s, max 4.61e-05 s; mean iterations 74.17
+#>   solve time: mean 4.59e-05 s, max 5.97e-05 s; mean iterations 74.17
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0.94
 #>   max slack: 0.94
@@ -124,7 +124,7 @@ mhe <- ctrl_mhe(sys, horizon = 10, Qn = 4e-4, Rn = 0.09, x0 = 0, P0 = 1, x_min =
 est <- ctrl_mhe_run(mhe, y)
 c(kalman_min = min(kf$filtered), mhe_min = min(est$estimates))
 #>    kalman_min       mhe_min 
-#> -2.331457e-01 -1.059524e-17
+#> -2.331457e-01 -1.610433e-17
 c(kalman_rmse = sqrt(mean((kf$filtered[, 1] - xs)^2)),
   mhe_rmse = sqrt(mean((est$estimates[, 1] - xs)^2)))
 #> kalman_rmse    mhe_rmse 
@@ -141,7 +141,7 @@ cold <- ctrl_mhe_run(mhe, y, warm_start = FALSE)
 c(max_difference = max(abs(cold$estimates - est$estimates)),
   iterations_cold = sum(cold$iterations), iterations_warm = sum(est$iterations))
 #>  max_difference iterations_cold iterations_warm 
-#>               0            6750            6250
+#>               0            5400            5625
 ```
 
 ``` r

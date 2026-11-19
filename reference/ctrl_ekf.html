@@ -141,8 +141,9 @@ entirely <code>NA</code> skip the update). Row <code>k</code> of the data is pas
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list of class <code>ctrl_kalman_filter</code> with <code>filtered</code>,
-<code>P_filtered</code>, <code>innovations</code>, <code>nis</code> and <code>loglik</code>.</p>
+    <p>A list of class <code>c("ctrl_nl_filter", "ctrl_kalman_filter")</code> with
+<code>filtered</code>, <code>P_filtered</code>, <code>innovations</code>, <code>nis</code> and <code>loglik</code>. It has no
+predicted covariances, so <code><a href="ctrl_kalman_filter.html">ctrl_kalman_smoother()</a></code> does not accept it.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

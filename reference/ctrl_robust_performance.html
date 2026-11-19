@@ -133,18 +133,28 @@ is not a structured singular value computation.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with <code>robust_performance</code>, <code>nominally_stable</code>,
-<code>robust_stability</code> (\(\sup |W_u| \bar\sigma(T) &lt; 1\)),
-<code>nominal_performance</code> (\(\sup |W_p| \bar\sigma(S) &lt; 1\)), <code>peak</code>,
-<code>frequency</code> (where the peak occurs), <code>exact</code> (<code>TRUE</code> for SISO loops)
-and <code>curve</code> (a data frame with <code>frequency</code> and <code>value</code>).</p>
+    <p>A list with <code>robust_performance</code> (sampled peak below one),
+<code>certified</code> (<code>TRUE</code> when the rigorous upper bound is also below one),
+<code>upper_bound</code>, <code>nominally_stable</code>, <code>robust_stability</code>
+(\(\sup |W_u| \bar\sigma(T) &lt; 1\)), <code>nominal_performance</code>
+(\(\sup |W_p| \bar\sigma(S) &lt; 1\)), <code>peak</code>, <code>frequency</code> (where the
+peak occurs; <code>Inf</code> for the infinite frequency endpoint), <code>peaks</code> (the
+sampled sum, performance and robustness peaks), <code>criterion_exact</code>
+(<code>TRUE</code> for SISO loops, where the condition is also necessary) and
+<code>curve</code> (a data frame with <code>frequency</code> and <code>value</code>).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>The supremum is evaluated on a dense frequency grid refined by a local
-one-dimensional search around the largest grid value, so the reported
-peak is a lower bound on the true supremum that is accurate to the
-search tolerance; it is not a certified bound like <code><a href="ctrl_norm.html">ctrl_norm()</a></code>.</p>
+    <p>Each supremum (performance, robustness and their sum) is sampled on a
+dense frequency grid that includes the endpoints (zero and infinite
+frequency for continuous models, zero and the Nyquist frequency for
+discrete models), and the largest local maxima are refined with a
+one-dimensional search. Sampled peaks are lower bounds on the true
+suprema, so <code>robust_performance</code> is decided on samples. A pass is
+<code>certified</code> when the rigorous upper bound
+\(\|W_p S\|_\infty + \|W_u T\|_\infty\) from <code><a href="ctrl_norm.html">ctrl_norm()</a></code> is below
+one as well; it can be conservative, so an uncertified pass is not a
+failure.</p>
     </div>
 
     <div class="section level2">

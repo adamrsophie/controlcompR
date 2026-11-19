@@ -212,10 +212,10 @@ ctrl_compare_controllers(list(
 #> 1 ziegler_nichols  2.299335 1.253245   5.685068 0.2064175       55.31573
 #> 2            simc  8.310740 2.986853 110.440255 0.3169194       22.66202
 #> 3           amigo 13.100333 6.205627 177.892905 0.4558494       12.16790
-#>   max_abs_u max_violation
-#> 1  5.267316             0
-#> 2  2.414330             0
-#> 3  1.154471             0
+#>   max_abs_u max_violation  convention
+#> 1  5.267316             0 trapezoidal
+#> 2  2.414330             0 trapezoidal
+#> 3  1.154471             0 trapezoidal
 ```
 
 Ziegler-Nichols is aggressive (low damping); SIMC and AMIGO trade speed

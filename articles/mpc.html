@@ -189,7 +189,7 @@ equations. These diagnostics make solver tolerance problems visible.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim</span><span class="op">)</span></span>
 <span><span class="co">#&gt; MPC simulation: 80 samples, 0 failed solves (0%)</span></span>
 <span><span class="co">#&gt;   solver statuses: solved = 80</span></span>
-<span><span class="co">#&gt;   solve time: mean 0.000143 s, max 0.000372 s; mean iterations 120.6</span></span>
+<span><span class="co">#&gt;   solve time: mean 0.000199 s, max 0.000489 s; mean iterations 120.6</span></span>
 <span><span class="co">#&gt;   max input bound violation: 4.81e-11</span></span>
 <span><span class="co">#&gt;   max state bound violation (true plant): 2.22e-16</span></span>
 <span><span class="co">#&gt;   max slack: 0</span></span>
@@ -324,9 +324,9 @@ unstable plants.</p>
 <span><span class="co">#&gt;      controller      IAE      ISE     ITAE      RMSE control_effort max_abs_u</span></span>
 <span><span class="co">#&gt; 1 saturated_lqr 3.188662 4.417522 3.589068 0.7597304      3.5171881         1</span></span>
 <span><span class="co">#&gt; 2           mpc 3.957788 5.612446 4.915165 0.8523824      0.8770798         1</span></span>
-<span><span class="co">#&gt;   max_violation</span></span>
-<span><span class="co">#&gt; 1  0.000000e+00</span></span>
-<span><span class="co">#&gt; 2  3.304623e-11</span></span></code></pre></div>
+<span><span class="co">#&gt;   max_violation  convention</span></span>
+<span><span class="co">#&gt; 1  0.000000e+00 trapezoidal</span></span>
+<span><span class="co">#&gt; 2  3.304623e-11 trapezoidal</span></span></code></pre></div>
 <p>The saturated LQR is faster here only because it ignores the velocity
 limit of 0.6, which MPC respects:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">

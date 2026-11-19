@@ -277,10 +277,10 @@ step response:</p>
 <span><span class="co">#&gt; 1 ziegler_nichols  2.299335 1.253245   5.685068 0.2064175       55.31573</span></span>
 <span><span class="co">#&gt; 2            simc  8.310740 2.986853 110.440255 0.3169194       22.66202</span></span>
 <span><span class="co">#&gt; 3           amigo 13.100333 6.205627 177.892905 0.4558494       12.16790</span></span>
-<span><span class="co">#&gt;   max_abs_u max_violation</span></span>
-<span><span class="co">#&gt; 1  5.267316             0</span></span>
-<span><span class="co">#&gt; 2  2.414330             0</span></span>
-<span><span class="co">#&gt; 3  1.154471             0</span></span></code></pre></div>
+<span><span class="co">#&gt;   max_abs_u max_violation  convention</span></span>
+<span><span class="co">#&gt; 1  5.267316             0 trapezoidal</span></span>
+<span><span class="co">#&gt; 2  2.414330             0 trapezoidal</span></span>
+<span><span class="co">#&gt; 3  1.154471             0 trapezoidal</span></span></code></pre></div>
 <p>Ziegler-Nichols is aggressive (low damping); SIMC and AMIGO trade
 speed for robustness. Always check margins and a simulation with
 realistic saturation and noise before using a tuned controller.</p>

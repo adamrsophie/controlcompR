@@ -83,6 +83,22 @@
 <li>Nonlinear systems: simulation, linearization, equilibria, discretization, EKF, UKF, experimental nonlinear MPC with adjoint gradients and trajectory optimization with terminal constraints.</li>
 <li>Fifteen articles and a reference comparison against python-control and SLICOT.</li>
 </ul></li>
+<li>Numerical contracts worth knowing:
+<ul><li>Balanced truncation checks its error bound on a frequency sample and stops with an error when the bound cannot be certified.</li>
+<li>
+<code><a href="../reference/ctrl_robust_performance.html">ctrl_robust_performance()</a></code> samples its peaks (including zero and infinite frequency) and reports a separate <code>certified</code> flag from a rigorous upper bound; the SISO exactness flag is <code>criterion_exact</code>.</li>
+<li>Nyquist encirclement counts are <code>NA</code> when the frequency sweep cannot resolve the contour.</li>
+<li>
+<code><a href="../reference/ctrl_zeros.html">ctrl_zeros()</a></code> stops with an error for systems whose pencil is singular (no full normal rank).</li>
+<li>Step, impulse and initial responses are applied at time zero; grids that start later report the same response at their own instants.</li>
+<li>
+<code><a href="../reference/ctrl_step_info.html">ctrl_step_info()</a></code> reports <code>final_value_known</code> separately from <code>settled</code>, which is now always based on the simulated horizon.</li>
+<li>
+<code><a href="../reference/ctrl_pid_update.html">ctrl_pid_update()</a></code> has <code>init = "hold"</code> (default) and <code>init = "zero"</code> (zero history, matching the zero-state response of <code><a href="../reference/ctrl_pid_tf.html">ctrl_pid_tf()</a></code>).</li>
+<li>EKF and UKF results have class <code>ctrl_nl_filter</code> and are not accepted by <code><a href="../reference/ctrl_kalman_filter.html">ctrl_kalman_smoother()</a></code>; infinite measurements are rejected (only <code>NA</code> marks missing data).</li>
+<li>NMPC simulation needs a discrete plant with the controller’s sample interval; the <code>"hold"</code> fallback is clipped to the input bounds and the first held input is set by <code>u0</code>.</li>
+<li>Numeric scalars scale every channel of MIMO models.</li>
+</ul></li>
 </ul></div>
   </main></div>
 

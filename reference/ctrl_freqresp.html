@@ -106,9 +106,12 @@ complex array of dimension outputs x inputs x frequencies.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>State-space models are evaluated by solving
-\((j\omega I - A) X = B\) at each frequency (no matrix inverse);
-transfer functions by polynomial evaluation.</p>
+    <p>State-space models are balanced (diagonal scaling) and evaluated by
+solving \((j\omega I - A) X = B\) at each frequency (no matrix
+inverse). Transfer functions are evaluated as ratios of their numerator
+and denominator polynomials (Horner's rule), which can lose accuracy for
+high order polynomials; convert to state space with <code><a href="ctrl_tf2ss.html">ctrl_tf2ss()</a></code> for
+those.</p>
     </div>
 
     <div class="section level2">

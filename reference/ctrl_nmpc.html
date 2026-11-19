@@ -127,7 +127,8 @@ through the quadratic penalty \(\rho\) and can be violated.</p>
 <span>  x_ref <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  u_ref <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  plant <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  on_failure <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"stop"</span>, <span class="st">"hold"</span><span class="op">)</span></span>
+<span>  on_failure <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"stop"</span>, <span class="st">"hold"</span><span class="op">)</span>,</span>
+<span>  u0 <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -194,11 +195,23 @@ is repeated beyond the end), or functions of the 1-based sample index.</p></dd>
 
 
 <dt id="arg-plant">plant<a class="anchor" aria-label="anchor" href="#arg-plant"></a></dt>
-<dd><p>Simulation model (default: the prediction model).</p></dd>
+<dd><p>Simulation model (default: the prediction model). It must
+be a discrete time <code>ctrl_nlsys</code> with the controller's sample interval
+and dimensions; discretize a continuous plant with
+<code><a href="ctrl_nl_discretize.html">ctrl_nl_discretize()</a></code> first.</p></dd>
 
 
 <dt id="arg-on-failure">on_failure<a class="anchor" aria-label="anchor" href="#arg-on-failure"></a></dt>
-<dd><p><code>"stop"</code> or <code>"hold"</code> (apply the previous input).</p></dd>
+<dd><p><code>"stop"</code> or <code>"hold"</code> (apply the previous input). The
+held input is clipped to the input bounds; the log records the
+fallback, and <code>"hold (clipped)"</code> when clipping changed it. A held input
+does not guarantee that state constraints stay satisfied.</p></dd>
+
+
+<dt id="arg-u-">u0<a class="anchor" aria-label="anchor" href="#arg-u-"></a></dt>
+<dd><p>Input held before the first sample, used by the <code>"hold"</code>
+fallback when the first optimization fails. The default is the
+admissible point of the input bounds closest to zero.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -7,7 +7,14 @@ and the mode.
 ## Usage
 
 ``` r
-ctrl_pid_update(pid, state = NULL, r, y, manual = NULL)
+ctrl_pid_update(
+  pid,
+  state = NULL,
+  r,
+  y,
+  manual = NULL,
+  init = c("hold", "zero")
+)
 ```
 
 ## Arguments
@@ -18,7 +25,8 @@ ctrl_pid_update(pid, state = NULL, r, y, manual = NULL)
 
 - state:
 
-  Controller state from the previous call (`NULL` to initialize).
+  Controller state from the previous call (`NULL` to initialize as set
+  by `init`).
 
 - r, y:
 
@@ -28,6 +36,16 @@ ctrl_pid_update(pid, state = NULL, r, y, manual = NULL)
 
   Optional manual output; when given, the controller is in manual mode
   and tracks this value for bumpless transfer.
+
+- init:
+
+  Initialization used when `state` is `NULL`. `"hold"` (the default)
+  assumes the signals were constant at their first values before the
+  first sample, so there is no derivative kick and the Tustin integrator
+  uses the full first error. `"zero"` assumes zero history (all signals
+  zero before the first sample), which reproduces the zero-state
+  response of the controller transfer function from
+  [`ctrl_pid_tf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pid_tf.md).
 
 ## Value
 

@@ -57,8 +57,11 @@ ctrl_ukf(
 
 ## Value
 
-A list of class `ctrl_kalman_filter` with `filtered`, `P_filtered`,
-`innovations`, `nis` and `loglik`.
+A list of class `c("ctrl_nl_filter", "ctrl_kalman_filter")` with
+`filtered`, `P_filtered`, `innovations`, `nis` and `loglik`. It has no
+predicted covariances, so
+[`ctrl_kalman_smoother()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md)
+does not accept it.
 
 ## Details
 

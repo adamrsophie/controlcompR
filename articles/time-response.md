@@ -76,8 +76,8 @@ info <- ctrl_step_info(G)
 info
 #>   output    case rise_time settling_time overshoot undershoot     peak
 #> 1     y1 step u1 0.4012302      6.538462  52.65921          0 1.526592
-#>   peak_time final_value settled
-#> 1  1.072261           1    TRUE
+#>   peak_time final_value settled final_value_known
+#> 1  1.072261           1    TRUE              TRUE
 ```
 
 The definitions are explicit: rise time from 10 to 90 percent of the

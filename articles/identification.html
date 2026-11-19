@@ -165,13 +165,13 @@ from <code>sysid</code>.</p>
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_arx_order.html">ctrl_arx_order</a></span><span class="op">(</span><span class="va">parts</span><span class="op">$</span><span class="va">estimation</span>, na <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, nb <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>,</span>
 <span>                      validation <span class="op">=</span> <span class="va">parts</span><span class="op">$</span><span class="va">validation</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">tab</span><span class="op">)</span></span>
-<span><span class="co">#&gt;    na nb nk npar       aic       bic validation_fit</span></span>
-<span><span class="co">#&gt; 6   2  2  1    4 -1860.907 -1843.332       86.94238</span></span>
-<span><span class="co">#&gt; 7   3  2  1    5 -1855.716 -1833.756       86.94243</span></span>
-<span><span class="co">#&gt; 10  2  3  1    5 -1855.619 -1833.659       86.94238</span></span>
-<span><span class="co">#&gt; 11  3  3  1    6 -1855.017 -1828.665       86.94300</span></span>
-<span><span class="co">#&gt; 8   4  2  1    6 -1851.988 -1825.647       86.94205</span></span>
-<span><span class="co">#&gt; 14  2  4  1    6 -1850.504 -1824.162       86.94152</span></span></code></pre></div>
+<span><span class="co">#&gt;    na nb nk npar nobs       aic       bic validation_fit</span></span>
+<span><span class="co">#&gt; 6   2  2  1    4  596 -1853.477 -1835.916       86.94246</span></span>
+<span><span class="co">#&gt; 7   3  2  1    5  596 -1851.607 -1829.656       86.94247</span></span>
+<span><span class="co">#&gt; 10  2  3  1    5  596 -1851.515 -1829.564       86.94241</span></span>
+<span><span class="co">#&gt; 8   4  2  1    6  596 -1851.988 -1825.647       86.94205</span></span>
+<span><span class="co">#&gt; 11  3  3  1    6  596 -1850.923 -1824.582       86.94305</span></span>
+<span><span class="co">#&gt; 14  2  4  1    6  596 -1850.504 -1824.162       86.94152</span></span></code></pre></div>
 <p>Information criteria (BIC penalizes complexity more than AIC) and the
 simulation fit on validation data should agree; when they do not, prefer
 the validation data and residual tests.</p>

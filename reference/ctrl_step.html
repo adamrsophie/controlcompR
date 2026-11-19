@@ -129,7 +129,9 @@ reproduced by a discrete pulse.</p></li>
 
 
 <dt id="arg-times">times<a class="anchor" aria-label="anchor" href="#arg-times"></a></dt>
-<dd><p>Optional time grid (sample instants for discrete models).</p></dd>
+<dd><p>Optional time grid (sample instants for discrete models).
+The step, impulse or initial state is applied at time zero; a grid that
+starts later reports the same response at its own instants.</p></dd>
 
 
 <dt id="arg-inputs">inputs<a class="anchor" aria-label="anchor" href="#arg-inputs"></a></dt>
@@ -160,8 +162,8 @@ reproduced by a discrete pulse.</p></li>
 <span class="r-in"><span><span class="fu"><a href="ctrl_step_info.html">ctrl_step_info</a></span><span class="op">(</span><span class="va">st</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   output    case rise_time settling_time overshoot undershoot     peak</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1     y1 step u1  0.661306      6.661667  37.10144          0 1.372324</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   peak_time final_value settled</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1     1.645    1.000955    TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   peak_time final_value settled final_value_known</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1     1.645    1.000955    TRUE             FALSE</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">st</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="ctrl_step-1.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span><span class="fu">ctrl_impulse</span><span class="op">(</span><span class="va">G</span>, times <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">10</span>, by <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span><span class="op">)</span></span></span>

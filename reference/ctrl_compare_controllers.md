@@ -10,7 +10,13 @@ or user code).
 ## Usage
 
 ``` r
-ctrl_compare_controllers(controllers, reference = 0, u_min = -Inf, u_max = Inf)
+ctrl_compare_controllers(
+  controllers,
+  reference = 0,
+  u_min = -Inf,
+  u_max = Inf,
+  discrete = FALSE
+)
 ```
 
 ## Arguments
@@ -27,9 +33,18 @@ ctrl_compare_controllers(controllers, reference = 0, u_min = -Inf, u_max = Inf)
 
   Input limits for violation reporting.
 
+- discrete:
+
+  Integration convention passed to
+  [`ctrl_performance()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_performance.md):
+  `FALSE` (trapezoidal rule) or `TRUE` (rectangle sums for sampled
+  signals). A result that contains its own logical `discrete` element
+  overrides it.
+
 ## Value
 
-A data frame with one row per controller.
+A data frame with one row per controller and a `convention` column
+(`"trapezoidal"` or `"sampled"`).
 
 ## Examples
 
@@ -45,7 +60,7 @@ ctrl_compare_controllers(sims, reference = 1)
 #>   controller      IAE      ISE      ITAE      RMSE control_effort max_abs_u
 #> 1   pid_slow 2.813899 1.249996 12.465280 0.2915594      0.5989531         1
 #> 2   pid_fast 1.299635 0.525195  4.139549 0.1915204      3.8672182         4
-#>   max_violation
-#> 1             0
-#> 2             0
+#>   max_violation  convention
+#> 1             0 trapezoidal
+#> 2             0 trapezoidal
 ```

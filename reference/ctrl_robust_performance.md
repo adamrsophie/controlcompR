@@ -41,19 +41,29 @@ ctrl_robust_performance(G, K, Wp, Wu, n = 2000L)
 
 ## Value
 
-A list with `robust_performance`, `nominally_stable`, `robust_stability`
-(\\\sup \|W_u\| \bar\sigma(T) \< 1\\), `nominal_performance` (\\\sup
-\|W_p\| \bar\sigma(S) \< 1\\), `peak`, `frequency` (where the peak
-occurs), `exact` (`TRUE` for SISO loops) and `curve` (a data frame with
-`frequency` and `value`).
+A list with `robust_performance` (sampled peak below one), `certified`
+(`TRUE` when the rigorous upper bound is also below one), `upper_bound`,
+`nominally_stable`, `robust_stability` (\\\sup \|W_u\| \bar\sigma(T) \<
+1\\), `nominal_performance` (\\\sup \|W_p\| \bar\sigma(S) \< 1\\),
+`peak`, `frequency` (where the peak occurs; `Inf` for the infinite
+frequency endpoint), `peaks` (the sampled sum, performance and
+robustness peaks), `criterion_exact` (`TRUE` for SISO loops, where the
+condition is also necessary) and `curve` (a data frame with `frequency`
+and `value`).
 
 ## Details
 
-The supremum is evaluated on a dense frequency grid refined by a local
-one-dimensional search around the largest grid value, so the reported
-peak is a lower bound on the true supremum that is accurate to the
-search tolerance; it is not a certified bound like
-[`ctrl_norm()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_norm.md).
+Each supremum (performance, robustness and their sum) is sampled on a
+dense frequency grid that includes the endpoints (zero and infinite
+frequency for continuous models, zero and the Nyquist frequency for
+discrete models), and the largest local maxima are refined with a
+one-dimensional search. Sampled peaks are lower bounds on the true
+suprema, so `robust_performance` is decided on samples. A pass is
+`certified` when the rigorous upper bound \\\\W_p S\\\_\infty + \\W_u
+T\\\_\infty\\ from
+[`ctrl_norm()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_norm.md)
+is below one as well; it can be conservative, so an uncertified pass is
+not a failure.
 
 ## Examples
 

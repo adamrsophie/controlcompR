@@ -114,14 +114,15 @@ test is the relevant one for them.</p>
 
 
 <dt id="arg-lags">lags<a class="anchor" aria-label="anchor" href="#arg-lags"></a></dt>
-<dd><p>Maximum lag.</p></dd>
+<dd><p>Maximum lag; capped at the number of residuals minus one.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of class <code>ctrl_resid</code> with <code>residuals</code>, <code>acf</code>,
 <code>ccf</code> (data frames with output, input, lag, value and band),
-<code>ljung_box</code> (p-value per output) and
+<code>ljung_box</code> (p-value per output; <code>NA</code> when the lags do not exceed the
+fitted parameters), <code>lags</code> (the lags used) and
 flags <code>white</code> and <code>independent</code>.</p>
     </div>
 

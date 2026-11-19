@@ -96,10 +96,11 @@ ctrl_nl_trajopt(
 ## Value
 
 An object of class `ctrl_trajopt` with `time`, `x` (`N + 1` rows), `u`
-(`N` rows), `objective` (the cost without terminal constraint terms),
-`converged`, `convergence` (optimizer code of the last subproblem),
-`message`, `outer_iterations`, `multiplier` and `terminal_error`
-(distance to `x_final`, `NA` without one).
+(`N` rows), `objective` (the stated cost, including the soft state bound
+penalty but not the terminal constraint terms), `cost` (its `quadratic`
+and `penalty` parts), `converged`, `convergence` (optimizer code of the
+last subproblem), `message`, `outer_iterations`, `multiplier` and
+`terminal_error` (distance to `x_final`, `NA` without one).
 
 ## Details
 

@@ -178,8 +178,8 @@ interval. The same model as a transfer function:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_step_info.html">ctrl_step_info</a></span><span class="op">(</span><span class="va">plant</span><span class="op">)</span></span>
 <span><span class="co">#&gt;     output       case rise_time settling_time overshoot undershoot      peak</span></span>
 <span><span class="co">#&gt; 1 position step force  2.589619         4.606         0          0 0.4990885</span></span>
-<span><span class="co">#&gt;   peak_time final_value settled</span></span>
-<span><span class="co">#&gt; 1         7         0.5    TRUE</span></span></code></pre></div>
+<span><span class="co">#&gt;   peak_time final_value settled final_value_known</span></span>
+<span><span class="co">#&gt; 1         7         0.5    TRUE              TRUE</span></span></code></pre></div>
 <p>The step characteristics have documented definitions (10 to 90
 percent rise time, 2 percent settling band, final value from the DC gain
 when the model is stable); see <code><a href="../reference/ctrl_step_info.html">?ctrl_step_info</a></code>.</p>
@@ -224,7 +224,7 @@ of force:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim</span><span class="op">)</span></span>
 <span><span class="co">#&gt; MPC simulation: 100 samples, 0 failed solves (0%)</span></span>
 <span><span class="co">#&gt;   solver statuses: solved = 100</span></span>
-<span><span class="co">#&gt;   solve time: mean 7.96e-05 s, max 0.000176 s; mean iterations 47.5</span></span>
+<span><span class="co">#&gt;   solve time: mean 0.000108 s, max 0.000228 s; mean iterations 47.5</span></span>
 <span><span class="co">#&gt;   max input bound violation: 2.22e-16</span></span>
 <span><span class="co">#&gt;   max state bound violation (true plant): 0</span></span>
 <span><span class="co">#&gt;   max slack: 0</span></span>

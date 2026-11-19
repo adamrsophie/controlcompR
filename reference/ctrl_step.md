@@ -32,7 +32,9 @@ ctrl_initial(sys, x0, times = NULL)
 
 - times:
 
-  Optional time grid (sample instants for discrete models).
+  Optional time grid (sample instants for discrete models). The step,
+  impulse or initial state is applied at time zero; a grid that starts
+  later reports the same response at its own instants.
 
 - inputs:
 
@@ -62,8 +64,8 @@ st <- ctrl_step(G)
 ctrl_step_info(st)
 #>   output    case rise_time settling_time overshoot undershoot     peak
 #> 1     y1 step u1  0.661306      6.661667  37.10144          0 1.372324
-#>   peak_time final_value settled
-#> 1     1.645    1.000955    TRUE
+#>   peak_time final_value settled final_value_known
+#> 1     1.645    1.000955    TRUE             FALSE
 plot(st)
 
 ctrl_impulse(G, times = seq(0, 10, by = 0.05))

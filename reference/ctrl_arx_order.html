@@ -108,7 +108,8 @@ tends to overfit, BIC is more conservative.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame sorted by BIC.</p>
+    <p>A data frame sorted by BIC, with <code>nobs</code>. All candidates are fitted
+on the same response samples, so their criteria are comparable.</p>
     </div>
 
     <div class="section level2">
@@ -119,13 +120,13 @@ tends to overfit, BIC is more conservative.</p>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">400</span>, sd <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">parts</span> <span class="op">&lt;-</span> <span class="fu"><a href="ctrl_idsplit.html">ctrl_idsplit</a></span><span class="op">(</span><span class="fu"><a href="ctrl_iddata.html">ctrl_iddata</a></span><span class="op">(</span><span class="va">y</span>, <span class="va">u</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu">ctrl_arx_order</span><span class="op">(</span><span class="va">parts</span><span class="op">$</span><span class="va">estimation</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, validation <span class="op">=</span> <span class="va">parts</span><span class="op">$</span><span class="va">validation</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   na nb nk npar       aic       bic validation_fit</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9  3  3  1    6 -778.8647 -757.1206       92.71684</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5  2  2  1    4 -757.6554 -743.1449       92.72496</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6  3  2  1    5 -754.2925 -736.1724       92.71098</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8  2  3  1    5 -753.7902 -735.6701       92.72485</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1  1  1  1    2 -685.9964 -678.7340       92.55679</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2  2  1  1    3 -685.8610 -674.9781       92.64462</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   na nb nk npar nobs       aic       bic validation_fit</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9  3  3  1    6  277 -778.8647 -757.1206       92.71684</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5  2  2  1    4  277 -755.7826 -741.2866       92.72494</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6  3  2  1    5  277 -754.2925 -736.1724       92.71098</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8  2  3  1    5  277 -753.7902 -735.6701       92.72485</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1  1  1  1    2  277 -681.9408 -674.6927       92.54913</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2  2  1  1    3  277 -684.9317 -674.0596       92.64053</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

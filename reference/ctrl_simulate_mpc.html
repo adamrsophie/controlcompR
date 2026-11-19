@@ -127,7 +127,11 @@ mismatch) and may include input disturbances and measurement noise.</p>
 <dd><p>Input disturbance added to the plant input: a vector
 with one value per input (constant), a matrix with one row per sample,
 or a function of the sample index. For a single input, a vector with
-one value per sample is also accepted.</p></dd>
+one value per sample is also accepted. The plant sees the effective
+input \(u_k + d_k\) in both \(x_{k+1} = A x_k + B(u_k + d_k)\) and
+\(y_k = C x_k + D(u_k + d_k)\). The measurement used to compute
+\(u_k\) is taken before \(u_k\) is applied, so it sees the input
+and disturbance held over the previous sample (zero before the first).</p></dd>
 
 
 <dt id="arg-noise">noise<a class="anchor" aria-label="anchor" href="#arg-noise"></a></dt>
@@ -179,7 +183,7 @@ move). No input is ever applied silently.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> MPC simulation: 80 samples, 0 failed solves (0%)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solver statuses: solved = 80</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   solve time: mean 0.000148 s, max 0.000392 s; mean iterations 124.4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   solve time: mean 0.000204 s, max 0.000539 s; mean iterations 124.4</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   max input bound violation: 4.95e-11</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   max state bound violation (true plant): 1.11e-16</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   max slack: 0</span>

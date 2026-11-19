@@ -28,13 +28,14 @@ ctrl_resid(model, data, lags = 20L)
 
 - lags:
 
-  Maximum lag.
+  Maximum lag; capped at the number of residuals minus one.
 
 ## Value
 
 A list of class `ctrl_resid` with `residuals`, `acf`, `ccf` (data frames
 with output, input, lag, value and band), `ljung_box` (p-value per
-output) and flags `white` and `independent`.
+output; `NA` when the lags do not exceed the fitted parameters), `lags`
+(the lags used) and flags `white` and `independent`.
 
 ## Examples
 

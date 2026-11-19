@@ -89,7 +89,13 @@ or user code).</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">ctrl_compare_controllers</span><span class="op">(</span><span class="va">controllers</span>, reference <span class="op">=</span> <span class="fl">0</span>, u_min <span class="op">=</span> <span class="op">-</span><span class="cn">Inf</span>, u_max <span class="op">=</span> <span class="cn">Inf</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">ctrl_compare_controllers</span><span class="op">(</span></span>
+<span>  <span class="va">controllers</span>,</span>
+<span>  reference <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  u_min <span class="op">=</span> <span class="op">-</span><span class="cn">Inf</span>,</span>
+<span>  u_max <span class="op">=</span> <span class="cn">Inf</span>,</span>
+<span>  discrete <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -107,10 +113,18 @@ or user code).</p>
 <dt id="arg-u-min-u-max">u_min, u_max<a class="anchor" aria-label="anchor" href="#arg-u-min-u-max"></a></dt>
 <dd><p>Input limits for violation reporting.</p></dd>
 
+
+<dt id="arg-discrete">discrete<a class="anchor" aria-label="anchor" href="#arg-discrete"></a></dt>
+<dd><p>Integration convention passed to <code><a href="ctrl_performance.html">ctrl_performance()</a></code>:
+<code>FALSE</code> (trapezoidal rule) or <code>TRUE</code> (rectangle sums for sampled
+signals). A result that contains its own logical <code>discrete</code> element
+overrides it.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with one row per controller.</p>
+    <p>A data frame with one row per controller and a <code>convention</code>
+column (<code>"trapezoidal"</code> or <code>"sampled"</code>).</p>
     </div>
 
     <div class="section level2">
@@ -126,9 +140,9 @@ or user code).</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   controller      IAE      ISE      ITAE      RMSE control_effort max_abs_u</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1   pid_slow 2.813899 1.249996 12.465280 0.2915594      0.5989531         1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2   pid_fast 1.299635 0.525195  4.139549 0.1915204      3.8672182         4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   max_violation</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1             0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2             0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   max_violation  convention</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1             0 trapezoidal</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2             0 trapezoidal</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

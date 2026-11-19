@@ -30,9 +30,13 @@ of dimension outputs x inputs x frequencies.
 
 ## Details
 
-State-space models are evaluated by solving \\(j\omega I - A) X = B\\ at
-each frequency (no matrix inverse); transfer functions by polynomial
-evaluation.
+State-space models are balanced (diagonal scaling) and evaluated by
+solving \\(j\omega I - A) X = B\\ at each frequency (no matrix inverse).
+Transfer functions are evaluated as ratios of their numerator and
+denominator polynomials (Horner's rule), which can lose accuracy for
+high order polynomials; convert to state space with
+[`ctrl_tf2ss()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf2ss.md)
+for those.
 
 ## Examples
 

@@ -13,7 +13,7 @@ in that case).
 ## Usage
 
 ``` r
-ctrl_arx(data, na, nb, nk = 1)
+ctrl_arx(data, na, nb, nk = 1, start = NULL)
 ```
 
 ## Arguments
@@ -34,11 +34,21 @@ ctrl_arx(data, na, nb, nk = 1)
 
   Input delay in samples.
 
+- start:
+
+  First output sample used as a regression response. The default is the
+  earliest sample for which all regressors exist. A later common `start`
+  lets models of different orders be fitted and compared on the same
+  responses (as
+  [`ctrl_arx_order()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_arx_order.md)
+  does).
+
 ## Value
 
 An object of class `c("ctrl_arx", "ctrl_idmodel")` with `sys` (a
 discrete `ctrl_tf` from inputs to the output), `a`, `b`, `vcov`,
-`noise_var`, `residuals` and information criteria.
+`noise_var`, `residuals`, information criteria, `nobs` and `rows` (the
+response samples used).
 
 ## Examples
 

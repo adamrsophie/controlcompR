@@ -1,9 +1,9 @@
 # Fit a first-order plus dead-time model to a step response
 
-Estimate \\K e^{-\theta s}/(\tau s + 1)\\ from a unit step response with
-the two-point method (28.3 percent and 63.2 percent of the final
-change). The response must be monotone enough for the crossing times to
-be meaningful.
+Estimate \\K e^{-\theta s}/(\tau s + 1)\\ from a step response (the gain
+is divided by the step amplitude) with the two-point method (28.3
+percent and 63.2 percent of the final change). The response must be
+monotone enough for the crossing times to be meaningful.
 
 ## Usage
 

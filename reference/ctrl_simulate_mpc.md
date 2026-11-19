@@ -53,7 +53,11 @@ ctrl_simulate_mpc(
   Input disturbance added to the plant input: a vector with one value
   per input (constant), a matrix with one row per sample, or a function
   of the sample index. For a single input, a vector with one value per
-  sample is also accepted.
+  sample is also accepted. The plant sees the effective input \\u_k +
+  d_k\\ in both \\x\_{k+1} = A x_k + B(u_k + d_k)\\ and \\y_k = C x_k +
+  D(u_k + d_k)\\. The measurement used to compute \\u_k\\ is taken
+  before \\u_k\\ is applied, so it sees the input and disturbance held
+  over the previous sample (zero before the first).
 
 - noise:
 
@@ -104,7 +108,7 @@ sim <- ctrl_simulate_mpc(mpc, x0 = c(2, 0), steps = 80)
 summary(sim)
 #> MPC simulation: 80 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 80
-#>   solve time: mean 0.000148 s, max 0.000392 s; mean iterations 124.4
+#>   solve time: mean 0.000204 s, max 0.000539 s; mean iterations 124.4
 #>   max input bound violation: 4.95e-11
 #>   max state bound violation (true plant): 1.11e-16
 #>   max slack: 0
