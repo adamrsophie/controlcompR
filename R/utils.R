@@ -335,3 +335,23 @@ prescale_ss <- function(s) {
   s$C <- sweep(s$C, 2L, d, `*`)
   s
 }
+
+# Measurement matrix for the estimators: numeric, one column per output,
+# rows complete or entirely NA (missing); infinite or NaN values are errors.
+measurement_matrix <- function(y, p) {
+  Y <- if (is.null(dim(y))) matrix(y, ncol = 1) else as.matrix(y)
+  if (!(is.numeric(Y) || (is.logical(Y) && all(is.na(Y))))) {
+    ctrl_abort("`y` must be numeric (NA marks missing samples).")
+  }
+  storage.mode(Y) <- "double"
+  if (ncol(Y) != p) ctrl_abort("`y` must have ", p, " columns.")
+  if (any(is.infinite(Y)) || any(is.nan(Y))) {
+    ctrl_abort("`y` contains infinite or NaN values; only NA marks missing data.")
+  }
+  part <- apply(Y, 1, function(r) any(is.na(r)) && !all(is.na(r)))
+  if (any(part)) {
+    ctrl_abort("Rows of `y` must be complete or entirely missing (NA); ",
+               "partially missing rows are not supported.")
+  }
+  Y
+}

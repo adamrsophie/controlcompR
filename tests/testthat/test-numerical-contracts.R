@@ -387,3 +387,107 @@ test_that("numeric scalars scale MIMO models (RT04)", {
   expect_equal((2 * G)$output_names, G$output_names)
   expect_error(G / 0, "zero")
 })
+
+test_that("robust performance certificates cannot be contradicted", {
+  # near cancellation in a discrete weight that exceeds one at DC
+  a <- 1 - 2^-40
+  d <- 1 - 2^-11
+  W <- ctrl_tf(c(d, 2^-50 - d * a), c(1, -a), dt = 1)
+  Z <- ctrl_gain(0, dt = 1)
+  expect_false(ctrl_robust_performance(Z, Z, W, 0, n = 20)$certified)
+  # repeated lightly damped modes
+  e <- 1e-3
+  A <- matrix(c(-e, -1, 1, -e), 2, byrow = TRUE)
+  C <- 0.93 * c(100, 100, -100 - e - 2 * e^2, -100 - 2 * e)
+  G <- ctrl_ss(kronecker(diag(2), A), c(0, 1, 0, 1), C, 0.93)
+  r <- ctrl_robust_performance(ctrl_gain(0), ctrl_gain(0), G, 0)
+  expect_false(r$certified)
+  expect_gte(attr(ctrl_norm(G, "inf"), "bounds")[2], r$peak * (1 - 1e-9))
+  # static plant with a discrete controller is judged in discrete time
+  r <- ctrl_robust_performance(ctrl_gain(1), ctrl_tf(1, c(1, 0.5), dt = 1), 0, 0, n = 10)
+  expect_false(r$nominally_stable)
+})
+
+test_that("norms do not depend on state units", {
+  G <- function(k) ctrl_ss(matrix(c(-1, 0, k, -1), 2), c(0, 1 / k), c(1, 0))
+  expect_equal(as.numeric(ctrl_norm(G(1e13), "2")), 0.5, tolerance = 1e-8)
+  expect_equal(as.numeric(ctrl_norm(G(1e13), "inf")), 1, tolerance = 1e-8)
+})
+
+test_that("balanced truncation refuses bounds its own samples contradict", {
+  e <- 1e-9
+  G <- ctrl_ss(-diag(2), matrix(c(1, 1, e, -e), 2), matrix(c(e, 1, e, -1), 2))
+  expect_error(ctrl_balred(G, 0), "certify")
+})
+
+test_that("Nyquist counts windings between samples", {
+  r <- 1 - 1e-6
+  q <- 1 + 1e-6
+  d1 <- c(1, -2 * r * cos(1), r^2)
+  d2 <- c(1, -2 * q * cos(1), q^2)
+  expect_equal(ctrl_nyquist(ctrl_tf((d2 - d1)[-1], d1, dt = 1))$encirclements, 2L)
+})
+
+test_that("finite-horizon LQR keeps the input cost", {
+  K <- ctrl_dlqr_finite(ctrl_ss(1, 1, 1, dt = 1), Q = 0, R = 1, horizon = 2,
+                        P_terminal = 1e20)$K
+  expect_equal(unlist(K), c(0.5, 1), tolerance = 1e-12)
+})
+
+test_that("MPC solutions do not depend on the cost scale", {
+  for (s in c(1, 1e-8, 1e-10)) {
+    m <- ctrl_mpc(ctrl_ss(0, 1, 1, dt = 1), 1, Q = 0, R = s)
+    a <- ctrl_mpc_step(m, 0, reference = list(u = 1))
+    expect_true(a$ok)
+    expect_equal(unname(a$u), 1, tolerance = 1e-4)
+  }
+})
+
+test_that("state-space conversion keeps slow and feedthrough-only transfers", {
+  h <- 1e-7
+  G <- ctrl_ss(h * matrix(c(-1, 0, 1, -1), 2), c(0, h), c(1, 0))
+  expect_equal(ctrl_dcgain(ctrl_ss2tf(G)), 1, tolerance = 1e-6, ignore_attr = TRUE)
+  F <- ctrl_ss2tf(ctrl_ss(-2, 0, 1, D = 3), minimal = FALSE)
+  expect_equal(ctrl_dcgain(F), 3, ignore_attr = TRUE)
+})
+
+test_that("invariant zeros of fast and slow regular pencils", {
+  expect_equal(ctrl_zeros(ctrl_ss(-1e9, 1e9, 1, 1)), -2e9 + 0i, tolerance = 1e-8)
+  expect_length(ctrl_zeros(ctrl_ss(-1e8, 1, 1)), 0)
+})
+
+test_that("step settling uses the band when there is no net change", {
+  G <- ctrl_tf(c(1, 0), c(1, 1))
+  expect_false(ctrl_step_info(ctrl_step(G, c(0, 0.1)), G)$settled)
+  expect_true(ctrl_step_info(ctrl_step(G, seq(0, 20, 0.1)), G)$settled)
+})
+
+test_that("estimators validate measurement data", {
+  G <- ctrl_ss(1, 0, matrix(1, 2, 1), dt = 1)
+  m <- ctrl_mhe(G, 1, 1, diag(2))
+  expect_error(ctrl_mhe_run(m, rbind(c(0, 0), c(100, Inf))), "infinite")
+  expect_error(ctrl_kalman_filter(ctrl_ss(1, 0, 1, dt = 1), matrix("2"), Qn = 0, Rn = 1),
+               "numeric")
+})
+
+test_that("Lyapunov and Sylvester separation is scale invariant", {
+  expect_equal(as.numeric(ctrl_lyap(-1e-14, 2e-14)), 1)
+  expect_equal(as.numeric(ctrl_sylvester(-1e-14, -1e-14, -2e-14)), 1)
+})
+
+test_that("UKF keeps a small posterior covariance", {
+  G <- ctrl_nlsys(function(k, x, u, p) x, nstates = 1, ninputs = 0, dt = 1)
+  f <- ctrl_ukf(G, c(0, 2e-10), Qn = 0, Rn = 1e-20)
+  expect_equal(f$filtered[2] / 1e-10, 1, tolerance = 1e-6)
+})
+
+test_that("matched discretization and ZOH inversion of slow and fast poles", {
+  G <- ctrl_tf(1, c(1, 1e-13))
+  expect_equal(ctrl_dcgain(ctrl_c2d(G, 100, method = "matched")), 1e13, tolerance = 1e-6,
+               ignore_attr = TRUE)
+  expect_equal(ctrl_d2c(ctrl_c2d(ctrl_ss(-30, 1, 1), 1))$A, matrix(-30), tolerance = 1e-8)
+})
+
+test_that("an indefinite state weight is not masked by a large input weight", {
+  expect_error(ctrl_care(-1, 1, Q = -1, R = 1e13), "positive semidefinite")
+})

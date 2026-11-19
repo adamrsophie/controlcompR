@@ -124,12 +124,12 @@ unwrap_phase <- function(ph) {
 #' models without poles on the stability boundary, the winding number of
 #' \eqn{1 + L} around the origin (the number of clockwise encirclements of
 #' \eqn{-1}); with `P` open-loop unstable poles the closed loop has
-#' \eqn{Z = N + P} unstable poles. The winding number is computed on its own
-#' contour: for continuous models the imaginary axis is extended until the
-#' remaining tail of \eqn{L - D} cannot reach \eqn{-1}, and the contour is
-#' refined until the phase of \eqn{1 + L} changes by less than
-#' \eqn{\pi/8} between samples. When this cannot be established (for
-#' example \eqn{1 + D = 0}), `encirclements` is `NA`. `ctrl_nichols()`
+#' \eqn{Z = N + P} unstable poles. The winding number is obtained from the
+#' argument principle, \eqn{N = Z - P}, by counting the unstable roots of
+#' the closed-loop and open-loop characteristic polynomials, so it does not
+#' depend on how finely the plotted curve is sampled. It is `NA` when
+#' \eqn{1 + L} vanishes on the contour (a closed-loop pole on the stability
+#' boundary, or \eqn{1 + D = 0}). `ctrl_nichols()`
 #' returns phase against
 #' magnitude in dB.
 #'
@@ -190,57 +190,38 @@ ctrl_nyquist <- function(sys, w = NULL) {
             class = "ctrl_nyquist")
 }
 
-# Clockwise encirclements of -1 by L along the Nyquist contour, computed as
-# the winding of 1 + L on a dense grid.
+# Clockwise encirclements of -1 by L along the Nyquist contour. By the
+# argument principle N = Z - P, with Z and P the numbers of unstable roots
+# of den + num (closed loop) and den (open loop) of L = num / den. Counting
+# roots is exact up to their classification, whereas a sampled contour can
+# miss a full turn between samples. NA when 1 + L vanishes on the contour.
 nyquist_encirclements <- function(sys) {
-  ev <- function(x) {
-    z <- if (sys$dt > 0) exp(1i * x) else 1i * x
-    1 + eval_system(sys, z)[1, 1, ]
-  }
-  if (sys$dt > 0) {
-    # the unit circle is a closed contour: theta in [-pi, pi]
-    x <- seq(-pi, pi, length.out = 2001)
-  } else {
-    # the imaginary axis closes through infinity, where L tends to its
-    # feedthrough D; extend the axis until the remaining tail of L - D is
-    # too small to wind around -1
-    Dinf <- 1 + as_ss(sys)$D[1, 1]
-    if (Mod(Dinf) < 1e-12) return(NA_integer_)
-    w <- ctrl_freq_grid(sys, 2000L)
-    wmax <- max(w)
-    for (k in seq_len(40L)) {
-      tail_size <- max(Mod(ev(wmax * c(1, 10)) - Dinf))
-      if (tail_size <= 1e-3 * Mod(Dinf)) break
-      wmax <- wmax * 10
+  tf <- if (is_ctrl_tf(sys)) sys else if (inherits(sys, "ctrl_zpk")) ctrl_zpk2tf(sys) else
+    ctrl_ss2tf(as_ss(sys), minimal = FALSE)
+  num <- tf$num[[1]]
+  den <- tf$den[[1]]
+  L <- max(length(num), length(den))
+  num <- c(rep(0, L - length(num)), num)
+  den <- c(rep(0, L - length(den)), den)
+  cl <- num + den
+  # 1 + D = 0: the closed-loop polynomial loses degree, -1 is reached at
+  # infinite (continuous) frequency
+  if (abs(cl[1]) <= 1e-10 * max(abs(den[1]), abs(num[1]))) return(NA_integer_)
+  unstable <- function(r, strict) {
+    if (sys$dt > 0) {
+      d <- Mod(r) - 1
+      tol <- 1e-8
+    } else {
+      d <- Re(r)
+      tol <- 1e-8 * pmax(1, Mod(r))
     }
-    if (tail_size > 1e-3 * Mod(Dinf)) return(NA_integer_)
-    if (wmax > max(w)) {
-      w <- c(w, exp(seq(log(max(w)), log(wmax), length.out = 400L))[-1])
-    }
-    w <- sort(unique(c(0, w)))
-    x <- c(-rev(w[w > 0]), 0, w[w > 0])
+    if (strict && any(abs(d) <= tol)) return(NA_integer_)
+    sum(d > tol)
   }
-  g <- ev(x)
-  # refine wherever the phase of 1 + L moves by more than pi / 8 between
-  # samples, so that no winding is missed between them
-  for (it in seq_len(30L)) {
-    if (any(!is.finite(g)) || any(Mod(g) < 1e-12)) return(NA_integer_)
-    d <- abs(diff(unwrap_phase(Arg(g))))
-    big <- which(d > pi / 8)
-    if (!length(big)) break
-    if (length(x) > 2e5) return(NA_integer_)
-    xm <- (x[big] + x[big + 1L]) / 2
-    gm <- ev(xm)
-    x <- c(x, xm)
-    g <- c(g, gm)
-    o <- order(x)
-    x <- x[o]
-    g <- g[o]
-  }
-  if (any(!is.finite(g)) || any(Mod(g) < 1e-12)) return(NA_integer_)
-  if (any(abs(diff(unwrap_phase(Arg(g)))) > pi / 8)) return(NA_integer_)
-  ang <- unwrap_phase(Arg(g))
-  as.integer(round(-(ang[length(ang)] - ang[1]) / (2 * pi)))
+  Z <- unstable(poly_roots(cl), TRUE)
+  if (is.na(Z)) return(NA_integer_)
+  P <- unstable(poly_roots(den), FALSE)
+  as.integer(Z - P)
 }
 
 #' @rdname ctrl_bode

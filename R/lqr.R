@@ -141,7 +141,9 @@ ctrl_dlqr_finite <- function(sys, Q, R, horizon, P_terminal = NULL) {
     Pn <- P[[k + 1L]]
     G <- R + t(B) %*% Pn %*% B
     K[[k]] <- solve(G, t(B) %*% Pn %*% A)
-    P[[k]] <- symmetrize(Q + t(A) %*% Pn %*% (A - B %*% K[[k]]))
+    # Joseph form: keeps the input cost when A - B K is tiny
+    Acl <- A - B %*% K[[k]]
+    P[[k]] <- symmetrize(Q + t(Acl) %*% Pn %*% Acl + t(K[[k]]) %*% R %*% K[[k]])
   }
   list(K = K, P = P)
 }

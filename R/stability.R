@@ -195,7 +195,11 @@ ctrl_damp <- function(sys) {
 #' ctrl_dcgain(ctrl_tf(2, c(1, 3, 2)))
 #' @export
 ctrl_dcgain <- function(sys) {
-  s <- as_ss(sys)
+  # balancing makes the pole-at-origin test independent of state units
+  s0 <- as_ss(sys)
+  s <- prescale_ss(s0)
+  s$output_names <- s0$output_names
+  s$input_names <- s0$input_names
   n <- nrow(s$A)
   if (!n) return(s$D)
   M <- if (s$dt > 0) diag(n) - s$A else -s$A
@@ -256,12 +260,18 @@ ctrl_zeros <- function(sys) {
   # the pencil without changing its generalized eigenvalues. This makes the
   # result independent of the state coordinates' units.
   M <- expm::balance(M, job = "S")$z
-  # Zeros are only defined when the pencil is regular (the transfer matrix
-  # has full normal rank); a singular pencil has a rank drop at every s.
-  s0 <- complex(real = c(0.37, -1.3), imaginary = c(1.1, 0.71)) *
-    max(1, norm(M, "1"))
+  # Zeros are only defined when the pencil is regular, i.e. the transfer
+  # matrix has full normal rank. Test the rank of G(s) itself at two
+  # generic points on the scale of the poles (the rank of the pencil
+  # M - s N is badly conditioned for fast or slow models).
+  pm <- Mod(eigen(sys$A, only.values = TRUE)$values)
+  pm <- pm[pm > 0]
+  sc <- if (length(pm)) exp(mean(log(range(pm)))) else 1
+  s0 <- complex(real = c(0.37, -1.3), imaginary = c(1.1, 0.71)) * sc
+  if (sys$dt > 0) s0 <- exp(s0 / sc)
   full <- vapply(s0, function(s) {
-    numerical_rank(M - s * N)$rank == n + m
+    G0 <- eval_system(sys, s)[, , 1]
+    all(is.finite(G0)) && numerical_rank(as.matrix(G0))$rank == m
   }, logical(1))
   if (!any(full)) {
     ctrl_abort("The system pencil is singular (the transfer matrix does not ",
@@ -269,6 +279,9 @@ ctrl_zeros <- function(sys) {
                "defined. This happens, for example, when an input or output ",
                "is disconnected.")
   }
-  z <- gen_eigenvalues(M, N)
+  # scale N to the size of M so that finite and infinite eigenvalues are
+  # separated on a common scale, then restore the units
+  c <- max(norm(M, "1"), .Machine$double.xmin)
+  z <- gen_eigenvalues(M, c * N) * c
   sort_poles(z, sys$dt)
 }

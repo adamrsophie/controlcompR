@@ -50,8 +50,9 @@ C^\top + R_n, \quad K_k = P_{k|k-1} C^\top S_k^{-1},}
 The covariance update uses the Joseph form
 \eqn{P_{k|k} = (I - K_k C) P_{k|k-1} (I - K_k C)^\top + K_k R_n K_k^\top},
 which keeps it symmetric positive semidefinite in floating point.
-Rows of \code{y} containing \code{NA} are treated as missing measurements (the
-update is skipped).
+Rows of \code{y} that are entirely \code{NA} are treated as missing measurements
+(the update is skipped); partially missing rows, infinite values and
+non-numeric data are errors.
 
 \code{ctrl_kalman_smoother()} applies the Rauch-Tung-Striebel backward pass to
 the filter output.

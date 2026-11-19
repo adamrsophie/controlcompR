@@ -84,14 +84,8 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
   m <- ncol(s$B)
   p <- nrow(s$C)
   q <- ncol(mhe$G)
-  Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
-  if (ncol(Y) != p) ctrl_abort("`y` must have ", p, " columns.")
+  Y <- measurement_matrix(y, p)
   Tn <- nrow(Y)
-  part <- apply(Y, 1, function(r) any(is.na(r)) && !all(is.na(r)))
-  if (any(part)) {
-    ctrl_abort("Rows of `y` must be complete or entirely missing (NA); ",
-               "partially missing rows are not supported.")
-  }
   U <- if (is.null(u)) matrix(0, Tn, m) else input_matrix(u, seq_len(Tn), m)
   Ri <- solve(mhe$Rn)
   Qi <- solve(mhe$Qn)

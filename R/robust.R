@@ -600,7 +600,9 @@ ctrl_robust_performance <- function(G, K, Wp, Wu, n = 2000L) {
   ny <- nrow(G$C)
   as_weight <- function(W, name) {
     W <- if (is_ctrl_system(W)) as_system(W) else ctrl_gain(as.numeric(W), dt = G$dt)
-    s <- as_ss(W)
+    # keep every state of a weight: a near pole-zero cancellation removed by
+    # a minimal realization can change the weight at some frequency
+    s <- if (is_ctrl_tf(W)) ctrl_tf2ss(W, minimal = FALSE) else as_ss(W)
     if (nrow(s$C) != 1L || ncol(s$B) != 1L) {
       ctrl_abort("`", name, "` must be a scalar (SISO) weight.")
     }
@@ -680,6 +682,8 @@ ctrl_robust_performance <- function(G, K, Wp, Wu, n = 2000L) {
       attr(r, "bounds")[2] %||% as.numeric(r)
     }
     upper <- tryCatch(nb(Wp, S) + nb(Wu, T), error = function(e) Inf)
+    # an upper bound contradicted by a sample is not a bound
+    if (upper < peak * (1 - 1e-9)) upper <- Inf
   } else {
     peak <- pp <- pu <- Inf
   }
@@ -713,5 +717,6 @@ loop_internally_stable <- function(G, K) {
                cbind(K$B %*% (G$C + G$D %*% Fx), K$A + K$B %*% G$D %*% Fk))
   if (!nrow(Acl)) return(TRUE)
   ev <- eigen(Acl, only.values = TRUE)$values
-  if (G$dt > 0) all(Mod(ev) < 1) else all(Re(ev) < 0)
+  # a static plant or controller adopts the other's time domain
+  if (common_dt(G, K) > 0) all(Mod(ev) < 1) else all(Re(ev) < 0)
 }

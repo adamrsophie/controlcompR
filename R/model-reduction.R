@@ -49,13 +49,13 @@ same_response <- function(s, r, rtol = 1e-6) {
   if (nrow(r$A) == nrow(s$A)) return(TRUE)
   ev <- Mod(eigen(s$A, only.values = TRUE)$values)
   if (s$dt > 0) {
-    z <- exp(1i * c(0.001, 0.01, 0.1, 0.5, 1, 2, 3) * 1.37)
+    z <- c(1, -1, exp(1i * c(0.001, 0.01, 0.1, 0.5, 1, 2, 3) * 1.37))
   } else {
     ev <- ev[ev > 0]
     lo <- if (length(ev)) min(ev) else 1
     hi <- if (length(ev)) max(ev) else 1
     w <- 10^seq(log10(lo) - 2, log10(hi) + 2, length.out = 25) * 1.0137
-    z <- 1i * w
+    z <- 1i * c(0, w)
   }
   g1 <- eval_system(s, z)
   g2 <- eval_system(r, z)
@@ -326,15 +326,15 @@ ctrl_balred <- function(sys, order, method = c("truncate", "matchdc")) {
 check_reduction_bound <- function(full, red, bound, method) {
   w <- c(0, ctrl_freq_grid(full, 200L))
   if (full$dt > 0) w <- w[w <= pi / full$dt]
-  ef <- eval_system(full, if (full$dt > 0) exp(1i * w * full$dt) else 1i * w) -
-    eval_system(as_ss(red), if (full$dt > 0) exp(1i * w * full$dt) else 1i * w)
-  lower <- max(vapply(seq_along(w), function(k) {
-    v <- ef[, , k]
-    if (any(!is.finite(v))) return(0)
-    max(svd(as.matrix(v), 0, 0)$d, 0)
-  }, 0))
-  scale <- max(1, bound)
-  if (lower > bound + 1e-8 * scale + 1e-6 * bound) {
+  z <- if (full$dt > 0) exp(1i * w * full$dt) else 1i * w
+  gf <- eval_system(full, z)
+  ef <- gf - eval_system(as_ss(red), z)
+  smax <- function(v) if (any(!is.finite(v))) 0 else max(svd(as.matrix(v), 0, 0)$d, 0)
+  lower <- max(vapply(seq_along(w), function(k) smax(ef[, , k]), 0))
+  # evaluation error is relative to the size of the transfer matrix itself,
+  # not to an absolute unit
+  gscale <- max(vapply(seq_along(w), function(k) smax(gf[, , k]), 0))
+  if (lower > bound + 1e-8 * gscale + 1e-6 * bound) {
     ctrl_abort("Balanced reduction could not certify its error bound: the ",
                "sampled error ", signif(lower, 4), " exceeds the bound ",
                signif(bound, 4), ". The Gramians are too ill-conditioned for ",

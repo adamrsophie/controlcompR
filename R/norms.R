@@ -3,7 +3,10 @@
 #' * `"2"`: the H2 norm. For an asymptotically stable continuous model it is
 #'   \eqn{\sqrt{\mathrm{tr}(C W_c C^\top)}} when `D = 0` and infinite
 #'   otherwise; for a discrete model it is
-#'   \eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}.
+#'   \eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. The Gramian is
+#'   computed after diagonal balancing; a realization whose Gramian is
+#'   ill-conditioned for other reasons (nearly cancelling input or output
+#'   directions) loses relative accuracy, and [ctrl_minreal()] first helps.
 #' * `"inf"`: the H-infinity norm \eqn{\sup_\omega \sigma_{\max}(G(j\omega))}
 #'   of an asymptotically stable model, computed with the
 #'   Bruinsma-Steinbuch two-step algorithm. The lower bound comes from
@@ -13,7 +16,10 @@
 #'   \eqn{\sigma_{\max} > \gamma}. The iteration stops when the relative gap
 #'   between the bounds is below `tol`. Discrete models are mapped to
 #'   continuous time with the norm-preserving bilinear transformation
-#'   \eqn{s = (z - 1)/(z + 1)}.
+#'   \eqn{s = (z - 1)/(z + 1)}. An upper bound is accepted only when no
+#'   sampled gain on a verification grid (with local refinement) exceeds
+#'   it; otherwise the search continues, and `bounds[2]` is `Inf` when no
+#'   upper bound could be established.
 #'
 #' Unstable models have infinite H2 and H-infinity norms; `Inf` is returned.
 #'
@@ -32,7 +38,9 @@
 #' @export
 ctrl_norm <- function(sys, type = c("2", "inf"), tol = 1e-10) {
   type <- match.arg(type)
-  s <- as_ss(sys)
+  # balance first: the stability decision and the Gramians are sensitive to
+  # badly scaled state coordinates
+  s <- prescale_ss(as_ss(sys))
   if (!ctrl_is_stable(s)) return(Inf)
   if (type == "2") {
     if (!nrow(s$A)) {
@@ -45,7 +53,7 @@ ctrl_norm <- function(sys, type = c("2", "inf"), tol = 1e-10) {
     if (any(s$D != 0)) return(Inf)
     return(sqrt(max(0, sum(diag(s$C %*% Wc %*% t(s$C))))))
   }
-  hinf_norm(prescale_ss(s), tol)
+  hinf_norm(s, tol)
 }
 
 hinf_norm <- function(s, tol) {
@@ -105,6 +113,26 @@ hinf_norm <- function(s, tol) {
     attr(out, "bounds") <- c(0, 0)
     return(out)
   }
+  # verification grid: the upper bound is rejected if any sampled gain
+  # exceeds it (defective or nearly defective modes perturb the Hamiltonian
+  # eigenvalues off the imaginary axis)
+  ip <- abs(Im(p))
+  wver <- sort(unique(c(10^seq(lo, hi, length.out = 400), ip, ip * (1 + 1e-3),
+                        ip * (1 - 1e-3))))
+  vver <- vapply(wver, smax, 0)
+  # refine the largest local maxima between neighboring samples
+  nv <- length(vver)
+  loc <- which(vver >= c(-Inf, vver[-nv]) & vver >= c(vver[-1], -Inf))
+  loc <- loc[order(vver[loc], decreasing = TRUE)][seq_len(min(5L, length(loc)))]
+  for (i in loc) {
+    a <- wver[max(1L, i - 1L)]
+    b <- wver[min(nv, i + 1L)]
+    if (b > a) {
+      o <- stats::optimize(smax, c(a, b), maximum = TRUE, tol = 1e-12 * b)
+      wver <- c(wver, o$maximum)
+      vver <- c(vver, o$objective)
+    }
+  }
   gub <- Inf
   for (iter in seq_len(60L)) {
     gam <- (1 + 2 * tol) * glb
@@ -116,8 +144,16 @@ hinf_norm <- function(s, tol) {
                cbind(-gam * t(C) %*% solve(Sm) %*% C, -t(Ah)))
     ev <- eigen(H, only.values = TRUE)$values
     scale <- max(1, max(Mod(ev)))
-    imag_ev <- ev[abs(Re(ev)) <= 1e-8 * scale & Im(ev) >= 0]
+    # tolerance of order sqrt(eps): eigenvalues from a double crossing (a
+    # Jordan pair) are perturbed by about sqrt(eps) off the axis
+    imag_ev <- ev[abs(Re(ev)) <= 1e-6 * scale & Im(ev) >= 0]
     if (!length(imag_ev)) {
+      if (max(vver) > gam) {
+        # contradicted by a sample: raise the lower bound and continue
+        glb <- max(vver)
+        wpk <- wver[which.max(vver)]
+        next
+      }
       gub <- gam
       break
     }
@@ -130,13 +166,19 @@ hinf_norm <- function(s, tol) {
     }
     v <- vapply(mids, smax, 0)
     if (max(v) <= glb) {
+      if (max(vver) > gam) {
+        glb <- max(vver)
+        wpk <- wver[which.max(vver)]
+        next
+      }
       gub <- gam
       break
     }
     glb <- max(v)
     wpk <- mids[which.max(v)]
   }
-  out <- (glb + min(gub, (1 + 2 * tol) * glb)) / 2
+  # gub stays Inf when no certified upper bound was found
+  out <- if (is.finite(gub)) (glb + min(gub, (1 + 2 * tol) * glb)) / 2 else glb
   attr(out, "frequency") <- wpk
   attr(out, "bounds") <- c(glb, gub)
   out

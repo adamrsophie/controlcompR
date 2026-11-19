@@ -75,7 +75,12 @@ ctrl_step_info <- function(response, sys = NULL, settle = 0.02,
     dy <- yinf - y0
     r <- step_metrics(t, y, y0, yinf, dy, settle, rise, response$output_names[i],
                       response$cases[c], settled)
-    if (is.na(settled)) r$settled <- dy == 0 || !is.na(r$settling_time)
+    if (is.na(settled)) {
+      # with no net change the band is relative to the largest excursion
+      r$settled <- if (dy == 0) {
+        abs(y[length(y)] - yinf) <= settle * max(abs(y - y0))
+      } else !is.na(r$settling_time)
+    }
     r$final_value_known <- is.na(settled)
     rows[[length(rows) + 1L]] <- r
   }

@@ -163,8 +163,9 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
 #' The covariance update uses the Joseph form
 #' \eqn{P_{k|k} = (I - K_k C) P_{k|k-1} (I - K_k C)^\top + K_k R_n K_k^\top},
 #' which keeps it symmetric positive semidefinite in floating point.
-#' Rows of `y` containing `NA` are treated as missing measurements (the
-#' update is skipped).
+#' Rows of `y` that are entirely `NA` are treated as missing measurements
+#' (the update is skipped); partially missing rows, infinite values and
+#' non-numeric data are errors.
 #'
 #' `ctrl_kalman_smoother()` applies the Rauch-Tung-Striebel backward pass to
 #' the filter output.
@@ -208,11 +209,7 @@ ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
   n <- nrow(s$A)
   p <- nrow(s$C)
   m <- ncol(s$B)
-  Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
-  if (ncol(Y) != p) ctrl_abort("`y` must have ", p, " columns.")
-  if (any(is.infinite(Y)) || any(is.nan(Y))) {
-    ctrl_abort("`y` contains infinite or NaN values; only NA marks missing data.")
-  }
+  Y <- measurement_matrix(y, p)
   Tn <- nrow(Y)
   U <- if (is.null(u)) matrix(0, Tn, m) else input_matrix(u, seq_len(Tn), m)
   G <- if (is.null(G)) diag(n) else as_real_matrix(G, "G", nrow = n)

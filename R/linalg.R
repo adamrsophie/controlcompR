@@ -50,8 +50,8 @@ gen_eigenvalues <- function(A, B, tol = NULL) {
   q <- qz_real(A, B)
   # beta is computed from an orthogonally equivalent copy of B, so its scale
   # is that of B; tiny beta means an infinite eigenvalue.
-  tol <- tol %||% (1e3 * nrow(A) * .Machine$double.eps *
-                     max(norm(B, "1"), norm(A, "1"), 1))
+  sc <- max(norm(B, "1"), norm(A, "1"))
+  tol <- tol %||% (1e3 * nrow(A) * .Machine$double.eps * (if (sc > 0) sc else 1))
   finite <- abs(q$beta) > tol
   q$alpha[finite] / q$beta[finite]
 }

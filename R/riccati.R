@@ -24,7 +24,11 @@
 #' A solution whose relative residual exceeds 1e-6, or whose closed loop is
 #' not stable, raises an error. The returned object reports the relative
 #' residual, the symmetry error and the closed-loop eigenvalues so that the
-#' result can be verified.
+#' result can be verified. The Schur method is backward stable in the
+#' normwise sense: when the weights of different states or inputs differ by
+#' many orders of magnitude, the solution in the weakly weighted directions
+#' can lose relative accuracy without raising the normwise residual, so
+#' scale the weights to comparable size.
 #'
 #' @param A State matrix (`n x n`).
 #' @param B Input matrix (`n x m`).
@@ -75,11 +79,16 @@ riccati_inputs <- function(A, B, Q, R, S, check_weights) {
   check_dims(S, "S", n, m)
   if (check_weights) {
     check_pd(R, "R")
-    W <- rbind(cbind(Q, S), cbind(t(S), R))
-    tolw <- 1e3 * nrow(W) * .Machine$double.eps * norm(W, "2")
-    if (min_eig_sym(W) < -tolw) {
+    # with R positive definite, [Q S; S' R] is positive semidefinite exactly
+    # when the Schur complement Q - S R^-1 S' is; testing it on its own scale
+    # keeps a large R from masking an indefinite Q
+    SRS <- S %*% solve(R, t(S))
+    Sc <- symmetrize(Q - SRS)
+    tolw <- 1e3 * n * .Machine$double.eps * max(norm(Q, "2"), norm(SRS, "2"))
+    if (min_eig_sym(Sc) < -tolw) {
       ctrl_abort("The joint weight [Q S; S' R] must be positive semidefinite ",
-                 "(smallest eigenvalue ", signif(min_eig_sym(W), 3), "). Use ",
+                 "(smallest eigenvalue of Q - S R^-1 S' is ",
+                 signif(min_eig_sym(Sc), 3), "). Use ",
                  "`check_weights = FALSE` to solve an indefinite equation.")
     }
   } else if (rcond(R) < 1e-14) {

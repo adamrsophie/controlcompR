@@ -380,16 +380,22 @@ siso_ss2tf <- function(s) {
   # the difference well above rounding level for weak but genuine gains
   BC <- s$B %*% s$C
   g <- norm(BC, "1")
-  if (g == 0) return(list(num = d, den = den))
+  # no input to output path through the states: only the feedthrough
+  # remains (kept over the full denominator, as requested)
+  if (g == 0) return(list(num = d * den, den = den))
   a <- norm(s$A, "1")
   alpha <- (if (a > 0) a else 1) / g
   num <- charp(s$A - alpha * BC) - den
   num[1] <- 0
-  # remove leading coefficients that are pure rounding noise (relative to
-  # the scaled numerator, which has the size of the denominator)
-  scale <- max(abs(num), abs(den))
+  # remove leading coefficients that are pure rounding noise. Compare in
+  # the frequency variable s / c, with c the size of A, so that a slow model
+  # (small c) keeps its small low-order coefficients; logs avoid overflow
+  cl <- log(if (a > 0) a else 1)
+  pw <- (length(num) - 1):0
+  lnum <- log(abs(num)) + (pw - n) * cl
+  lscale <- max(lnum, log(abs(den)) + (pw - n) * cl)
   for (k in seq_along(num)) {
-    if (abs(num[k]) <= 1e3 * n * .Machine$double.eps * scale) num[k] <- 0 else break
+    if (lnum[k] <= log(1e3 * n * .Machine$double.eps) + lscale) num[k] <- 0 else break
   }
   num <- num / alpha + d * den
   list(num = strip_leading_zeros(num), den = den)

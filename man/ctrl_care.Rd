@@ -59,7 +59,11 @@ singular, an error is raised rather than an invalid solution returned.
 A solution whose relative residual exceeds 1e-6, or whose closed loop is
 not stable, raises an error. The returned object reports the relative
 residual, the symmetry error and the closed-loop eigenvalues so that the
-result can be verified.
+result can be verified. The Schur method is backward stable in the
+normwise sense: when the weights of different states or inputs differ by
+many orders of magnitude, the solution in the weakly weighted directions
+can lose relative accuracy without raising the normwise residual, so
+scale the weights to comparable size.
 }
 \examples{
 # Scalar CARE with known solution sqrt(2) - 1

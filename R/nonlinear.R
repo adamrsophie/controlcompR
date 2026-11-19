@@ -394,16 +394,7 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
   if (!inherits(sys, "ctrl_nlsys") || sys$dt == 0) {
     ctrl_abort("Nonlinear filters need a discrete time `ctrl_nlsys`; use ctrl_nl_discretize().")
   }
-  Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
-  if (ncol(Y) != sys$p) ctrl_abort("`y` must have ", sys$p, " columns.")
-  if (any(is.infinite(Y)) || any(is.nan(Y))) {
-    ctrl_abort("`y` contains infinite or NaN values; only NA marks missing data.")
-  }
-  part <- apply(Y, 1, function(r) any(is.na(r)) && !all(is.na(r)))
-  if (any(part)) {
-    ctrl_abort("Rows of `y` must be complete or entirely missing (NA); ",
-               "partially missing rows are not supported.")
-  }
+  Y <- measurement_matrix(y, sys$p)
   Tn <- nrow(Y)
   U <- if (is.null(u)) matrix(0, Tn, sys$m) else input_matrix(u, seq_len(Tn), sys$m)
   list(Y = Y, U = U, Tn = Tn,
@@ -537,12 +528,20 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
       yhat <- drop(Ys %*% wm)
       dY <- Ys - yhat
       dX <- Xs - x
-      S <- symmetrize(dY %*% (wc * t(dY)) + z$Rn)
+      Pyy <- symmetrize(dY %*% (wc * t(dY)))
+      S <- Pyy + z$Rn
       Pxy <- dX %*% (wc * t(dY))
       K <- Pxy %*% solve(S)
       e <- z$Y[k, ] - yhat
       x <- x + drop(K %*% e)
-      P <- symmetrize(P - K %*% S %*% t(K))
+      # Joseph form with the statistically linearized output map
+      # H = Pxy' P^+, plus the part of Pyy it does not explain (zero for
+      # linear models). This equals P - K S K' algebraically but avoids its
+      # cancellation when the posterior is much smaller than the prior.
+      Hs <- t(Pxy) %*% MASS_ginv(P)
+      IKH <- diag(n) - K %*% Hs
+      Rx <- z$Rn + (Pyy - Hs %*% P %*% t(Hs))
+      P <- symmetrize(IKH %*% P %*% t(IKH) + K %*% Rx %*% t(K))
       st <- nl_innovation_stats(e, S)
       innov[k, ] <- e
       nis[k] <- st[["nis"]]

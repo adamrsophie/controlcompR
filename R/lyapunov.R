@@ -44,11 +44,13 @@ ctrl_lyap <- function(A, Q, discrete = FALSE, tol = 1e-12) {
   sym_q <- asymmetry(Q) <= 1e-12
   sch <- schur_real(A)
   lam <- sch$values
-  scale <- max(1, max(Mod(lam)))
+  # continuous: relative to the spectral scale itself (the equation is
+  # invariant under scaling A); discrete: the unit circle sets the scale
   sep <- if (discrete) {
-    min(Mod(1 - outer(lam, lam))) / scale^2
+    min(Mod(1 - outer(lam, lam))) / max(1, max(Mod(lam)))^2
   } else {
-    min(Mod(outer(lam, lam, "+"))) / scale
+    sc <- max(Mod(lam))
+    if (sc == 0) 0 else min(Mod(outer(lam, lam, "+"))) / sc
   }
   if (sep < tol) {
     ctrl_abort("The ", if (discrete) "discrete" else "continuous",
@@ -126,8 +128,8 @@ ctrl_sylvester <- function(A, B, C, tol = 1e-12) {
   if (!length(C)) return(C)
   sa <- schur_real(A)
   sb <- schur_real(B)
-  scale <- max(1, Mod(sa$values), Mod(sb$values))
-  sep <- min(Mod(outer(sa$values, sb$values, "+"))) / scale
+  scale <- max(Mod(sa$values), Mod(sb$values))
+  sep <- if (scale == 0) 0 else min(Mod(outer(sa$values, sb$values, "+"))) / scale
   if (sep < tol) {
     ctrl_abort("The Sylvester equation has no unique solution: A and -B ",
                "share an eigenvalue (relative separation ", signif(sep, 3), ").")

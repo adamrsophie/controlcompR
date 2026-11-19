@@ -127,13 +127,25 @@ c2d_matched <- function(sys, dt) {
   if (reldeg > 1L) zz <- c(zz, rep(-1 + 0i, reldeg - 1L))
   # match the low-frequency gain after removing s^k and (z - 1)^k factors:
   # near s = 0, z - 1 ~ s dt
-  at0 <- function(v) Mod(v) < 1e-12
-  kz <- sum(at0(zpk$zeros))
-  kp <- sum(at0(zpk$poles))
-  gc <- zpk$gain * prod(-zpk$zeros[!at0(zpk$zeros)]) /
-    prod(-zpk$poles[!at0(zpk$poles)])
-  atz1 <- function(v) Mod(v - 1) < 1e-12
-  gd <- prod(1 - zz[!atz1(zz)]) / prod(1 - pz[!atz1(pz)])
+  # origin roots are classified once, relative to the root scale, and the
+  # same classification is used on both sides; 1 - exp(p dt) is computed
+  # with expm1 to avoid cancellation for slow roots
+  rs <- Mod(c(zpk$zeros, zpk$poles))
+  rsc <- if (length(rs) && max(rs) > 0) max(rs) else 1
+  at0 <- function(v) Mod(v) <= 1e-12 * rsc
+  oz <- at0(zpk$zeros)
+  op <- at0(zpk$poles)
+  kz <- sum(oz)
+  kp <- sum(op)
+  gc <- zpk$gain * prod(-zpk$zeros[!oz]) / prod(-zpk$poles[!op])
+  # exp(z) - 1 for complex z without cancellation
+  cexpm1 <- function(z) {
+    x <- Re(z)
+    y <- Im(z)
+    complex(real = expm1(x) * cos(y) - 2 * sin(y / 2)^2, imaginary = exp(x) * sin(y))
+  }
+  gd <- prod(-cexpm1(zpk$zeros[!oz] * dt)) * 2^max(0L, reldeg - 1L) /
+    prod(-cexpm1(zpk$poles[!op] * dt))
   k <- Re(gc / (gd * dt^(kz - kp)))
   out <- ctrl_zpk2tf(ctrl_zpk(zz, pz, k, dt = dt))
   out$input_names <- sys$input_names
@@ -176,7 +188,9 @@ ctrl_d2c <- function(sys, method = c("zoh", "tustin"), prewarp = NULL) {
   }
   if (method == "zoh") {
     ev <- eigen(s$A, only.values = TRUE)$values
-    if (any(Mod(Im(ev)) < 1e-12 & Re(ev) <= 1e-12)) {
+    # the principal logarithm needs no eigenvalue on the closed negative
+    # real axis; small positive eigenvalues (fast stable poles) are fine
+    if (any(abs(Im(ev)) <= 1e-12 * pmax(Mod(ev), 1e-300) & Re(ev) <= 0)) {
       ctrl_abort("Zero-order-hold inversion is not supported: A has an ",
                  "eigenvalue on the closed negative real axis.")
     }

@@ -499,16 +499,26 @@ ctrl_mpc_qp <- function(mpc, x, reference = NULL, u_prev = NULL,
        disturbance = d)
 }
 
+mpc_objective_scale <- function(H) {
+  osc <- max(abs(Matrix::diag(H)))
+  if (!is.finite(osc) || osc <= 0) 1 else osc
+}
+
 mpc_solver <- function(mpc, qpd) {
   ws <- mpc$workspace
+  # the objective is divided by a common positive factor (the largest
+  # Hessian diagonal) so that OSQP's absolute tolerances see a unit scale;
+  # the minimizer is unchanged. The Hessian is fixed, so the factor is the
+  # same at setup and at every update.
+  osc <- mpc_objective_scale(qpd$H)
   if (is.null(ws$model)) {
     settings <- do.call(osqp::osqpSettings, mpc$settings)
-    Hu <- methods::as(Matrix::triu(qpd$H), "CsparseMatrix")
-    ws$model <- osqp::osqp(P = Hu, q = qpd$q,
+    Hu <- methods::as(Matrix::triu(qpd$H / osc), "CsparseMatrix")
+    ws$model <- osqp::osqp(P = Hu, q = qpd$q / osc,
                            A = methods::as(qpd$A, "CsparseMatrix"),
                            l = qpd$l, u = qpd$u, pars = settings)
   } else {
-    ws$model@Update(q = qpd$q, l = qpd$l, u = qpd$u)
+    ws$model@Update(q = qpd$q / osc, l = qpd$l, u = qpd$u)
   }
   ws$model
 }
@@ -578,7 +588,9 @@ ctrl_mpc_step <- function(mpc, x, reference = NULL, u_prev = NULL,
               objective = obj, slack = slack, z = z,
               iterations = res$info$iter, solve_time = res$info$solve_time,
               primal_residual = res$info$prim_res,
-              dual_residual = res$info$dual_res, max_violation = viol,
+              # back in the units of the stated objective (see mpc_solver())
+              dual_residual = res$info$dual_res * mpc_objective_scale(qpd$H),
+              max_violation = viol,
               dynamics_residual = dyn)
   class(out) <- "ctrl_mpc_step"
   out

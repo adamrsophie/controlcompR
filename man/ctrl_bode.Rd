@@ -30,12 +30,12 @@ the complex response for positive and negative frequencies and, for SISO
 models without poles on the stability boundary, the winding number of
 \eqn{1 + L} around the origin (the number of clockwise encirclements of
 \eqn{-1}); with \code{P} open-loop unstable poles the closed loop has
-\eqn{Z = N + P} unstable poles. The winding number is computed on its own
-contour: for continuous models the imaginary axis is extended until the
-remaining tail of \eqn{L - D} cannot reach \eqn{-1}, and the contour is
-refined until the phase of \eqn{1 + L} changes by less than
-\eqn{\pi/8} between samples. When this cannot be established (for
-example \eqn{1 + D = 0}), \code{encirclements} is \code{NA}. \code{ctrl_nichols()}
+\eqn{Z = N + P} unstable poles. The winding number is obtained from the
+argument principle, \eqn{N = Z - P}, by counting the unstable roots of
+the closed-loop and open-loop characteristic polynomials, so it does not
+depend on how finely the plotted curve is sampled. It is \code{NA} when
+\eqn{1 + L} vanishes on the contour (a closed-loop pole on the stability
+boundary, or \eqn{1 + D = 0}). \code{ctrl_nichols()}
 returns phase against
 magnitude in dB.
 }

@@ -22,7 +22,10 @@ frequency in rad per time unit) and \code{bounds}.
 \item \code{"2"}: the H2 norm. For an asymptotically stable continuous model it is
 \eqn{\sqrt{\mathrm{tr}(C W_c C^\top)}} when \code{D = 0} and infinite
 otherwise; for a discrete model it is
-\eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}.
+\eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. The Gramian is
+computed after diagonal balancing; a realization whose Gramian is
+ill-conditioned for other reasons (nearly cancelling input or output
+directions) loses relative accuracy, and \code{\link[=ctrl_minreal]{ctrl_minreal()}} first helps.
 \item \code{"inf"}: the H-infinity norm \eqn{\sup_\omega \sigma_{\max}(G(j\omega))}
 of an asymptotically stable model, computed with the
 Bruinsma-Steinbuch two-step algorithm. The lower bound comes from
@@ -32,7 +35,10 @@ eigenvalues, which locate the frequency intervals where
 \eqn{\sigma_{\max} > \gamma}. The iteration stops when the relative gap
 between the bounds is below \code{tol}. Discrete models are mapped to
 continuous time with the norm-preserving bilinear transformation
-\eqn{s = (z - 1)/(z + 1)}.
+\eqn{s = (z - 1)/(z + 1)}. An upper bound is accepted only when no
+sampled gain on a verification grid (with local refinement) exceeds
+it; otherwise the search continues, and \code{bounds[2]} is \code{Inf} when no
+upper bound could be established.
 }
 }
 \details{
