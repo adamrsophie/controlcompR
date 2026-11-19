@@ -99,8 +99,11 @@ test_that("PID simulation solves the feedthrough loop", {
   expect_equal(sim$u, rep(0.2, 2))
   # each sample satisfies the controller law at the measured output
   plant <- ctrl_ss(0.5, 1, 1, D = 0.3, dt = 0.1)
-  pid <- ctrl_pid(kp = 2, ki = 1, kd = 0.1, derivative_filter = 20, dt = 0.1,
-                  integral_method = "tustin")
+  expect_warning(
+    pid <- ctrl_pid(kp = 2, ki = 1, kd = 0.1, derivative_filter = 20, dt = 0.1,
+                    integral_method = "tustin"),
+    "derivative filter"
+  )
   sim <- ctrl_simulate_pid(plant, pid, steps = 20)
   x <- 0
   st <- NULL
