@@ -18,11 +18,15 @@ ctrl_robust_performance(G, K, Wp, Wu, n = 2000L)
 \item{n}{Number of grid frequencies.}
 }
 \value{
-A list with \code{robust_performance}, \code{nominally_stable},
-\code{robust_stability} (\eqn{\sup |W_u| \bar\sigma(T) < 1}),
-\code{nominal_performance} (\eqn{\sup |W_p| \bar\sigma(S) < 1}), \code{peak},
-\code{frequency} (where the peak occurs), \code{exact} (\code{TRUE} for SISO loops)
-and \code{curve} (a data frame with \code{frequency} and \code{value}).
+A list with \code{robust_performance} (sampled peak below one),
+\code{certified} (\code{TRUE} when the rigorous upper bound is also below one),
+\code{upper_bound}, \code{nominally_stable}, \code{robust_stability}
+(\eqn{\sup |W_u| \bar\sigma(T) < 1}), \code{nominal_performance}
+(\eqn{\sup |W_p| \bar\sigma(S) < 1}), \code{peak}, \code{frequency} (where the
+peak occurs; \code{Inf} for the infinite frequency endpoint), \code{peaks} (the
+sampled sum, performance and robustness peaks), \code{criterion_exact}
+(\code{TRUE} for SISO loops, where the condition is also necessary) and
+\code{curve} (a data frame with \code{frequency} and \code{value}).
 }
 \description{
 Test whether the performance specification
@@ -38,10 +42,16 @@ MIMO loops with the scalar weights used here it can be conservative; it
 is not a structured singular value computation.
 }
 \details{
-The supremum is evaluated on a dense frequency grid refined by a local
-one-dimensional search around the largest grid value, so the reported
-peak is a lower bound on the true supremum that is accurate to the
-search tolerance; it is not a certified bound like \code{\link[=ctrl_norm]{ctrl_norm()}}.
+Each supremum (performance, robustness and their sum) is sampled on a
+dense frequency grid that includes the endpoints (zero and infinite
+frequency for continuous models, zero and the Nyquist frequency for
+discrete models), and the largest local maxima are refined with a
+one-dimensional search. Sampled peaks are lower bounds on the true
+suprema, so \code{robust_performance} is decided on samples. A pass is
+\code{certified} when the rigorous upper bound
+\eqn{\|W_p S\|_\infty + \|W_u T\|_\infty} from \code{\link[=ctrl_norm]{ctrl_norm()}} is below
+one as well; it can be conservative, so an uncertified pass is not a
+failure.
 }
 \examples{
 G <- ctrl_tf(1, c(1, 1))

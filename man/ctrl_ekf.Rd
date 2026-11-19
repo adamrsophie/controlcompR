@@ -34,8 +34,9 @@ ctrl_ukf(
 \item{alpha, beta, kappa}{Unscented transform parameters.}
 }
 \value{
-A list of class \code{ctrl_kalman_filter} with \code{filtered},
-\code{P_filtered}, \code{innovations}, \code{nis} and \code{loglik}.
+A list of class \code{c("ctrl_nl_filter", "ctrl_kalman_filter")} with
+\code{filtered}, \code{P_filtered}, \code{innovations}, \code{nis} and \code{loglik}. It has no
+predicted covariances, so \code{\link[=ctrl_kalman_smoother]{ctrl_kalman_smoother()}} does not accept it.
 }
 \description{
 Nonlinear state estimation for a discrete time \code{ctrl_nlsys} with

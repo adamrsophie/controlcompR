@@ -126,7 +126,7 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     # arrival cost on the support of the prior covariance; components with
     # zero prior variance are fixed to the prior mean
     ep <- eigen(symmetrize(prior_P[, , st]), symmetric = TRUE)
-    pk <- ep$values > 1e-12 * max(1, max(ep$values))
+    pk <- ep$values > 1e-12 * max(ep$values)
     Pinv <- ep$vectors[, pk, drop = FALSE] %*%
       diag(1 / ep$values[pk], sum(pk)) %*% t(ep$vectors[, pk, drop = FALSE])
     Nul <- ep$vectors[, !pk, drop = FALSE]
@@ -198,8 +198,12 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     }
     H <- Matrix::sparseMatrix(i = Hm$i, j = Hm$j, x = Hm$x, dims = c(nz, nz))
     A <- Matrix::sparseMatrix(i = Ac$i, j = Ac$j, x = Ac$x, dims = c(r, nz))
-    model <- osqp::osqp(P = methods::as(Matrix::triu(H), "CsparseMatrix"),
-                        q = qv, A = methods::as(A, "CsparseMatrix"), l = lo,
+    # normalize the objective so the solver tolerances do not depend on the
+    # units of the covariances; objective and duals are rescaled afterwards
+    osc <- max(abs(Matrix::diag(H)))
+    if (!is.finite(osc) || osc <= 0) osc <- 1
+    model <- osqp::osqp(P = methods::as(Matrix::triu(H / osc), "CsparseMatrix"),
+                        q = qv / osc, A = methods::as(A, "CsparseMatrix"), l = lo,
                         u = hi, pars = do.call(osqp::osqpSettings, mhe$settings))
     lay <- c(dyn = L - 1L, nul = ncol(Nul),
              xb = if (any(is.finite(c(mhe$x_min, mhe$x_max)))) L else 0L,
@@ -210,14 +214,14 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
       sh <- st - st_prev
       yw <- c(shift_blocks(yprev, n, lay_prev[["dyn"]], lay[["dyn"]], sh),
               rep(0, lay[["nul"]]),
-              shift_blocks(yprev[-seq_len(n * lay_prev[["dyn"]] + lay_prev[["nul"]])],
+              shift_blocks(drop_head(yprev, n * lay_prev[["dyn"]] + lay_prev[["nul"]]),
                            n, lay_prev[["xb"]], lay[["xb"]], sh),
-              shift_blocks(yprev[-seq_len(n * (lay_prev[["dyn"]] + lay_prev[["xb"]]) +
-                                            lay_prev[["nul"]])],
+              shift_blocks(drop_head(yprev, n * (lay_prev[["dyn"]] + lay_prev[["xb"]]) +
+                                       lay_prev[["nul"]]),
                            q, lay_prev[["wb"]], lay[["wb"]], sh),
               rep(0, lay[["free"]]))
       model@WarmStart(x = mhe_shift(zprev, sh, L, n, q, s, U[Tk - 1L, ]),
-                      y = if (length(yw) == r) yw else NULL)
+                      y = if (length(yw) == r) yw / osc else NULL)
     }
     res <- osqp_solve(model)
     status[Tk] <- res$info$status
@@ -226,11 +230,11 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
                  res$info$status, "\".")
     }
     est[Tk, ] <- res$x[xi(L)]
-    obj[Tk] <- res$info$obj_val + const
+    obj[Tk] <- osc * res$info$obj_val + const
     stime[Tk] <- res$info$solve_time
     iters[Tk] <- as.integer(res$info$iter %||% NA_integer_)
     zprev <- res$x
-    yprev <- res$y
+    yprev <- osc * res$y
     lay_prev <- lay
     st_prev <- st
   }
@@ -258,6 +262,9 @@ mhe_shift <- function(z, shift, L, n, q, s, u_last) {
 shift_blocks <- function(v, size, prev, new, shift) {
   if (!new) return(numeric())
   b <- if (prev) v[seq_len(prev * size)] else numeric()
-  b <- c(b[-seq_len(min(shift, prev) * size)], rep(0, new * size))
+  b <- c(drop_head(b, min(shift, prev) * size), rep(0, new * size))
   b[seq_len(new * size)]
 }
+
+# Drop the first k entries; v[-seq_len(0)] would drop everything.
+drop_head <- function(v, k) if (k > 0) v[-seq_len(k)] else v

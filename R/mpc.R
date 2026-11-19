@@ -108,7 +108,7 @@ ctrl_mpc <- function(plant, horizon, Q, R, P = "Q", control_horizon = horizon,
   R <- check_psd(expand_weight(R, m, "R"), "R")
   Rd <- if (is.null(Rd)) matrix(0, m, m) else check_psd(expand_weight(Rd, m, "Rd"), "Rd")
   Qy <- if (is.null(Qy)) matrix(0, p, p) else check_psd(expand_weight(Qy, p, "Qy"), "Qy")
-  if (min_eig_sym(R + Rd) <= 1e-12 * max(1, norm(R + Rd, "2"))) {
+  if (min_eig_sym(R + Rd) <= 1e-12 * norm(R + Rd, "2")) {
     ctrl_abort("`R + Rd` must be positive definite so the QP is strictly ",
                "convex in the inputs.")
   }
@@ -193,8 +193,16 @@ trip_new <- function() {
   e
 }
 
+# M is a matrix block, or a vector holding the diagonal of a square block
+# (appended directly, without forming the dense matrix).
 trip_add <- function(tr, rows, cols, M) {
-  M <- as.matrix(M)
+  if (is.null(dim(M))) {
+    keep <- M != 0
+    tr$i <- c(tr$i, rows[keep])
+    tr$j <- c(tr$j, cols[keep])
+    tr$x <- c(tr$x, rep_len(M, length(rows))[keep])
+    return(invisible())
+  }
   nz <- which(M != 0, arr.ind = TRUE)
   if (!nrow(nz)) return(invisible())
   tr$i <- c(tr$i, rows[nz[, 1]])
@@ -267,7 +275,7 @@ mpc_build_qp <- function(mpc) {
   trip_add(Hm, xi(N), xi(N), 2 * mpc$P)
   if (ns) {
     trip_add(Hm, si0 + seq_len(ns), si0 + seq_len(ns),
-             diag(2 * mpc$soft_weight[1], ns))
+             rep(2 * mpc$soft_weight[1], ns))
   }
   # x0 = x(t)
   rows_init <- add_rows(list(list(cols = xi(0), M = diag(n))), rep(0, n),
@@ -314,7 +322,7 @@ mpc_build_qp <- function(mpc) {
     for (k in 1:N) {
       E <- diag(n)[xb, , drop = FALSE]
       if (soft_x) {
-        S <- diag(length(xb))
+        S <- rep(1, length(xb))
         sc <- si0 + slack_ptr + seq_len(length(xb))
         slack_ptr <- slack_ptr + length(xb)
         add_rows(list(list(cols = xi(k), M = E), list(cols = sc, M = -S)),
@@ -338,7 +346,7 @@ mpc_build_qp <- function(mpc) {
       if (soft_y) {
         sc <- si0 + slack_ptr + seq_len(length(yb))
         slack_ptr <- slack_ptr + length(yb)
-        S <- diag(length(yb))
+        S <- rep(1, length(yb))
         r1 <- add_rows(c(blocks, list(list(cols = sc, M = -S))),
                        rep(-Inf, length(yb)), b$y_max[yb], "ys")
         r2 <- add_rows(c(blocks, list(list(cols = sc, M = S))),
@@ -352,7 +360,7 @@ mpc_build_qp <- function(mpc) {
     }
   }
   if (ns) {
-    add_rows(list(list(cols = si0 + seq_len(ns), M = diag(ns))), rep(0, ns),
+    add_rows(list(list(cols = si0 + seq_len(ns), M = rep(1, ns))), rep(0, ns),
              rep(Inf, ns), "slack")
   }
   rows_term <- integer()
@@ -370,7 +378,7 @@ mpc_build_qp <- function(mpc) {
   Acs <- Matrix::sparseMatrix(i = Ac$i, j = Ac$j, x = Ac$x, dims = c(nrow_c, nz))
   # convexity of the assembled Hessian: each stage block must be PSD
   stage <- rbind(cbind(mpc$Q + Qy_x, Qy_xu), cbind(t(Qy_xu), mpc$R + Qy_u))
-  if (min_eig_sym(stage) < -1e-10 * max(1, norm(stage, "2"))) {
+  if (min_eig_sym(stage) < -1e-10 * norm(stage, "2")) {
     ctrl_abort("The MPC stage cost is not convex.")
   }
   list(H = Hs, A = Acs, l = lo, u = hi, tags = row_tag, n = n, m = m, p = p,
@@ -699,7 +707,11 @@ mpc_target <- function(s, Bd, Cd, dhat, r) {
 #' @param disturbance Input disturbance added to the plant input: a vector
 #'   with one value per input (constant), a matrix with one row per sample,
 #'   or a function of the sample index. For a single input, a vector with
-#'   one value per sample is also accepted.
+#'   one value per sample is also accepted. The plant sees the effective
+#'   input \eqn{u_k + d_k} in both \eqn{x_{k+1} = A x_k + B(u_k + d_k)} and
+#'   \eqn{y_k = C x_k + D(u_k + d_k)}. The measurement used to compute
+#'   \eqn{u_k} is taken before \eqn{u_k} is applied, so it sees the input
+#'   and disturbance held over the previous sample (zero before the first).
 #' @param noise Measurement noise on the outputs (same formats).
 #' @param estimator Optional `ctrl_mpc_estimator` for output feedback with
 #'   offset-free tracking; without it the true state is measured.
@@ -778,8 +790,12 @@ ctrl_simulate_mpc <- function(mpc, x0, steps, reference = NULL, plant = NULL,
     xa <- rep(0, n + estimator$nd)
     Dh <- matrix(NA_real_, steps, estimator$nd)
   }
+  d_prev <- rep(0, m)
   for (k in seq_len(steps)) {
-    y <- drop(sim$C %*% x + sim$D %*% u_prev) + sig(noise, k, p)
+    # the measurement is taken before the new input is applied, so it sees
+    # the input and disturbance held over the previous sample
+    dk <- sig(disturbance, k, m)
+    y <- drop(sim$C %*% x + sim$D %*% (u_prev + d_prev)) + sig(noise, k, p)
     ref <- reference
     dist_model <- NULL
     y_off <- NULL
@@ -832,13 +848,14 @@ ctrl_simulate_mpc <- function(mpc, x0, steps, reference = NULL, plant = NULL,
       zprev <- NULL
     }
     U[k, ] <- u
-    Y[k, ] <- drop(sim$C %*% x + sim$D %*% u)
-    x <- drop(sim$A %*% x + sim$B %*% (u + sig(disturbance, k, m)))
+    Y[k, ] <- drop(sim$C %*% x + sim$D %*% (u + dk))
+    x <- drop(sim$A %*% x + sim$B %*% (u + dk))
     X[k + 1L, ] <- x
     if (!is.null(estimator)) {
       xa <- drop(estimator$augmented$A %*% xa + estimator$augmented$B %*% u)
     }
     u_prev <- u
+    d_prev <- dk
   }
   colnames(X) <- sim$state_names
   colnames(U) <- model$input_names

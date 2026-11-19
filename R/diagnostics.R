@@ -15,9 +15,11 @@
 #' * peak and peak time: largest \eqn{|y - y_0|}.
 #'
 #' When `sys` (the model) is supplied the final value is its DC gain times
-#' the step amplitude (exact, for stable models). Otherwise the last sample
-#' is used and `settled` reports whether the response varies by less than
-#' the band over the last 5 percent of the horizon. Characteristics depend
+#' the step amplitude (exact, for stable models; `final_value_known` is
+#' `TRUE`) and `settled` reports whether the response is inside the band at
+#' the end of the simulated horizon. Otherwise the last sample is used and
+#' `settled` reports whether the response varies by less than the band over
+#' the last 5 percent of the horizon. Characteristics depend
 #' on these conventions, so state them when reporting numbers.
 #'
 #' @param response A `ctrl_response` (typically from [ctrl_step()]) or a
@@ -58,16 +60,20 @@ ctrl_step_info <- function(response, sys = NULL, settle = 0.02,
     j <- which(response$u[length(t), , c] != 0)[1]
     if (!is.null(dc) && !is.na(j)) {
       yinf <- y0 + dc[i, j] * response$u[length(t), j, c]
-      settled <- TRUE
+      # with the exact final value, settled means the response has entered
+      # the band for good within the simulated horizon
+      settled <- NA
     } else {
       yinf <- y[length(y)]
       tail_idx <- t >= t[1] + 0.95 * (t[length(t)] - t[1])
       settled <- diff(range(y[tail_idx])) <= settle * abs(yinf - y0)
     }
     dy <- yinf - y0
-    rows[[length(rows) + 1L]] <- step_metrics(t, y, y0, yinf, dy, settle, rise,
-                                              response$output_names[i],
-                                              response$cases[c], settled)
+    r <- step_metrics(t, y, y0, yinf, dy, settle, rise, response$output_names[i],
+                      response$cases[c], settled)
+    if (is.na(settled)) r$settled <- dy == 0 || !is.na(r$settling_time)
+    r$final_value_known <- is.na(settled)
+    rows[[length(rows) + 1L]] <- r
   }
   do.call(rbind, rows)
 }
@@ -133,6 +139,10 @@ ctrl_performance <- function(time, y, r = 0, u = NULL, u_min = -Inf,
     ctrl_abort("`time` has ", length(time), " points but `y` has ", nrow(y),
                " rows.")
   }
+  if (any(!is.finite(time)) || any(diff(time) <= 0)) {
+    ctrl_abort("`time` must be finite and strictly increasing.")
+  }
+  check_flag(discrete, "discrete")
   r <- if (length(r) == 1L) matrix(r, nrow(y), ncol(y)) else as.matrix(r)
   if (nrow(r) == nrow(y) + 1L) r <- r[seq_len(nrow(y)), , drop = FALSE]
   if (!identical(dim(r), dim(y))) ctrl_abort("`r` must match the shape of `y`.")
@@ -180,7 +190,12 @@ ctrl_performance <- function(time, y, r = 0, u = NULL, u_min = -Inf,
 #' @param controllers Named list of simulation functions.
 #' @param reference Reference used when a result has no `r`.
 #' @param u_min,u_max Input limits for violation reporting.
-#' @return A data frame with one row per controller.
+#' @param discrete Integration convention passed to [ctrl_performance()]:
+#'   `FALSE` (trapezoidal rule) or `TRUE` (rectangle sums for sampled
+#'   signals). A result that contains its own logical `discrete` element
+#'   overrides it.
+#' @return A data frame with one row per controller and a `convention`
+#'   column (`"trapezoidal"` or `"sampled"`).
 #' @examples
 #' plant <- ctrl_tf(1, c(1, 1, 0))
 #' sims <- list(
@@ -192,16 +207,20 @@ ctrl_performance <- function(time, y, r = 0, u = NULL, u_min = -Inf,
 #' ctrl_compare_controllers(sims, reference = 1)
 #' @export
 ctrl_compare_controllers <- function(controllers, reference = 0, u_min = -Inf,
-                                     u_max = Inf) {
+                                     u_max = Inf, discrete = FALSE) {
+  check_flag(discrete, "discrete")
   if (!is.list(controllers) || is.null(names(controllers))) {
     ctrl_abort("`controllers` must be a named list of functions.")
   }
   rows <- lapply(names(controllers), function(nm) {
     res <- controllers[[nm]]()
     r <- res$r %||% reference
+    disc <- if (is.logical(res$discrete) && length(res$discrete) == 1L &&
+                !is.na(res$discrete)) res$discrete else discrete
     perf <- ctrl_performance(res$time, res$y, r, u = res$u, u_min = u_min,
-                             u_max = u_max)
-    cbind(controller = nm, perf, stringsAsFactors = FALSE)
+                             u_max = u_max, discrete = disc)
+    cbind(controller = nm, perf, convention = if (disc) "sampled" else "trapezoidal",
+          stringsAsFactors = FALSE)
   })
   do.call(rbind, rows)
 }

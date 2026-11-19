@@ -94,9 +94,14 @@ check_iddata <- function(data) {
 #' @param na Number of output (denominator) coefficients.
 #' @param nb Number of input coefficients per input.
 #' @param nk Input delay in samples.
+#' @param start First output sample used as a regression response. The
+#'   default is the earliest sample for which all regressors exist. A
+#'   later common `start` lets models of different orders be fitted and
+#'   compared on the same responses (as [ctrl_arx_order()] does).
 #' @return An object of class `c("ctrl_arx", "ctrl_idmodel")` with `sys`
 #'   (a discrete `ctrl_tf` from inputs to the output), `a`, `b`, `vcov`,
-#'   `noise_var`, `residuals` and information criteria.
+#'   `noise_var`, `residuals`, information criteria, `nobs` and `rows`
+#'   (the response samples used).
 #' @examples
 #' set.seed(1)
 #' u <- rnorm(300)
@@ -106,7 +111,7 @@ check_iddata <- function(data) {
 #' m$a
 #' m$b
 #' @export
-ctrl_arx <- function(data, na, nb, nk = 1) {
+ctrl_arx <- function(data, na, nb, nk = 1, start = NULL) {
   check_iddata(data)
   if (ncol(data$y) != 1L) ctrl_abort("`ctrl_arx()` estimates single-output models; use ctrl_n4sid() for MIMO data.")
   for (nm in c("na", "nb", "nk")) {
@@ -121,6 +126,14 @@ ctrl_arx <- function(data, na, nb, nk = 1) {
   m <- ncol(U)
   Tn <- length(y)
   k0 <- max(na, nk + nb - 1L) + 1L
+  if (!is.null(start)) {
+    if (!is.numeric(start) || length(start) != 1L || start != round(start) ||
+        start < k0 || start > Tn) {
+      ctrl_abort("`start` must be an integer between ", k0, " and ", Tn,
+                 " for these orders.")
+    }
+    k0 <- as.integer(start)
+  }
   rows <- k0:Tn
   if (length(rows) <= na + m * nb) ctrl_abort("Too few samples for the requested orders.")
   X <- cbind(
@@ -162,6 +175,7 @@ ctrl_arx <- function(data, na, nb, nk = 1) {
                  vcov = vc, noise_var = sigma2, residuals = res,
                  loglik = ll, aic = -2 * ll + 2 * npar,
                  bic = -2 * ll + log(N) * npar, npar = npar, nobs = N,
+                 rows = rows,
                  method = "arx", dt = data$dt),
             class = c("ctrl_arx", "ctrl_idmodel"))
 }
@@ -210,8 +224,14 @@ ctrl_n4sid <- function(data, order = NULL, horizon = NULL, feedthrough = FALSE) 
   m <- ncol(U)
   i <- if (is.null(horizon)) max(2L, min(15L, floor(Tn / (4 * (m + p + 1))))) else
     as_count(horizon, "horizon")
-  if (!is.null(order) && order >= i * p) {
-    ctrl_abort("`horizon` must be larger than order / p; increase `horizon`.")
+  # the shift-invariance solve uses (horizon - 1) p rows of the extended
+  # observability matrix, so at most that many states are identifiable
+  nmax <- (i - 1L) * p
+  if (nmax < 1L) ctrl_abort("`horizon` must be at least 2.")
+  if (!is.null(order) && order > nmax) {
+    ctrl_abort("`order` = ", order, " needs a horizon of at least ",
+               ceiling(order / p) + 1L, " (at most (horizon - 1) * p = ", nmax,
+               " states are identifiable with horizon ", i, ").")
   }
   N <- Tn - 2L * i + 1L
   if (N < 2L * i * (m + p)) ctrl_abort("Too few samples for horizon ", i, ".")
@@ -246,16 +266,24 @@ ctrl_n4sid <- function(data, order = NULL, horizon = NULL, feedthrough = FALSE) 
   sv <- svd(L32)
   sval <- sv$d
   if (is.null(order)) {
-    ls <- log(pmax(sval[seq_len(min(length(sval), i * p - 1L))], .Machine$double.eps))
-    # with a single admissible order (i p = 2) there is no gap to compare
-    order <- if (length(ls) < 2L) 1L else which.max(-diff(ls))
+    # largest gap in log singular values after an admissible order 1..nmax;
+    # every gap is computed from the full spectrum, so the gap after the
+    # last admissible order is considered too
+    ls <- log(pmax(sval, .Machine$double.eps * max(sval)))
+    gaps <- -diff(ls)
+    order <- if (!length(gaps)) 1L else which.max(gaps[seq_len(min(nmax, length(gaps)))])
   }
   n <- as_count(order, "order")
   Gam <- sv$u[, seq_len(n), drop = FALSE] %*% diag(sqrt(sval[seq_len(n)]), n)
   C <- Gam[seq_len(p), , drop = FALSE]
   up <- Gam[seq_len((i - 1L) * p), , drop = FALSE]
   dn <- Gam[p + seq_len((i - 1L) * p), , drop = FALSE]
-  A <- qr.solve(up, dn)
+  qup <- qr(up)
+  if (qup$rank < n) {
+    ctrl_abort("The shifted observability matrix has rank ", qup$rank, " < order ",
+               n, ", so A is not identifiable; reduce `order` or increase `horizon`.")
+  }
+  A <- qr.coef(qup, dn)
   # B, D and x0 by least squares on the simulated output
   bd <- ss_input_ls(A, C, U, Y, feedthrough)
   sys <- ctrl_ss(A, bd$B, C, bd$D, dt = data$dt, input_names = colnames(U),
@@ -462,10 +490,11 @@ plot.ctrl_idcompare <- function(x, ...) {
 #'
 #' @param model An identified model.
 #' @param data Data (preferably validation data).
-#' @param lags Maximum lag.
+#' @param lags Maximum lag; capped at the number of residuals minus one.
 #' @return A list of class `ctrl_resid` with `residuals`, `acf`,
 #'   `ccf` (data frames with output, input, lag, value and band),
-#'   `ljung_box` (p-value per output) and
+#'   `ljung_box` (p-value per output; `NA` when the lags do not exceed the
+#'   fitted parameters), `lags` (the lags used) and
 #'   flags `white` and `independent`.
 #' @examples
 #' set.seed(1)
@@ -488,17 +517,23 @@ ctrl_resid <- function(model, data, lags = 20L) {
     U <- U[-skip, , drop = FALSE]
   }
   N <- nrow(E)
+  lags <- as_count(lags, "lags")
+  if (N < 3L) ctrl_abort("Residual analysis needs at least 3 residuals; got ", N, ".")
+  # only lags that the data support (correlations at lag N or more do not
+  # exist)
+  lags <- min(lags, N - 1L)
   band <- 2.58 / sqrt(N)
   fitdf <- if (inherits(model, "ctrl_arx")) model$na else 0
   acd <- ccd <- list()
   lb <- numeric(ncol(E))
   for (i in seq_len(ncol(E))) {
     e <- E[, i]
-    ac <- stats::acf(e, lag.max = lags, plot = FALSE)$acf[-1]
-    acd[[i]] <- data.frame(output = i, lag = seq_len(lags), value = ac,
+    a <- stats::acf(e, lag.max = lags, plot = FALSE)
+    acd[[i]] <- data.frame(output = i, lag = drop(a$lag)[-1], value = drop(a$acf)[-1],
                            band = band)
-    lb[i] <- stats::Box.test(e, lag = lags, type = "Ljung-Box",
-                             fitdf = fitdf)$p.value
+    # the Ljung-Box statistic needs positive degrees of freedom
+    lb[i] <- if (lags > fitdf) stats::Box.test(e, lag = lags, type = "Ljung-Box",
+                                               fitdf = fitdf)$p.value else NA_real_
     for (j in seq_len(ncol(U))) {
       # ccf(e, u) at lag k estimates cor(e[t + k], u[t]): k >= 0 measures the
       # dependence of the residual on current and past inputs
@@ -511,7 +546,7 @@ ctrl_resid <- function(model, data, lags = 20L) {
   acd <- do.call(rbind, acd)
   ccd <- do.call(rbind, ccd)
   structure(list(residuals = if (ncol(E) == 1L) E[, 1] else E,
-                 acf = acd, ccf = ccd, ljung_box = lb,
+                 acf = acd, ccf = ccd, ljung_box = lb, lags = lags,
                  white = all(abs(acd$value) < band),
                  independent = all(abs(ccd$value[ccd$lag >= 0]) < band)),
             class = "ctrl_resid")
@@ -557,7 +592,8 @@ plot.ctrl_resid <- function(x, ...) {
 #' @param na,nb Candidate orders.
 #' @param nk Delay.
 #' @param validation Optional validation data.
-#' @return A data frame sorted by BIC.
+#' @return A data frame sorted by BIC, with `nobs`. All candidates are fitted
+#'   on the same response samples, so their criteria are comparable.
 #' @examples
 #' set.seed(1)
 #' u <- rnorm(400)
@@ -568,14 +604,18 @@ plot.ctrl_resid <- function(x, ...) {
 #' @export
 ctrl_arx_order <- function(data, na = 1:4, nb = 1:4, nk = 1, validation = NULL) {
   grid <- expand.grid(na = na, nb = nb, nk = nk)
+  # information criteria are only comparable on the same responses: fit
+  # every candidate from the latest start that all of them need
+  start <- max(pmax(grid$na, grid$nk + grid$nb - 1L)) + 1L
   rows <- lapply(seq_len(nrow(grid)), function(r) {
     g <- grid[r, ]
-    m <- tryCatch(ctrl_arx(data, g$na, g$nb, g$nk), error = function(e) NULL)
+    m <- tryCatch(ctrl_arx(data, g$na, g$nb, g$nk, start = start),
+                  error = function(e) NULL)
     if (is.null(m)) return(NULL)
     vf <- if (is.null(validation)) NA_real_ else
       ctrl_compare(validation, m)$simulation_fit[1]
-    data.frame(na = g$na, nb = g$nb, nk = g$nk, npar = m$npar, aic = m$aic,
-               bic = m$bic, validation_fit = vf)
+    data.frame(na = g$na, nb = g$nb, nk = g$nk, npar = m$npar, nobs = m$nobs,
+               aic = m$aic, bic = m$bic, validation_fit = vf)
   })
   out <- do.call(rbind, rows)
   out[order(out$bic), , drop = FALSE]

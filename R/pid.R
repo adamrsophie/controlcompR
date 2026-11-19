@@ -185,8 +185,15 @@ ctrl_pid_tf <- function(pid, two_degree = FALSE) {
 #'
 #' @param pid A `ctrl_pid` object with a positive `dt`.
 #' @param state Controller state from the previous call (`NULL` to
-#'   initialize).
+#'   initialize as set by `init`).
 #' @param r,y Reference and measurement at this sample.
+#' @param init Initialization used when `state` is `NULL`. `"hold"` (the
+#'   default) assumes the signals were constant at their first values
+#'   before the first sample, so there is no derivative kick and the
+#'   Tustin integrator uses the full first error. `"zero"` assumes zero
+#'   history (all signals zero before the first sample), which reproduces
+#'   the zero-state response of the controller transfer function from
+#'   [ctrl_pid_tf()].
 #' @param manual Optional manual output; when given, the controller is in
 #'   manual mode and tracks this value for bumpless transfer.
 #' @return A list with `u` (saturated output), `u_unsat`, the parts `P`,
@@ -200,12 +207,17 @@ ctrl_pid_tf <- function(pid, two_degree = FALSE) {
 #' }
 #' out$u
 #' @export
-ctrl_pid_update <- function(pid, state = NULL, r, y, manual = NULL) {
+ctrl_pid_update <- function(pid, state = NULL, r, y, manual = NULL,
+                            init = c("hold", "zero")) {
+  init <- match.arg(init)
   dt <- pid$dt
   if (dt <= 0) ctrl_abort("The PID controller needs a sample interval `dt`.")
   if (is.null(state)) {
-    state <- list(I = 0, D = 0, ed_prev = pid$c * r - y, e_prev = r - y,
-                  manual_prev = FALSE)
+    state <- if (init == "hold") {
+      list(I = 0, D = 0, ed_prev = pid$c * r - y, e_prev = r - y, manual_prev = FALSE)
+    } else {
+      list(I = 0, D = 0, ed_prev = 0, e_prev = 0, manual_prev = FALSE)
+    }
   }
   e <- r - y
   P <- pid$kp * (pid$b * r - y)
@@ -259,9 +271,13 @@ pid_loop_solve <- function(pid, st, r, y0, Dp) {
   v1 <- ctrl_pid_update(pid, st, r, y0 + 1)$u_unsat
   beta <- v0 - v1
   kk <- beta * Dp
-  if (!(1 + kk > 1e-12)) {
+  # without saturation the affine equation has a unique solution whenever
+  # 1 + kk is nonzero; with an active bound uniqueness needs 1 + kk > 0
+  bounded <- is.finite(pid$u_min) || is.finite(pid$u_max)
+  if (!(abs(1 + kk) > 1e-12) || (bounded && !(1 + kk > 1e-12))) {
     ctrl_abort("The PID loop through the plant feedthrough is not well posed ",
-               "(1 + beta Dp = ", signif(1 + kk, 4), ").")
+               "(1 + beta Dp = ", signif(1 + kk, 4), if (bounded)
+                 "; with input limits it must be positive" else "", ").")
   }
   # unsaturated solution of u = v0 - kk u, else the active bound
   u <- v0 / (1 + kk)
@@ -322,6 +338,7 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
   }
   Dp <- sd$D[output, 1]
   n <- nrow(sd$A)
+  steps <- as_count(steps, "steps")
   times <- (0:(steps - 1L)) * dt
   sig <- function(v, name) {
     if (is.function(v)) return(vapply(times, v, 0))
@@ -335,9 +352,10 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
   nz <- sig(noise, "noise")
   man <- if (is.null(manual)) rep(NA_real_, steps) else sig(manual, "manual")
   x <- if (is.null(x0)) rep(0, n) else as.numeric(x0)
-  out <- data.frame(time = times, r = r, y = 0, y_true = 0, u = 0, u_unsat = 0,
-                    P = 0, I = 0, D = 0, saturated = FALSE, mode = "auto",
-                    stringsAsFactors = FALSE)
+  # histories are plain vectors; the data frame is built once at the end
+  # (element assignment into a data frame column copies it every sample)
+  ym_h <- yt_h <- u_h <- uu_h <- P_h <- I_h <- D_h <- numeric(steps)
+  sat_h <- logical(steps)
   st <- NULL
   for (k in seq_len(steps)) {
     mk <- if (is.na(man[k])) NULL else man[k]
@@ -351,17 +369,20 @@ ctrl_simulate_pid <- function(plant, pid, reference = 1, steps, disturbance = 0,
     step <- ctrl_pid_update(pid, st, r[k], ym, manual = mk)
     st <- step$state
     u <- step$u
-    out$y[k] <- ym
-    out$y_true[k] <- ytrue
-    out$u[k] <- u
-    out$u_unsat[k] <- step$u_unsat
-    out$P[k] <- step$P
-    out$I[k] <- step$I
-    out$D[k] <- step$D
-    out$saturated[k] <- step$saturated
-    out$mode[k] <- if (is.na(man[k])) "auto" else "manual"
+    ym_h[k] <- ym
+    yt_h[k] <- ytrue
+    u_h[k] <- u
+    uu_h[k] <- step$u_unsat
+    P_h[k] <- step$P
+    I_h[k] <- step$I
+    D_h[k] <- step$D
+    sat_h[k] <- step$saturated
     x <- drop(sd$A %*% x + sd$B %*% (u + d[k]))
   }
+  out <- data.frame(time = times, r = r, y = ym_h, y_true = yt_h, u = u_h,
+                    u_unsat = uu_h, P = P_h, I = I_h, D = D_h, saturated = sat_h,
+                    mode = ifelse(is.na(man), "auto", "manual"),
+                    stringsAsFactors = FALSE)
   class(out) <- c("ctrl_pid_simulation", "data.frame")
   out
 }
@@ -458,8 +479,8 @@ ctrl_pid_tune <- function(method = c("ziegler_nichols", "simc", "amigo"),
 
 #' Fit a first-order plus dead-time model to a step response
 #'
-#' Estimate \eqn{K e^{-\theta s}/(\tau s + 1)} from a unit step response
-#' with the two-point method (28.3 percent and 63.2 percent of the final
+#' Estimate \eqn{K e^{-\theta s}/(\tau s + 1)} from a step response
+#' (the gain is divided by the step amplitude) with the two-point method (28.3 percent and 63.2 percent of the final
 #' change). The response must be monotone enough for the crossing times to
 #' be meaningful.
 #'
@@ -473,9 +494,17 @@ ctrl_fit_fopdt <- function(response) {
   if (is_ctrl_system(response)) response <- ctrl_step(response)
   t <- response$time
   y <- response$y[, 1, 1]
-  K <- y[length(y)] - y[1]
-  if (K == 0) ctrl_abort("The step response does not change.")
-  frac <- (y - y[1]) / K
+  # the gain is the output change per unit input step
+  u <- response$u[, , 1]
+  u <- if (is.null(dim(u))) u else u[, which.max(abs(u[nrow(u), ]))]
+  amp <- u[length(u)]
+  if (!is.finite(amp) || amp == 0 || any(abs(u - amp) > 1e-12 * abs(amp))) {
+    ctrl_abort("`response` must be a step response with a constant nonzero input.")
+  }
+  dy <- y[length(y)] - y[1]
+  if (dy == 0) ctrl_abort("The step response does not change.")
+  K <- dy / amp
+  frac <- (y - y[1]) / dy
   cross <- function(level) {
     k <- which(frac >= level)[1]
     if (is.na(k) || k == 1L) return(t[max(1L, k)])

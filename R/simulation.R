@@ -98,13 +98,45 @@ simulation_times <- function(s, times, input) {
   as.numeric(times)
 }
 
+# Standard responses are applied at time zero. A grid that starts later is
+# extended back to zero (with the sample instants in between for discrete
+# models); `from_zero_trim()` then drops the added samples.
+from_zero_grid <- function(s, times) {
+  if (!is.numeric(times) || !length(times) || !is.finite(times[1]) || times[1] < 0) {
+    ctrl_abort("`times` must start at or after 0, the instant the response is applied.")
+  }
+  if (times[1] == 0) return(list(times = times, extra = 0L))
+  pre <- if (s$dt > 0) {
+    k <- times[1] / s$dt
+    if (abs(k - round(k)) > 1e-8 * max(1, k)) {
+      ctrl_abort("For a discrete model, `times` must be sample instants k * dt.")
+    }
+    (seq_len(round(k)) - 1L) * s$dt
+  } else 0
+  list(times = c(pre, times), extra = length(pre))
+}
+
+from_zero_trim <- function(r, extra) {
+  if (!extra) return(r)
+  keep <- -seq_len(extra)
+  r$time <- r$time[keep]
+  for (f in c("x", "y", "u")) {
+    if (!is.null(r[[f]])) r[[f]] <- r[[f]][keep, , , drop = FALSE]
+  }
+  r
+}
+
 input_matrix <- function(input, times, m) {
   nt <- length(times)
   if (is.null(input)) return(matrix(0, nt, m))
   if (is.function(input)) {
-    vals <- lapply(times, input)
-    U <- do.call(rbind, lapply(vals, as.numeric))
-    if (ncol(U) != m) ctrl_abort("`input(t)` must return ", m, " values.")
+    vals <- lapply(times, function(t) as.numeric(input(t)))
+    bad <- which(lengths(vals) != m)
+    if (length(bad)) {
+      ctrl_abort("`input(t)` must return ", m, " values; it returned ",
+                 length(vals[[bad[1]]]), " at t = ", times[bad[1]], ".")
+    }
+    U <- matrix(unlist(vals), nt, m, byrow = TRUE)
   } else {
     U <- if (is.null(dim(input))) {
       if (m == 1L) matrix(as.numeric(input), ncol = 1)
@@ -252,6 +284,8 @@ auto_time_grid <- function(s, n_points = 1000L) {
 #'
 #' @param sys A model.
 #' @param times Optional time grid (sample instants for discrete models).
+#'   The step, impulse or initial state is applied at time zero; a grid that
+#'   starts later reports the same response at its own instants.
 #' @param inputs Input channels (indices or names); default all.
 #' @param amplitude Step amplitude.
 #' @param x0 Initial state for `ctrl_initial()`.
@@ -267,6 +301,8 @@ ctrl_step <- function(sys, times = NULL, inputs = NULL, amplitude = 1) {
   s <- as_ss(sys)
   check_scalar_number(amplitude, "amplitude")
   times <- times %||% auto_time_grid(s)
+  g <- from_zero_grid(s, times)
+  times <- g$times
   times <- simulation_times(s, times, NULL)
   idx <- if (is.null(inputs)) seq_len(ncol(s$B)) else
     resolve_index(inputs, s$input_names, "input")
@@ -275,7 +311,8 @@ ctrl_step <- function(sys, times = NULL, inputs = NULL, amplitude = 1) {
     U[, j] <- amplitude
     ctrl_simulate(s, U, times)
   })
-  combine_cases(responses, s, paste("step", s$input_names[idx]), "step")
+  out <- combine_cases(responses, s, paste("step", s$input_names[idx]), "step")
+  from_zero_trim(out, g$extra)
 }
 
 #' @rdname ctrl_step
@@ -283,6 +320,8 @@ ctrl_step <- function(sys, times = NULL, inputs = NULL, amplitude = 1) {
 ctrl_impulse <- function(sys, times = NULL, inputs = NULL) {
   s <- as_ss(sys)
   times <- times %||% auto_time_grid(s)
+  g <- from_zero_grid(s, times)
+  times <- g$times
   times <- simulation_times(s, times, NULL)
   idx <- if (is.null(inputs)) seq_len(ncol(s$B)) else
     resolve_index(inputs, s$input_names, "input")
@@ -301,7 +340,8 @@ ctrl_impulse <- function(sys, times = NULL, inputs = NULL) {
       r
     }
   })
-  combine_cases(responses, s, paste("impulse", s$input_names[idx]), "impulse")
+  out <- combine_cases(responses, s, paste("impulse", s$input_names[idx]), "impulse")
+  from_zero_trim(out, g$extra)
 }
 
 #' @rdname ctrl_step
@@ -309,10 +349,12 @@ ctrl_impulse <- function(sys, times = NULL, inputs = NULL) {
 ctrl_initial <- function(sys, x0, times = NULL) {
   s <- as_ss(sys)
   times <- times %||% auto_time_grid(s)
+  g <- from_zero_grid(s, times)
+  times <- g$times
   r <- ctrl_simulate(s, NULL, times, x0 = x0)
   r$type <- "initial"
   r$cases <- "initial"
-  r
+  from_zero_trim(r, g$extra)
 }
 
 combine_cases <- function(responses, s, cases, type) {

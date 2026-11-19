@@ -4,18 +4,33 @@
 \alias{ctrl_pid_update}
 \title{One step of a discrete PID controller}
 \usage{
-ctrl_pid_update(pid, state = NULL, r, y, manual = NULL)
+ctrl_pid_update(
+  pid,
+  state = NULL,
+  r,
+  y,
+  manual = NULL,
+  init = c("hold", "zero")
+)
 }
 \arguments{
 \item{pid}{A \code{ctrl_pid} object with a positive \code{dt}.}
 
 \item{state}{Controller state from the previous call (\code{NULL} to
-initialize).}
+initialize as set by \code{init}).}
 
 \item{r, y}{Reference and measurement at this sample.}
 
 \item{manual}{Optional manual output; when given, the controller is in
 manual mode and tracks this value for bumpless transfer.}
+
+\item{init}{Initialization used when \code{state} is \code{NULL}. \code{"hold"} (the
+default) assumes the signals were constant at their first values
+before the first sample, so there is no derivative kick and the
+Tustin integrator uses the full first error. \code{"zero"} assumes zero
+history (all signals zero before the first sample), which reproduces
+the zero-state response of the controller transfer function from
+\code{\link[=ctrl_pid_tf]{ctrl_pid_tf()}}.}
 }
 \value{
 A list with \code{u} (saturated output), \code{u_unsat}, the parts \code{P},

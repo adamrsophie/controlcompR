@@ -15,7 +15,9 @@ ctrl_initial(sys, x0, times = NULL)
 \arguments{
 \item{sys}{A model.}
 
-\item{times}{Optional time grid (sample instants for discrete models).}
+\item{times}{Optional time grid (sample instants for discrete models).
+The step, impulse or initial state is applied at time zero; a grid that
+starts later reports the same response at its own instants.}
 
 \item{inputs}{Input channels (indices or names); default all.}
 

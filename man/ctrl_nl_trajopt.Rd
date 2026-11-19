@@ -57,8 +57,9 @@ ctrl_nl_trajopt(
 }
 \value{
 An object of class \code{ctrl_trajopt} with \code{time}, \code{x} (\code{N + 1} rows),
-\code{u} (\code{N} rows), \code{objective} (the cost without terminal constraint
-terms), \code{converged}, \code{convergence} (optimizer code of the last
+\code{u} (\code{N} rows), \code{objective} (the stated cost, including the soft
+state bound penalty but not the terminal constraint terms), \code{cost}
+(its \code{quadratic} and \code{penalty} parts), \code{converged}, \code{convergence} (optimizer code of the last
 subproblem), \code{message}, \code{outer_iterations}, \code{multiplier} and
 \code{terminal_error} (distance to \code{x_final}, \code{NA} without one).
 }

@@ -4,7 +4,7 @@
 \alias{ctrl_arx}
 \title{ARX model estimation}
 \usage{
-ctrl_arx(data, na, nb, nk = 1)
+ctrl_arx(data, na, nb, nk = 1, start = NULL)
 }
 \arguments{
 \item{data}{A \code{ctrl_iddata} object with one output.}
@@ -14,11 +14,17 @@ ctrl_arx(data, na, nb, nk = 1)
 \item{nb}{Number of input coefficients per input.}
 
 \item{nk}{Input delay in samples.}
+
+\item{start}{First output sample used as a regression response. The
+default is the earliest sample for which all regressors exist. A
+later common \code{start} lets models of different orders be fitted and
+compared on the same responses (as \code{\link[=ctrl_arx_order]{ctrl_arx_order()}} does).}
 }
 \value{
 An object of class \code{c("ctrl_arx", "ctrl_idmodel")} with \code{sys}
 (a discrete \code{ctrl_tf} from inputs to the output), \code{a}, \code{b}, \code{vcov},
-\code{noise_var}, \code{residuals} and information criteria.
+\code{noise_var}, \code{residuals}, information criteria, \code{nobs} and \code{rows}
+(the response samples used).
 }
 \description{
 Estimate the single-output ARX model

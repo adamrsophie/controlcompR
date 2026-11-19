@@ -33,7 +33,11 @@ ctrl_simulate_mpc(
 \item{disturbance}{Input disturbance added to the plant input: a vector
 with one value per input (constant), a matrix with one row per sample,
 or a function of the sample index. For a single input, a vector with
-one value per sample is also accepted.}
+one value per sample is also accepted. The plant sees the effective
+input \eqn{u_k + d_k} in both \eqn{x_{k+1} = A x_k + B(u_k + d_k)} and
+\eqn{y_k = C x_k + D(u_k + d_k)}. The measurement used to compute
+\eqn{u_k} is taken before \eqn{u_k} is applied, so it sees the input
+and disturbance held over the previous sample (zero before the first).}
 
 \item{noise}{Measurement noise on the outputs (same formats).}
 

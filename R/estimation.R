@@ -106,7 +106,7 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
   Nn <- if (is.null(Nn)) matrix(0, q, p) else as_real_matrix(Nn, "Nn", q, p)
   check_dims(Nn, "Nn", q, p)
   W0 <- rbind(cbind(Qn, Nn), cbind(t(Nn), Rn))
-  if (min_eig_sym(W0) < -1e-10 * max(1, norm(W0, "2"))) {
+  if (min_eig_sym(W0) < -1e-10 * norm(W0, "2")) {
     ctrl_abort("The joint noise covariance [Qn Nn; Nn' Rn] is not positive ",
                "semidefinite.")
   }
@@ -119,7 +119,7 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
   Qx <- G %*% Qn %*% t(G)
   Sx <- G %*% Nn
   W <- rbind(cbind(Qx, Sx), cbind(t(Sx), Rn))
-  if (min_eig_sym(W) < -1e-10 * max(1, norm(W, "2"))) {
+  if (min_eig_sym(W) < -1e-10 * norm(W, "2")) {
     ctrl_abort("The joint noise covariance [Qn Nn; Nn' Rn] is not positive ",
                "semidefinite.")
   }
@@ -210,6 +210,9 @@ ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
   m <- ncol(s$B)
   Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
   if (ncol(Y) != p) ctrl_abort("`y` must have ", p, " columns.")
+  if (any(is.infinite(Y)) || any(is.nan(Y))) {
+    ctrl_abort("`y` contains infinite or NaN values; only NA marks missing data.")
+  }
   Tn <- nrow(Y)
   U <- if (is.null(u)) matrix(0, Tn, m) else input_matrix(u, seq_len(Tn), m)
   G <- if (is.null(G)) diag(n) else as_real_matrix(G, "G", nrow = n)
@@ -280,6 +283,10 @@ print.ctrl_kalman_filter <- function(x, ...) {
 ctrl_kalman_smoother <- function(filter) {
   if (!inherits(filter, "ctrl_kalman_filter")) {
     ctrl_abort("`filter` must be a `ctrl_kalman_filter` result.")
+  }
+  if (inherits(filter, "ctrl_nl_filter")) {
+    ctrl_abort("Smoothing is only implemented for the linear Kalman filter; ",
+               "EKF and UKF results cannot be smoothed with ctrl_kalman_smoother().")
   }
   A <- filter$plant$A
   Tn <- nrow(filter$filtered)
@@ -479,6 +486,16 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
   if (!identical(dim(s$D), dim(lqg$plant$D)) || nrow(s$A) != nrow(lqg$plant$A)) {
     ctrl_abort("`plant` must have the dimensions of the design model.")
   }
+  if (abs(s$dt - lqg$plant$dt) > 1e-12 * s$dt) {
+    ctrl_abort("`plant` has sample interval ", s$dt, " but the controller was ",
+               "designed for ", lqg$plant$dt, "; multirate loops are not supported.")
+  }
+  steps <- as_count(steps, "steps")
+  replications <- as_count(replications, "replications")
+  x0 <- as.numeric(x0)
+  if (length(x0) != nrow(s$A) || any(!is.finite(x0))) {
+    ctrl_abort("`x0` must be a finite vector of length ", nrow(s$A), ".")
+  }
   if (!is.null(seed)) {
     old <- if (exists(".Random.seed", envir = globalenv()))
       get(".Random.seed", envir = globalenv()) else NULL
@@ -493,7 +510,7 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
   # covariance Nn
   q <- ncol(kf$G)
   Wj <- rbind(cbind(Qn, kf$Nn), cbind(t(kf$Nn), Rn))
-  if (min_eig_sym(Wj) < -1e-10 * max(1, norm(Wj, "2"))) {
+  if (min_eig_sym(Wj) < -1e-10 * norm(Wj, "2")) {
     ctrl_abort("The joint noise covariance [Qn Nn; Nn' Rn] is not positive ",
                "semidefinite.")
   }
@@ -527,7 +544,8 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
       u <- drop(ctrl$C %*% xc + ctrl$D %*% y)
       xhat <- if (lqg$form == "current") {
         Mk <- kf$M
-        xc + drop(Mk %*% (y - s$C %*% xc - s$D %*% u))
+        # the controller's own estimate uses the design measurement model
+        xc + drop(Mk %*% (y - lqg$plant$C %*% xc - lqg$plant$D %*% u))
       } else xc
       Xh[k, , r] <- xhat
       U[k, , r] <- u

@@ -324,11 +324,15 @@ ctrl_equilibrium <- function(sys, x0, u0 = numeric(sys$m), free_inputs = integer
   u[free] <- z[nxf + seq_along(free)]
   lin <- ctrl_linearize(sys, x, u)
   ev <- ctrl_poles(lin)
+  converged <- sqrt(sum(r^2)) <= tol
   marg <- if (sys$dt > 0) max(Mod(ev)) - 1 else max(Re(ev))
   bnd <- 1e-8 * max(1, max(Mod(ev)))
-  stab <- if (marg < -bnd) "locally asymptotically stable" else if (marg > bnd)
+  # stability is a property of an equilibrium; without one, only the
+  # Jacobian eigenvalues at the last iterate are reported
+  stab <- if (!converged) "not assessed (no equilibrium found)" else
+    if (marg < -bnd) "locally asymptotically stable" else if (marg > bnd)
     "unstable" else "inconclusive (linearization on the stability boundary)"
-  list(x = x, u = u, residual = sqrt(sum(r^2)), converged = sqrt(sum(r^2)) <= tol,
+  list(x = x, u = u, residual = sqrt(sum(r^2)), converged = converged,
        iterations = it, eigenvalues = ev, stability = stab)
 }
 
@@ -355,6 +359,7 @@ ctrl_nl_discretize <- function(sys, dt, method = c("ode", "rk4"), substeps = 4L)
   method <- match.arg(method)
   if (sys$dt > 0) ctrl_abort("The model is already discrete.")
   check_scalar_number(dt, "dt", positive = TRUE)
+  substeps <- as_count(substeps, "substeps")
   f <- sys$update
   out_fun <- sys$output
   step <- if (method == "rk4") {
@@ -391,6 +396,9 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
   }
   Y <- if (is.null(dim(y))) matrix(as.numeric(y), ncol = 1) else as.matrix(y)
   if (ncol(Y) != sys$p) ctrl_abort("`y` must have ", sys$p, " columns.")
+  if (any(is.infinite(Y)) || any(is.nan(Y))) {
+    ctrl_abort("`y` contains infinite or NaN values; only NA marks missing data.")
+  }
   part <- apply(Y, 1, function(r) any(is.na(r)) && !all(is.na(r)))
   if (any(part)) {
     ctrl_abort("Rows of `y` must be complete or entirely missing (NA); ",
@@ -402,7 +410,8 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
        Qn = check_psd(expand_weight(Qn, sys$n, "Qn"), "Qn"),
        Rn = check_pd(expand_weight(Rn, sys$p, "Rn"), "Rn"),
        x = if (is.null(x0)) rep(0, sys$n) else as.numeric(x0),
-       P = if (is.null(P0)) diag(sys$n) else expand_weight(P0, sys$n, "P0"))
+       P = if (is.null(P0)) diag(sys$n) else
+         check_psd(expand_weight(P0, sys$n, "P0"), "P0"))
 }
 
 #' Extended and unscented Kalman filters
@@ -433,8 +442,9 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
 #' @param Qn,Rn Process and measurement noise covariances.
 #' @param x0,P0 Prior mean and covariance.
 #' @param alpha,beta,kappa Unscented transform parameters.
-#' @return A list of class `ctrl_kalman_filter` with `filtered`,
-#'   `P_filtered`, `innovations`, `nis` and `loglik`.
+#' @return A list of class `c("ctrl_nl_filter", "ctrl_kalman_filter")` with
+#'   `filtered`, `P_filtered`, `innovations`, `nis` and `loglik`. It has no
+#'   predicted covariances, so [ctrl_kalman_smoother()] does not accept it.
 #' @examples
 #' f <- function(k, x, u, p) c(x[1] + 0.1 * x[2], x[2] - 0.1 * sin(x[1]))
 #' h <- function(k, x, u, p) x[1]
@@ -456,8 +466,14 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL) {
   p <- sys$p
   x <- z$x
   P <- z$P
-  out <- nl_filter_storage(z$Tn, n, p)
-  for (k in seq_len(z$Tn)) {
+  # histories are written in place in this loop (no per-sample copies)
+  Tn <- z$Tn
+  xf <- matrix(0, Tn, n)
+  Pf <- array(0, c(n, n, Tn))
+  innov <- matrix(NA_real_, Tn, p)
+  nis <- rep(NA_real_, Tn)
+  loglik <- 0
+  for (k in seq_len(Tn)) {
     tk <- k - 1L  # sample index passed to the model, 0-based as in simulation
     uk <- z$U[k, ]
     yk <- z$Y[k, ]
@@ -469,15 +485,19 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL) {
       x <- x + drop(K %*% e)
       IKH <- diag(n) - K %*% H
       P <- symmetrize(IKH %*% P %*% t(IKH) + K %*% z$Rn %*% t(K))
-      out <- nl_filter_record(out, k, x, P, e, S)
-    } else {
-      out <- nl_filter_record(out, k, x, P, NULL, NULL)
+      st <- nl_innovation_stats(e, S)
+      innov[k, ] <- e
+      nis[k] <- st[["nis"]]
+      loglik <- loglik + st[["ll"]]
     }
+    xf[k, ] <- x
+    Pf[, , k] <- P
     Fj <- num_jacobian(function(xx) nl_f(sys, tk, xx, uk), x)
     x <- nl_f(sys, tk, x, uk)
     P <- symmetrize(Fj %*% P %*% t(Fj) + z$Qn)
   }
-  nl_filter_finish(out, sys)
+  nl_filter_finish(list(filtered = xf, P_filtered = Pf, innovations = innov,
+                        nis = nis, loglik = loglik), sys)
 }
 
 #' @rdname ctrl_ekf
@@ -487,7 +507,11 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
   z <- nl_filter_inputs(sys, y, u, Qn, Rn, x0, P0)
   n <- sys$n
   p <- sys$p
+  check_scalar_number(alpha, "alpha", positive = TRUE)
+  check_scalar_number(beta, "beta")
+  check_scalar_number(kappa, "kappa")
   lam <- alpha^2 * (n + kappa) - n
+  if (n + lam <= 0) ctrl_abort("The unscented transform needs n + lambda > 0; increase `kappa`.")
   wm <- c(lam / (n + lam), rep(1 / (2 * (n + lam)), 2 * n))
   wc <- wm
   wc[1] <- wc[1] + (1 - alpha^2 + beta)
@@ -498,8 +522,13 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
   }
   x <- z$x
   P <- z$P
-  out <- nl_filter_storage(z$Tn, n, p)
-  for (k in seq_len(z$Tn)) {
+  Tn <- z$Tn
+  xf <- matrix(0, Tn, n)
+  Pf <- array(0, c(n, n, Tn))
+  innov <- matrix(NA_real_, Tn, p)
+  nis <- rep(NA_real_, Tn)
+  loglik <- 0
+  for (k in seq_len(Tn)) {
     tk <- k - 1L
     uk <- z$U[k, ]
     if (all(is.finite(z$Y[k, ]))) {
@@ -514,17 +543,21 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
       e <- z$Y[k, ] - yhat
       x <- x + drop(K %*% e)
       P <- symmetrize(P - K %*% S %*% t(K))
-      out <- nl_filter_record(out, k, x, P, e, S)
-    } else {
-      out <- nl_filter_record(out, k, x, P, NULL, NULL)
+      st <- nl_innovation_stats(e, S)
+      innov[k, ] <- e
+      nis[k] <- st[["nis"]]
+      loglik <- loglik + st[["ll"]]
     }
+    xf[k, ] <- x
+    Pf[, , k] <- P
     Xs <- sigma(x, P)
     Fs <- matrix(apply(Xs, 2, function(xx) nl_f(sys, tk, xx, uk)), nrow = n)
     x <- drop(Fs %*% wm)
     dF <- Fs - x
     P <- symmetrize(dF %*% (wc * t(dF)) + z$Qn)
   }
-  nl_filter_finish(out, sys)
+  nl_filter_finish(list(filtered = xf, P_filtered = Pf, innovations = innov,
+                        nis = nis, loglik = loglik), sys)
 }
 
 chol_psd <- function(P) {
@@ -534,33 +567,18 @@ chol_psd <- function(P) {
   t(ev$vectors %*% diag(sqrt(pmax(ev$values, 0)), nrow(P)))
 }
 
-nl_filter_storage <- function(Tn, n, p) {
-  list(filtered = matrix(0, Tn, n), P_filtered = array(0, c(n, n, Tn)),
-       innovations = matrix(0, Tn, p), nis = numeric(Tn), loglik = 0)
-}
-
-nl_filter_record <- function(out, k, x, P, e, S) {
-  out$filtered[k, ] <- x
-  out$P_filtered[, , k] <- P
-  if (is.null(e)) {
-    # missing measurement: prediction only
-    out$innovations[k, ] <- NA_real_
-    out$nis[k] <- NA_real_
-    return(out)
-  }
-  out$innovations[k, ] <- e
+# Normalized innovation squared and log-likelihood term of one update.
+nl_innovation_stats <- function(e, S) {
   cS <- chol(S)
   zz <- forwardsolve(t(cS), e)
-  out$nis[k] <- sum(zz^2)
-  out$loglik <- out$loglik - 0.5 * (length(e) * log(2 * pi) +
-                                      2 * sum(log(diag(cS))) + out$nis[k])
-  out
+  nis <- sum(zz^2)
+  c(nis = nis, ll = -0.5 * (length(e) * log(2 * pi) + 2 * sum(log(diag(cS))) + nis))
 }
 
 nl_filter_finish <- function(out, sys) {
   colnames(out$filtered) <- sys$state_names
   out$plant <- sys
-  class(out) <- "ctrl_kalman_filter"
+  class(out) <- c("ctrl_nl_filter", "ctrl_kalman_filter")
   out
 }
 
@@ -701,23 +719,57 @@ ctrl_nmpc_step <- function(nmpc, x, x_ref = NULL, u_ref = NULL, u_init = NULL,
 #' @rdname ctrl_nmpc
 #' @param x0 Initial state.
 #' @param steps Number of closed-loop samples.
-#' @param plant Simulation model (default: the prediction model).
-#' @param on_failure `"stop"` or `"hold"` (apply the previous input).
+#' @param plant Simulation model (default: the prediction model). It must
+#'   be a discrete time `ctrl_nlsys` with the controller's sample interval
+#'   and dimensions; discretize a continuous plant with
+#'   [ctrl_nl_discretize()] first.
+#' @param on_failure `"stop"` or `"hold"` (apply the previous input). The
+#'   held input is clipped to the input bounds; the log records the
+#'   fallback, and `"hold (clipped)"` when clipping changed it. A held input
+#'   does not guarantee that state constraints stay satisfied.
+#' @param u0 Input held before the first sample, used by the `"hold"`
+#'   fallback when the first optimization fails. The default is the
+#'   admissible point of the input bounds closest to zero.
 #' @export
 ctrl_simulate_nmpc <- function(nmpc, x0, steps, x_ref = NULL, u_ref = NULL,
-                               plant = NULL, on_failure = c("stop", "hold")) {
+                               plant = NULL, on_failure = c("stop", "hold"),
+                               u0 = NULL) {
   on_failure <- match.arg(on_failure)
   sim <- plant %||% nmpc$plant
+  if (!inherits(sim, "ctrl_nlsys") || sim$dt == 0) {
+    ctrl_abort("`plant` must be a discrete time `ctrl_nlsys`; use ctrl_nl_discretize().")
+  }
+  if (abs(sim$dt - nmpc$dt) > 1e-12 * nmpc$dt) {
+    ctrl_abort("`plant` has sample interval ", sim$dt, " but the controller uses ",
+               nmpc$dt, ".")
+  }
+  if (sim$n != nmpc$plant$n || sim$m != nmpc$plant$m) {
+    ctrl_abort("`plant` must have ", nmpc$plant$n, " states and ", nmpc$plant$m,
+               " inputs like the prediction model.")
+  }
   steps <- as_count(steps, "steps")
   n <- sim$n
   m <- sim$m
   X <- matrix(0, steps + 1L, n)
   U <- matrix(0, steps, m)
-  X[1, ] <- as.numeric(x0)
+  x0 <- as.numeric(x0)
+  if (length(x0) != n || any(!is.finite(x0))) {
+    ctrl_abort("`x0` must be a finite vector of length ", n, ".")
+  }
+  X[1, ] <- x0
   log <- data.frame(k = seq_len(steps), ok = FALSE, convergence = 0L,
                     objective = NA_real_, fallback = "none", stringsAsFactors = FALSE)
   guess <- NULL
-  u_prev <- rep(0, m)
+  u_prev <- if (is.null(u0)) pmin(pmax(0, nmpc$u_min), nmpc$u_max) else {
+    u0 <- as.numeric(u0)
+    if (length(u0) != m || any(!is.finite(u0))) {
+      ctrl_abort("`u0` must be a finite vector of length ", m, ".")
+    }
+    if (any(u0 < nmpc$u_min | u0 > nmpc$u_max)) {
+      ctrl_abort("`u0` must satisfy the input bounds.")
+    }
+    u0
+  }
   for (k in seq_len(steps)) {
     st <- ctrl_nmpc_step(nmpc, X[k, ], x_ref, u_ref, guess, k - 1L)
     log$ok[k] <- st$ok
@@ -730,8 +782,8 @@ ctrl_simulate_nmpc <- function(nmpc, x0, steps, x_ref = NULL, u_ref = NULL,
       ctrl_abort("NMPC optimization failed at sample ", k, " (code ", st$convergence,
                  ": ", st$message %||% "", ").")
     } else {
-      u <- u_prev
-      log$fallback[k] <- "hold"
+      u <- pmin(pmax(u_prev, nmpc$u_min), nmpc$u_max)
+      log$fallback[k] <- if (any(u != u_prev)) "hold (clipped)" else "hold"
     }
     U[k, ] <- u
     X[k + 1L, ] <- nl_f(sim, k - 1L, X[k, ], u)
@@ -777,8 +829,9 @@ ctrl_simulate_nmpc <- function(nmpc, x0, steps, x_ref = NULL, u_ref = NULL,
 #' @param max_outer Maximum number of multiplier updates.
 #' @param u_init Initial guess (`N x m` matrix).
 #' @return An object of class `ctrl_trajopt` with `time`, `x` (`N + 1` rows),
-#'   `u` (`N` rows), `objective` (the cost without terminal constraint
-#'   terms), `converged`, `convergence` (optimizer code of the last
+#'   `u` (`N` rows), `objective` (the stated cost, including the soft
+#'   state bound penalty but not the terminal constraint terms), `cost`
+#'   (its `quadratic` and `penalty` parts), `converged`, `convergence` (optimizer code of the last
 #'   subproblem), `message`, `outer_iterations`, `multiplier` and
 #'   `terminal_error` (distance to `x_final`, `NA` without one).
 #' @examples
@@ -858,9 +911,16 @@ ctrl_nl_trajopt <- function(sys, x0, horizon, Q, R, P = NULL, x_ref = NULL,
     dN <- X[N + 1L, ] - Xr0[N + 1L, ]
     J <- J + sum(dN * (Pm %*% dN))
   }
+  # the soft state bounds are part of the stated objective
+  xmin <- expand_bound(x_min, n, "x_min")
+  xmax <- expand_bound(x_max, n, "x_max")
+  viol <- pmax(0, sweep(X[-1, , drop = FALSE], 2, xmax),
+               sweep(-X[-1, , drop = FALSE], 2, -xmin))
+  Jpen <- penalty * sum(viol^2)
   colnames(X) <- sys$state_names
   colnames(U) <- sys$input_names
-  structure(list(time = (0:N) * sys$dt, x = X, u = U, objective = J,
+  structure(list(time = (0:N) * sys$dt, x = X, u = U, objective = J + Jpen,
+                 cost = c(quadratic = J, penalty = Jpen),
                  converged = ok, convergence = st$convergence,
                  message = if (!ok && !is.null(x_final) && !(terr <= terminal_tol))
                    "terminal constraint not met within max_outer iterations" else st$message,

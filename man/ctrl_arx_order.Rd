@@ -16,7 +16,8 @@ ctrl_arx_order(data, na = 1:4, nb = 1:4, nk = 1, validation = NULL)
 \item{validation}{Optional validation data.}
 }
 \value{
-A data frame sorted by BIC.
+A data frame sorted by BIC, with \code{nobs}. All candidates are fitted
+on the same response samples, so their criteria are comparable.
 }
 \description{
 Fit ARX models over a grid of orders and report information criteria on

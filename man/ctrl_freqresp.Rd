@@ -23,9 +23,12 @@ frequencies above the Nyquist frequency \eqn{\pi/dt} alias and produce a
 warning.
 }
 \details{
-State-space models are evaluated by solving
-\eqn{(j\omega I - A) X = B} at each frequency (no matrix inverse);
-transfer functions by polynomial evaluation.
+State-space models are balanced (diagonal scaling) and evaluated by
+solving \eqn{(j\omega I - A) X = B} at each frequency (no matrix
+inverse). Transfer functions are evaluated as ratios of their numerator
+and denominator polynomials (Horner's rule), which can lose accuracy for
+high order polynomials; convert to state space with \code{\link[=ctrl_tf2ss]{ctrl_tf2ss()}} for
+those.
 }
 \examples{
 G <- ctrl_tf(1, c(1, 1))

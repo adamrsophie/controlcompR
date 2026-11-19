@@ -4,7 +4,13 @@
 \alias{ctrl_compare_controllers}
 \title{Compare controllers on a common scenario}
 \usage{
-ctrl_compare_controllers(controllers, reference = 0, u_min = -Inf, u_max = Inf)
+ctrl_compare_controllers(
+  controllers,
+  reference = 0,
+  u_min = -Inf,
+  u_max = Inf,
+  discrete = FALSE
+)
 }
 \arguments{
 \item{controllers}{Named list of simulation functions.}
@@ -12,9 +18,15 @@ ctrl_compare_controllers(controllers, reference = 0, u_min = -Inf, u_max = Inf)
 \item{reference}{Reference used when a result has no \code{r}.}
 
 \item{u_min, u_max}{Input limits for violation reporting.}
+
+\item{discrete}{Integration convention passed to \code{\link[=ctrl_performance]{ctrl_performance()}}:
+\code{FALSE} (trapezoidal rule) or \code{TRUE} (rectangle sums for sampled
+signals). A result that contains its own logical \code{discrete} element
+overrides it.}
 }
 \value{
-A data frame with one row per controller.
+A data frame with one row per controller and a \code{convention}
+column (\code{"trapezoidal"} or \code{"sampled"}).
 }
 \description{
 Run several closed-loop simulation functions on the same plant and

@@ -14,8 +14,8 @@ step response is computed).}
 A named vector \code{c(K, tau, theta)}.
 }
 \description{
-Estimate \eqn{K e^{-\theta s}/(\tau s + 1)} from a unit step response
-with the two-point method (28.3 percent and 63.2 percent of the final
+Estimate \eqn{K e^{-\theta s}/(\tau s + 1)} from a step response
+(the gain is divided by the step amplitude) with the two-point method (28.3 percent and 63.2 percent of the final
 change). The response must be monotone enough for the crossing times to
 be meaningful.
 }

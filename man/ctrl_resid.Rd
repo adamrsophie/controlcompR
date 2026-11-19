@@ -11,12 +11,13 @@ ctrl_resid(model, data, lags = 20L)
 
 \item{data}{Data (preferably validation data).}
 
-\item{lags}{Maximum lag.}
+\item{lags}{Maximum lag; capped at the number of residuals minus one.}
 }
 \value{
 A list of class \code{ctrl_resid} with \code{residuals}, \code{acf},
 \code{ccf} (data frames with output, input, lag, value and band),
-\code{ljung_box} (p-value per output) and
+\code{ljung_box} (p-value per output; \code{NA} when the lags do not exceed the
+fitted parameters), \code{lags} (the lags used) and
 flags \code{white} and \code{independent}.
 }
 \description{

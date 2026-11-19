@@ -29,7 +29,8 @@ ctrl_simulate_nmpc(
   x_ref = NULL,
   u_ref = NULL,
   plant = NULL,
-  on_failure = c("stop", "hold")
+  on_failure = c("stop", "hold"),
+  u0 = NULL
 )
 }
 \arguments{
@@ -63,9 +64,19 @@ is repeated beyond the end), or functions of the 1-based sample index.}
 
 \item{steps}{Number of closed-loop samples.}
 
-\item{plant}{Simulation model (default: the prediction model).}
+\item{plant}{Simulation model (default: the prediction model). It must
+be a discrete time \code{ctrl_nlsys} with the controller's sample interval
+and dimensions; discretize a continuous plant with
+\code{\link[=ctrl_nl_discretize]{ctrl_nl_discretize()}} first.}
 
-\item{on_failure}{\code{"stop"} or \code{"hold"} (apply the previous input).}
+\item{on_failure}{\code{"stop"} or \code{"hold"} (apply the previous input). The
+held input is clipped to the input bounds; the log records the
+fallback, and \code{"hold (clipped)"} when clipping changed it. A held input
+does not guarantee that state constraints stay satisfied.}
+
+\item{u0}{Input held before the first sample, used by the \code{"hold"}
+fallback when the first optimization fails. The default is the
+admissible point of the input bounds closest to zero.}
 }
 \value{
 An object of class \code{ctrl_nmpc}.

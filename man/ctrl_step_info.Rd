@@ -38,9 +38,11 @@ simulated horizon;
 }
 
 When \code{sys} (the model) is supplied the final value is its DC gain times
-the step amplitude (exact, for stable models). Otherwise the last sample
-is used and \code{settled} reports whether the response varies by less than
-the band over the last 5 percent of the horizon. Characteristics depend
+the step amplitude (exact, for stable models; \code{final_value_known} is
+\code{TRUE}) and \code{settled} reports whether the response is inside the band at
+the end of the simulated horizon. Otherwise the last sample is used and
+\code{settled} reports whether the response varies by less than the band over
+the last 5 percent of the horizon. Characteristics depend
 on these conventions, so state them when reporting numbers.
 }
 \examples{
