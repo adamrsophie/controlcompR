@@ -195,7 +195,14 @@ gramian_factors <- function(s) {
 #' \deqn{\|G - G_r\|_\infty \le 2 \sum_{i > r} \sigma_i}
 #' (continuous and discrete time). With `method = "matchdc"` the discarded
 #' states are residualized (singular perturbation approximation), which
-#' matches the DC gain and satisfies the same bound.
+#' matches the DC gain and satisfies the same bound. The bound is checked
+#' against the error sampled on a frequency grid, with the full model
+#' evaluated on a diagonally balanced realization and its rounding error
+#' estimated from the conditioning of \eqn{zI - A}. A sampled error above
+#' the bound by more than that accuracy raises an error; otherwise
+#' `error_bound` is the larger of the a priori bound and the sampled error
+#' plus its accuracy (relevant only when the bound is at rounding level or
+#' attained, as when a single Hankel singular value is discarded).
 #'
 #' Unstable models are first split with [ctrl_stabsep()]; only the stable
 #' part is reduced and the unstable part is kept exactly, so `order` must be
@@ -314,7 +321,7 @@ ctrl_balred <- function(sys, order, method = c("truncate", "matchdc")) {
   out$input_names <- s$input_names
   out$output_names <- s$output_names
   bound <- 2 * sum(hsv[seq_along(hsv) > rs])
-  if (nrow(stable$A)) check_reduction_bound(stable, red, bound, method)
+  if (nrow(stable$A)) bound <- check_reduction_bound(stable, red, bound, method)
   attr(out, "hsv") <- hsv
   attr(out, "error_bound") <- bound
   out
@@ -327,18 +334,40 @@ check_reduction_bound <- function(full, red, bound, method) {
   w <- c(0, ctrl_freq_grid(full, 200L))
   if (full$dt > 0) w <- w[w <= pi / full$dt]
   z <- if (full$dt > 0) exp(1i * w * full$dt) else 1i * w
-  gf <- eval_system(full, z)
+  # evaluate the full model on a diagonally balanced copy and estimate the
+  # rounding error of each sample from the conditioning of z I - A: a
+  # sample is only evidence up to that accuracy, so the sampled error plus
+  # the evaluation error must stay below the bound
+  fs <- prescale_ss(full)
+  n <- nrow(fs$A)
+  gf <- array(0 + 0i, c(nrow(fs$C), ncol(fs$B), length(z)))
+  noise <- numeric(length(z))
+  for (k in seq_along(z)) {
+    M <- z[k] * diag(n) - fs$A
+    rc <- rcond(M)
+    X <- if (rc > 0) tryCatch(solve(M, fs$B), error = function(e) NULL) else NULL
+    if (is.null(X)) {
+      gf[, , k] <- NA_complex_
+      noise[k] <- Inf
+      next
+    }
+    gf[, , k] <- fs$C %*% X + fs$D
+    noise[k] <- n * .Machine$double.eps / rc * norm(fs$C, "F") * sqrt(sum(Mod(X)^2))
+  }
   ef <- gf - eval_system(as_ss(red), z)
   smax <- function(v) if (any(!is.finite(v))) 0 else max(svd(as.matrix(v), 0, 0)$d, 0)
   lower <- max(vapply(seq_along(w), function(k) smax(ef[, , k]), 0))
-  # evaluation error is relative to the size of the transfer matrix itself,
-  # not to an absolute unit
+  acc <- max(noise)
+  # the projection itself is computed with rounding relative to the size
+  # of the transfer matrix
   gscale <- max(vapply(seq_along(w), function(k) smax(gf[, , k]), 0))
-  if (lower > bound + 1e-8 * gscale + 1e-6 * bound) {
+  if (!is.finite(acc) || lower > bound * (1 + 1e-6) + acc + 1e-8 * gscale) {
     ctrl_abort("Balanced reduction could not certify its error bound: the ",
                "sampled error ", signif(lower, 4), " exceeds the bound ",
                signif(bound, 4), ". The Gramians are too ill-conditioned for ",
                "the reduction to be reliable.")
   }
-  invisible(lower)
+  # a bound within rounding of the sampled error is widened by the
+  # evaluation accuracy, so the reported bound covers the computed model
+  max(bound, lower + acc)
 }

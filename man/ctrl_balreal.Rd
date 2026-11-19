@@ -39,7 +39,14 @@ stability and satisfies the a priori bound
 \deqn{\|G - G_r\|_\infty \le 2 \sum_{i > r} \sigma_i}
 (continuous and discrete time). With \code{method = "matchdc"} the discarded
 states are residualized (singular perturbation approximation), which
-matches the DC gain and satisfies the same bound.
+matches the DC gain and satisfies the same bound. The bound is checked
+against the error sampled on a frequency grid, with the full model
+evaluated on a diagonally balanced realization and its rounding error
+estimated from the conditioning of \eqn{zI - A}. A sampled error above
+the bound by more than that accuracy raises an error; otherwise
+\code{error_bound} is the larger of the a priori bound and the sampled error
+plus its accuracy (relevant only when the bound is at rounding level or
+attained, as when a single Hankel singular value is discarded).
 
 Unstable models are first split with \code{\link[=ctrl_stabsep]{ctrl_stabsep()}}; only the stable
 part is reduced and the unstable part is kept exactly, so \code{order} must be
