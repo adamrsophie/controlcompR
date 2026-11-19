@@ -92,7 +92,14 @@ normalize_tf <- function(num, den) {
   if (all(den == 0)) ctrl_abort("A denominator polynomial is identically zero.")
   num <- strip_leading_zeros(as.numeric(num))
   lead <- den[1]
-  list(num = num / lead, den = den / lead)
+  num <- num / lead
+  den <- den / lead
+  if (any(!is.finite(num)) || any(!is.finite(den))) {
+    ctrl_abort("Making the denominator monic overflows double precision ",
+               "(leading denominator coefficient ", signif(lead, 3), "). ",
+               "Rescale the numerator and denominator.")
+  }
+  list(num = num, den = den)
 }
 
 check_poly <- function(p, name) {
@@ -368,14 +375,23 @@ siso_ss2tf <- function(s) {
   if (n == 0L) return(list(num = d, den = 1))
   charp <- function(M) Re(poly_from_roots(eigen(M, only.values = TRUE)$values))
   den <- charp(s$A)
-  num <- charp(s$A - s$B %*% s$C) - den
+  # C adj(sI - A) B = det(sI - A + alpha B C) / alpha - det(sI - A) / alpha
+  # for any alpha; choosing alpha so that alpha B C is as large as A keeps
+  # the difference well above rounding level for weak but genuine gains
+  BC <- s$B %*% s$C
+  g <- norm(BC, "1")
+  if (g == 0) return(list(num = d, den = den))
+  a <- norm(s$A, "1")
+  alpha <- (if (a > 0) a else 1) / g
+  num <- charp(s$A - alpha * BC) - den
   num[1] <- 0
-  num <- num + d * den
-  # remove leading coefficients that are pure rounding noise
+  # remove leading coefficients that are pure rounding noise (relative to
+  # the scaled numerator, which has the size of the denominator)
   scale <- max(abs(num), abs(den))
   for (k in seq_along(num)) {
     if (abs(num[k]) <= 1e3 * n * .Machine$double.eps * scale) num[k] <- 0 else break
   }
+  num <- num / alpha + d * den
   list(num = strip_leading_zeros(num), den = den)
 }
 

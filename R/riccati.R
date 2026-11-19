@@ -76,7 +76,7 @@ riccati_inputs <- function(A, B, Q, R, S, check_weights) {
   if (check_weights) {
     check_pd(R, "R")
     W <- rbind(cbind(Q, S), cbind(t(S), R))
-    tolw <- 1e3 * nrow(W) * .Machine$double.eps * max(1, norm(W, "2"))
+    tolw <- 1e3 * nrow(W) * .Machine$double.eps * norm(W, "2")
     if (min_eig_sym(W) < -tolw) {
       ctrl_abort("The joint weight [Q S; S' R] must be positive semidefinite ",
                  "(smallest eigenvalue ", signif(min_eig_sym(W), 3), "). Use ",

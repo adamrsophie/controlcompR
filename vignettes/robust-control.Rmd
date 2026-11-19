@@ -84,8 +84,11 @@ for (kp in c(0.5, 1, 8)) {
 ```
 
 The `curve` element holds the frequency-wise test value for plotting. The
-peak is found on a dense grid with local refinement; it is not a
-certified bound like the H-infinity norm. A gain that is too low misses
+peak is sampled on a dense grid that includes zero and infinite frequency,
+with local refinement, so it is a lower bound on the supremum. The
+`certified` flag adds a rigorous check: it is `TRUE` when the upper bound
+\(\|W_p S\|_\infty + \|W_u T\|_\infty\) from certified norm computations
+(`upper_bound`) is also below one. A gain that is too low misses
 the performance target, a gain that is too high loses robust stability
 itself, and the middle gain meets both.
 

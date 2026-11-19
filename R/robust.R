@@ -433,6 +433,15 @@ ctrl_augw <- function(G, W1 = NULL, W2 = NULL, W3 = NULL) {
       return(ctrl_gain(W))
     }
     w <- as_ss(as_system(W))
+    # a static gain has no time domain; a dynamic weight must share the
+    # plant's (continuous) one
+    if (w$dt != 0) {
+      if (nrow(w$A)) {
+        ctrl_abort("`", name, "` is a discrete time weight; `ctrl_augw()` needs ",
+                   "continuous time weights.")
+      }
+      w$dt <- 0
+    }
     if (ncol(w$B) == 1L && k > 1L) w <- do.call(ctrl_append, rep(list(w), k))
     if (ncol(w$B) != k) ctrl_abort("`", name, "` must have ", k, " inputs.")
     w
@@ -552,21 +561,31 @@ ctrl_robust_stability <- function(G, K, W, type = c("multiplicative_output",
 #' MIMO loops with the scalar weights used here it can be conservative; it
 #' is not a structured singular value computation.
 #'
-#' The supremum is evaluated on a dense frequency grid refined by a local
-#' one-dimensional search around the largest grid value, so the reported
-#' peak is a lower bound on the true supremum that is accurate to the
-#' search tolerance; it is not a certified bound like [ctrl_norm()].
+#' Each supremum (performance, robustness and their sum) is sampled on a
+#' dense frequency grid that includes the endpoints (zero and infinite
+#' frequency for continuous models, zero and the Nyquist frequency for
+#' discrete models), and the largest local maxima are refined with a
+#' one-dimensional search. Sampled peaks are lower bounds on the true
+#' suprema, so `robust_performance` is decided on samples. A pass is
+#' `certified` when the rigorous upper bound
+#' \eqn{\|W_p S\|_\infty + \|W_u T\|_\infty} from [ctrl_norm()] is below
+#' one as well; it can be conservative, so an uncertified pass is not a
+#' failure.
 #'
 #' @param G Nominal plant.
 #' @param K Controller (negative feedback).
 #' @param Wp Scalar performance weight (SISO system or number).
 #' @param Wu Scalar uncertainty weight (SISO system or number).
 #' @param n Number of grid frequencies.
-#' @return A list with `robust_performance`, `nominally_stable`,
-#'   `robust_stability` (\eqn{\sup |W_u| \bar\sigma(T) < 1}),
-#'   `nominal_performance` (\eqn{\sup |W_p| \bar\sigma(S) < 1}), `peak`,
-#'   `frequency` (where the peak occurs), `exact` (`TRUE` for SISO loops)
-#'   and `curve` (a data frame with `frequency` and `value`).
+#' @return A list with `robust_performance` (sampled peak below one),
+#'   `certified` (`TRUE` when the rigorous upper bound is also below one),
+#'   `upper_bound`, `nominally_stable`, `robust_stability`
+#'   (\eqn{\sup |W_u| \bar\sigma(T) < 1}), `nominal_performance`
+#'   (\eqn{\sup |W_p| \bar\sigma(S) < 1}), `peak`, `frequency` (where the
+#'   peak occurs; `Inf` for the infinite frequency endpoint), `peaks` (the
+#'   sampled sum, performance and robustness peaks), `criterion_exact`
+#'   (`TRUE` for SISO loops, where the condition is also necessary) and
+#'   `curve` (a data frame with `frequency` and `value`).
 #' @examples
 #' G <- ctrl_tf(1, c(1, 1))
 #' K <- ctrl_tf(c(2, 1), c(1, 0))
@@ -580,7 +599,7 @@ ctrl_robust_performance <- function(G, K, Wp, Wu, n = 2000L) {
   K <- as_ss(as_system(K))
   ny <- nrow(G$C)
   as_weight <- function(W, name) {
-    W <- if (is_ctrl_system(W)) as_system(W) else ctrl_gain(as.numeric(W))
+    W <- if (is_ctrl_system(W)) as_system(W) else ctrl_gain(as.numeric(W), dt = G$dt)
     s <- as_ss(W)
     if (nrow(s$C) != 1L || ncol(s$B) != 1L) {
       ctrl_abort("`", name, "` must be a scalar (SISO) weight.")
@@ -592,45 +611,94 @@ ctrl_robust_performance <- function(G, K, Wp, Wu, n = 2000L) {
   nominal <- loop_internally_stable(G, K)
   L <- ctrl_series(K, G)
   S <- ctrl_feedback(ctrl_gain(diag(ny), dt = L$dt), L)
+  T <- ctrl_parallel(ctrl_gain(diag(ny), dt = S$dt), -S)
   dt <- S$dt
-  sv <- function(sys, w) {
-    z <- if (dt > 0) exp(1i * w * dt) else 1i * w
-    R <- eval_system(sys, z)
-    vapply(seq_along(w), function(k) max(svd(as.matrix(R[, , k]), 0, 0)$d), 0)
-  }
+  smax <- function(R) max(svd(as.matrix(R), 0, 0)$d)
+  # values of |Wp| smax(S) and |Wu| smax(T) at frequencies w (Inf allowed
+  # for continuous models: the feedthrough terms)
   f <- function(w) {
-    sS <- sv(S, w)
-    # T = I - S for output sensitivity
-    T <- ctrl_parallel(ctrl_gain(diag(ny), dt = dt), -S)
-    list(p = Mod(eval_system(Wp, if (dt > 0) exp(1i * w * dt) else 1i * w)[1, 1, ]) * sS,
-         u = Mod(eval_system(Wu, if (dt > 0) exp(1i * w * dt) else 1i * w)[1, 1, ]) * sv(T, w))
+    fin <- is.finite(w)
+    p <- u <- numeric(length(w))
+    if (any(fin)) {
+      z <- if (dt > 0) exp(1i * w[fin] * dt) else 1i * w[fin]
+      RS <- eval_system(S, z)
+      RT <- eval_system(T, z)
+      p[fin] <- Mod(eval_system(Wp, z)[1, 1, ]) *
+        vapply(seq_along(z), function(k) smax(RS[, , k]), 0)
+      u[fin] <- Mod(eval_system(Wu, z)[1, 1, ]) *
+        vapply(seq_along(z), function(k) smax(RT[, , k]), 0)
+    }
+    if (any(!fin)) {
+      p[!fin] <- abs(Wp$D[1, 1]) * smax(S$D)
+      u[!fin] <- abs(Wu$D[1, 1]) * smax(T$D)
+    }
+    list(p = p, u = u)
   }
   w <- ctrl_freq_grid(ctrl_append(S, Wp, Wu), n = n)
-  w <- sort(unique(c(if (dt == 0) 0, w)))
+  ends <- if (dt > 0) c(0, pi / dt) else c(0, Inf)
+  w <- sort(unique(c(ends, w[w <= (if (dt > 0) pi / dt else Inf)])))
   v <- f(w)
-  tot <- v$p + v$u
-  i <- which.max(tot)
-  peak <- tot[i]
-  wpk <- w[i]
-  lo <- w[max(1L, i - 1L)]
-  hi <- w[min(length(w), i + 1L)]
-  if (hi > lo) {
-    g <- function(x) {
-      r <- f(x)
-      r$p + r$u
+  # refine the largest local maxima of a sampled function
+  refine <- function(vals, which) {
+    best <- max(vals)
+    wbest <- w[which.max(vals)]
+    fin <- which(is.finite(w))
+    loc <- fin[vapply(fin, function(i) {
+      vals[i] >= vals[max(1L, i - 1L)] && vals[i] >= vals[min(length(w), i + 1L)]
+    }, logical(1))]
+    loc <- loc[order(vals[loc], decreasing = TRUE)][seq_len(min(5L, length(loc)))]
+    for (i in loc) {
+      lo <- w[max(1L, i - 1L)]
+      hi <- w[min(length(w), i + 1L)]
+      if (!is.finite(hi)) hi <- 10 * max(w[is.finite(w)])
+      if (!(hi > lo)) next
+      g <- function(x) {
+        r <- f(x)
+        switch(which, sum = r$p + r$u, p = r$p, u = r$u)
+      }
+      o <- stats::optimize(g, c(lo, hi), maximum = TRUE, tol = 1e-10 * max(1, hi))
+      if (o$objective > best) {
+        best <- o$objective
+        wbest <- o$maximum
+      }
     }
-    o <- stats::optimize(g, c(lo, hi), maximum = TRUE, tol = 1e-10 * max(1, hi))
-    if (o$objective > peak) {
-      peak <- o$objective
-      wpk <- o$maximum
-    }
+    c(value = best, frequency = wbest)
   }
-  if (!nominal) peak <- Inf
-  list(robust_performance = nominal && peak < 1, nominally_stable = nominal,
-       robust_stability = nominal && max(v$u) < 1,
-       nominal_performance = nominal && max(v$p) < 1, peak = peak,
-       frequency = wpk, exact = ny == 1L && ncol(G$B) == 1L,
+  tot <- v$p + v$u
+  pk <- refine(tot, "sum")
+  pp <- refine(v$p, "p")[["value"]]
+  pu <- refine(v$u, "u")[["value"]]
+  peak <- pk[["value"]]
+  # rigorous upper bound: sup(a + b) <= sup a + sup b, each from the
+  # certified H-infinity norm bounds
+  upper <- Inf
+  if (nominal) {
+    nb <- function(W, X) {
+      sys <- ctrl_series(X, ctrl_append_n(W, ny))
+      if (!ctrl_is_stable(sys)) return(Inf)
+      r <- ctrl_norm(sys, "inf")
+      attr(r, "bounds")[2] %||% as.numeric(r)
+    }
+    upper <- tryCatch(nb(Wp, S) + nb(Wu, T), error = function(e) Inf)
+  } else {
+    peak <- pp <- pu <- Inf
+  }
+  list(robust_performance = nominal && peak < 1,
+       certified = nominal && upper < 1, upper_bound = upper,
+       nominally_stable = nominal,
+       robust_stability = nominal && pu < 1,
+       nominal_performance = nominal && pp < 1, peak = peak,
+       frequency = pk[["frequency"]],
+       peaks = c(sum = peak, performance = pp, robustness = pu),
+       criterion_exact = ny == 1L && ncol(G$B) == 1L,
        curve = data.frame(frequency = w, value = tot))
+}
+
+# Block diagonal of k copies of a SISO model.
+ctrl_append_n <- function(W, k) {
+  out <- W
+  if (k > 1L) for (i in 2:k) out <- ctrl_append(out, W)
+  out
 }
 
 # Internal stability of the negative feedback loop u = -K y, from the joint

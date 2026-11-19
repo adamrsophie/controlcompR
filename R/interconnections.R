@@ -146,13 +146,16 @@ ctrl_feedback <- function(sys1, sys2 = 1, sign = -1) {
     n2 <- sys2$num[[1]]
     d2 <- sys2$den[[1]]
     # well-posedness: the feedthrough loop gain 1 - sign D1 D2 must not vanish
+    # (an improper factor has no finite feedthrough: the check does not
+    # apply and the rational result is formed directly)
     dfeed <- function(num, den) {
       num <- strip_leading_zeros(num)
       den <- strip_leading_zeros(den)
-      if (length(num) < length(den)) 0 else num[1] / den[1]
+      if (length(num) < length(den)) 0 else if (length(num) == length(den))
+        num[1] / den[1] else NA_real_
     }
     eloop <- 1 - sign * dfeed(n1, d1) * dfeed(n2, d2)
-    if (abs(eloop) < 1e-12) {
+    if (!is.na(eloop) && abs(eloop) < 1e-12) {
       ctrl_abort("The feedback loop has a singular algebraic loop ",
                  "(1 - sign D1 D2 = 0); the interconnection is not well posed.")
     }
@@ -237,9 +240,18 @@ Ops.ctrl_system <- function(e1, e2) {
   switch(op,
     "+" = ctrl_parallel(e1, e2),
     "-" = ctrl_parallel(e1, negate_system(as_system(e2))),
-    "*" = ctrl_series(e2, e1),
+    "*" = {
+      # a numeric scalar scales every channel; matrices and models connect
+      # in series
+      if (is_scalar_number(e1)) scale_system(as_system(e2), e1) else
+        if (is_scalar_number(e2)) scale_system(as_system(e1), e2) else
+          ctrl_series(e2, e1)
+    },
     "/" = {
-      if (is.numeric(e2)) {
+      if (is_scalar_number(e2)) {
+        if (e2 == 0) ctrl_abort("Division of a model by zero.")
+        scale_system(as_system(e1), 1 / e2)
+      } else if (is.numeric(e2)) {
         ctrl_series(as_system(e1), as_system(1 / e2))
       } else {
         ctrl_series(ctrl_inv(e2), e1)
@@ -265,14 +277,22 @@ Ops.ctrl_system <- function(e1, e2) {
   )
 }
 
-negate_system <- function(s) {
+is_scalar_number <- function(x) {
+  is.numeric(x) && length(x) == 1L && is.null(dim(x)) && is.finite(x)
+}
+
+negate_system <- function(s) scale_system(s, -1)
+
+# Multiply every channel of a model by the scalar k (names and time domain
+# are kept).
+scale_system <- function(s, k) {
   if (is_ctrl_tf(s)) {
-    s$num <- matrix(lapply(s$num, function(p) -p), nrow(s$num), ncol(s$num))
+    s$num <- matrix(lapply(s$num, function(p) k * p), nrow(s$num), ncol(s$num))
     return(s)
   }
   s <- as_ss(s)
-  s$C <- -s$C
-  s$D <- -s$D
+  s$C <- k * s$C
+  s$D <- k * s$D
   s
 }
 

@@ -64,10 +64,14 @@ ctrl_place <- function(sys, B = NULL, poles, maxiter = 50L) {
   U1 <- Qf[, seq_len(n - m) + m, drop = FALSE]
   Z <- qr.R(qb)[seq_len(m), seq_len(m), drop = FALSE]
   # order poles so that conjugate pairs are adjacent (positive imag first)
-  ord <- order(Re(poles), -abs(Im(poles)), -Im(poles))
-  poles <- poles[ord]
-  real_pole <- abs(Im(poles)) <= 1e-12 * pmax(1, Mod(poles))
-  poles[real_pole] <- Re(poles[real_pole])
+  # (repeated pairs too: each upper half plane pole is followed by its own
+  # conjugate)
+  is_real <- abs(Im(poles)) <= 1e-12 * pmax(1, Mod(poles))
+  upper <- poles[!is_real & Im(poles) > 0]
+  upper <- upper[order(Re(upper), -Im(upper))]
+  poles <- c(sort(Re(poles[is_real])) + 0i,
+             as.vector(rbind(upper, Conj(upper))))
+  real_pole <- c(rep(TRUE, sum(is_real)), rep(FALSE, 2L * length(upper)))
   bases <- lapply(seq_len(n), function(i) {
     if (n == m) return(diag(n) + 0i)
     M <- t(U1) %*% (A - poles[i] * diag(n))
@@ -106,10 +110,19 @@ ctrl_place <- function(sys, B = NULL, poles, maxiter = 50L) {
     for (iter in seq_len(maxiter)) {
       for (i in seq_len(n)) {
         if (!is.na(partner[i]) && partner[i] < i) next
-        others <- X[, -i, drop = FALSE]
-        qo <- qr(others)
-        y <- qr.Q(qo, complete = TRUE)[, n]
         S <- bases[[i]]
+        if (is.na(partner[i])) {
+          others <- X[, -i, drop = FALSE]
+          y <- qr.Q(qr(others), complete = TRUE)[, n]
+        } else {
+          # a complex pair needs x and conj(x) independent: aim at q1 + i q2
+          # from the two-dimensional complement of the remaining columns, so
+          # that the real and imaginary parts of x span that plane
+          others <- X[, -c(i, partner[i]), drop = FALSE]
+          Qc <- if (ncol(others)) qr.Q(qr(others), complete = TRUE)[, n - 1:0] else
+            diag(n)[, 1:2] + 0i
+          y <- Qc[, 1] + 1i * Qc[, 2]
+        }
         if (real_pole[i]) {
           S <- Re(S)
           v <- S %*% Re(t(S) %*% y)

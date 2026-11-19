@@ -5,9 +5,12 @@
 #' frequencies above the Nyquist frequency \eqn{\pi/dt} alias and produce a
 #' warning.
 #'
-#' State-space models are evaluated by solving
-#' \eqn{(j\omega I - A) X = B} at each frequency (no matrix inverse);
-#' transfer functions by polynomial evaluation.
+#' State-space models are balanced (diagonal scaling) and evaluated by
+#' solving \eqn{(j\omega I - A) X = B} at each frequency (no matrix
+#' inverse). Transfer functions are evaluated as ratios of their numerator
+#' and denominator polynomials (Horner's rule), which can lose accuracy for
+#' high order polynomials; convert to state space with [ctrl_tf2ss()] for
+#' those.
 #'
 #' @param sys A model.
 #' @param w Frequencies in rad per time unit. If `NULL`, a logarithmic grid
@@ -41,7 +44,7 @@ ctrl_freqresp <- function(sys, w = NULL) {
 eval_system <- function(sys, z) {
   if (is_ctrl_tf(sys)) return(tf_eval(sys, z))
   if (inherits(sys, "ctrl_zpk")) return(tf_eval(ctrl_zpk2tf(sys), z))
-  s <- sys
+  s <- prescale_ss(sys)
   n <- nrow(s$A)
   p <- nrow(s$C)
   m <- ncol(s$B)
@@ -121,7 +124,13 @@ unwrap_phase <- function(ph) {
 #' models without poles on the stability boundary, the winding number of
 #' \eqn{1 + L} around the origin (the number of clockwise encirclements of
 #' \eqn{-1}); with `P` open-loop unstable poles the closed loop has
-#' \eqn{Z = N + P} unstable poles. `ctrl_nichols()` returns phase against
+#' \eqn{Z = N + P} unstable poles. The winding number is computed on its own
+#' contour: for continuous models the imaginary axis is extended until the
+#' remaining tail of \eqn{L - D} cannot reach \eqn{-1}, and the contour is
+#' refined until the phase of \eqn{1 + L} changes by less than
+#' \eqn{\pi/8} between samples. When this cannot be established (for
+#' example \eqn{1 + D = 0}), `encirclements` is `NA`. `ctrl_nichols()`
+#' returns phase against
 #' magnitude in dB.
 #'
 #' @param sys A model.
@@ -184,18 +193,53 @@ ctrl_nyquist <- function(sys, w = NULL) {
 # Clockwise encirclements of -1 by L along the Nyquist contour, computed as
 # the winding of 1 + L on a dense grid.
 nyquist_encirclements <- function(sys) {
-  if (sys$dt > 0) {
-    th <- seq(-pi, pi, length.out = 20001)
-    z <- exp(1i * th)
-  } else {
-    w <- sort(unique(c(ctrl_freq_grid(sys, 4000L), 0)))
-    wfull <- c(-rev(w[w > 0]), 0, w[w > 0])
-    z <- 1i * wfull
+  ev <- function(x) {
+    z <- if (sys$dt > 0) exp(1i * x) else 1i * x
+    1 + eval_system(sys, z)[1, 1, ]
   }
-  g <- 1 + eval_system(sys, z)[1, 1, ]
+  if (sys$dt > 0) {
+    # the unit circle is a closed contour: theta in [-pi, pi]
+    x <- seq(-pi, pi, length.out = 2001)
+  } else {
+    # the imaginary axis closes through infinity, where L tends to its
+    # feedthrough D; extend the axis until the remaining tail of L - D is
+    # too small to wind around -1
+    Dinf <- 1 + as_ss(sys)$D[1, 1]
+    if (Mod(Dinf) < 1e-12) return(NA_integer_)
+    w <- ctrl_freq_grid(sys, 2000L)
+    wmax <- max(w)
+    for (k in seq_len(40L)) {
+      tail_size <- max(Mod(ev(wmax * c(1, 10)) - Dinf))
+      if (tail_size <= 1e-3 * Mod(Dinf)) break
+      wmax <- wmax * 10
+    }
+    if (tail_size > 1e-3 * Mod(Dinf)) return(NA_integer_)
+    if (wmax > max(w)) {
+      w <- c(w, exp(seq(log(max(w)), log(wmax), length.out = 400L))[-1])
+    }
+    w <- sort(unique(c(0, w)))
+    x <- c(-rev(w[w > 0]), 0, w[w > 0])
+  }
+  g <- ev(x)
+  # refine wherever the phase of 1 + L moves by more than pi / 8 between
+  # samples, so that no winding is missed between them
+  for (it in seq_len(30L)) {
+    if (any(!is.finite(g)) || any(Mod(g) < 1e-12)) return(NA_integer_)
+    d <- abs(diff(unwrap_phase(Arg(g))))
+    big <- which(d > pi / 8)
+    if (!length(big)) break
+    if (length(x) > 2e5) return(NA_integer_)
+    xm <- (x[big] + x[big + 1L]) / 2
+    gm <- ev(xm)
+    x <- c(x, xm)
+    g <- c(g, gm)
+    o <- order(x)
+    x <- x[o]
+    g <- g[o]
+  }
   if (any(!is.finite(g)) || any(Mod(g) < 1e-12)) return(NA_integer_)
+  if (any(abs(diff(unwrap_phase(Arg(g)))) > pi / 8)) return(NA_integer_)
   ang <- unwrap_phase(Arg(g))
-  # contour closes through infinity (continuous) where L is constant
   as.integer(round(-(ang[length(ang)] - ang[1]) / (2 * pi)))
 }
 

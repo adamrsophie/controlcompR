@@ -45,7 +45,7 @@ ctrl_norm <- function(sys, type = c("2", "inf"), tol = 1e-10) {
     if (any(s$D != 0)) return(Inf)
     return(sqrt(max(0, sum(diag(s$C %*% Wc %*% t(s$C))))))
   }
-  hinf_norm(s, tol)
+  hinf_norm(prescale_ss(s), tol)
 }
 
 hinf_norm <- function(s, tol) {
@@ -237,22 +237,40 @@ ctrl_disk_margin <- function(L, skew = 0) {
 # or the exterior of a disk (alpha > 1/b) whose real-axis diameter runs
 # between f(-alpha) and f(alpha).
 disk_gain_phase <- function(alpha, skew) {
+  # image of the disk |delta| <= alpha under f(delta) = (1 + a delta) /
+  # (1 - b delta); f(alpha) and f(-alpha) are the real boundary points
   a <- (1 - skew) / 2
   b <- (1 + skew) / 2
   if (!is.finite(alpha)) return(list(lo = 0, hi = Inf, pm = 180))
-  e1 <- (1 - a * alpha) / (1 + b * alpha)
-  hi_den <- 1 - b * alpha
-  lo <- max(e1, 0)
-  hi <- if (hi_den <= 0) Inf else (1 + a * alpha) / hi_den
-  if (abs(hi_den) < 1e-12) {
-    # pole on the boundary: the image is the half plane Re(z) >= e1
-    return(list(lo = lo, hi = Inf, pm = acos(max(-1, min(1, e1))) * 180 / pi))
+  pa <- abs(b) * alpha
+  if (abs(pa - 1) < 1e-12) {
+    # pole of f on the boundary: the image is a half plane through the
+    # finite real boundary point
+    if (b > 0) {
+      e1 <- (1 - a * alpha) / (1 + b * alpha)
+      return(list(lo = max(e1, 0), hi = Inf, pm = acos(max(-1, min(1, e1))) * 180 / pi))
+    }
+    return(list(lo = 0, hi = (1 + a * alpha) / (1 - b * alpha), pm = 180))
   }
-  e2 <- (1 + a * alpha) / hi_den
-  cc <- (e1 + e2) / 2
-  r <- abs(e2 - e1) / 2
+  e <- c((1 - a * alpha) / (1 + b * alpha), (1 + a * alpha) / (1 - b * alpha))
+  m1 <- min(e)
+  m2 <- max(e)
+  # pole of f outside the disk: the image is the disk with diameter
+  # [m1, m2]; pole inside: the exterior of that disk
+  bounded <- pa < 1
+  if (bounded) {
+    lo <- max(m1, 0)
+    hi <- m2
+  } else if (m2 < 1) {
+    lo <- max(m2, 0)
+    hi <- Inf
+  } else {
+    lo <- 0
+    hi <- m1
+  }
+  cc <- (m1 + m2) / 2
+  r <- (m2 - m1) / 2
   k <- 1 + cc^2 - r^2
-  bounded <- hi_den > 0
   # unit circle points inside the region satisfy 2 c cos(phi) >= k (bounded)
   # or 2 c cos(phi) <= k (exterior)
   if (abs(cc) < 1e-14) {

@@ -166,7 +166,7 @@ ctrl_stabsep <- function(sys, tol = NULL) {
 #' ctrl_hsvd(ctrl_tf(1, c(1, 3, 2)))
 #' @export
 ctrl_hsvd <- function(sys) {
-  s <- as_ss(sys)
+  s <- prescale_ss(as_ss(sys))
   if (!nrow(s$A)) return(numeric())
   f <- gramian_factors(s)
   if (!ncol(f$Lo) || !ncol(f$Lc)) return(rep(0, nrow(s$A)))
@@ -216,7 +216,7 @@ gramian_factors <- function(s) {
 #' ctrl_norm(ctrl_tf2ss(G) - Gr, "inf")
 #' @export
 ctrl_balreal <- function(sys, tol = 1e-12) {
-  s <- as_ss(sys)
+  s <- prescale_ss(as_ss(sys))
   if (!nrow(s$A)) return(s)
   f <- gramian_factors(s)
   if (!ncol(f$Lo) || !ncol(f$Lc)) {
@@ -293,6 +293,10 @@ ctrl_balred <- function(sys, order, method = c("truncate", "matchdc")) {
   }
   rs <- order - nu
   if (nrow(stable$A)) {
+    # equilibrate the state coordinates so that the Gramian factors keep
+    # every direction that matters (their eigenvalues can otherwise span
+    # more than the double precision range)
+    stable <- prescale_ss(stable)
     f <- gramian_factors(stable)
     sv <- if (ncol(f$Lo) && ncol(f$Lc)) svd(t(f$Lo) %*% f$Lc) else list(d = numeric())
     rs <- min(rs, sum(sv$d > 1e-14 * max(sv$d, 0)))
@@ -309,7 +313,32 @@ ctrl_balred <- function(sys, order, method = c("truncate", "matchdc")) {
   out <- if (is.null(unstable)) red else ctrl_parallel(red, unstable)
   out$input_names <- s$input_names
   out$output_names <- s$output_names
+  bound <- 2 * sum(hsv[seq_along(hsv) > rs])
+  if (nrow(stable$A)) check_reduction_bound(stable, red, bound, method)
   attr(out, "hsv") <- hsv
-  attr(out, "error_bound") <- 2 * sum(hsv[seq_along(hsv) > rs])
+  attr(out, "error_bound") <- bound
   out
+}
+
+# The a priori bound must dominate the actual error. Frequency samples give
+# rigorous lower bounds on the H-infinity error; if one exceeds the bound,
+# the Gramian computation lost directions and the bound cannot be trusted.
+check_reduction_bound <- function(full, red, bound, method) {
+  w <- c(0, ctrl_freq_grid(full, 200L))
+  if (full$dt > 0) w <- w[w <= pi / full$dt]
+  ef <- eval_system(full, if (full$dt > 0) exp(1i * w * full$dt) else 1i * w) -
+    eval_system(as_ss(red), if (full$dt > 0) exp(1i * w * full$dt) else 1i * w)
+  lower <- max(vapply(seq_along(w), function(k) {
+    v <- ef[, , k]
+    if (any(!is.finite(v))) return(0)
+    max(svd(as.matrix(v), 0, 0)$d, 0)
+  }, 0))
+  scale <- max(1, bound)
+  if (lower > bound + 1e-8 * scale + 1e-6 * bound) {
+    ctrl_abort("Balanced reduction could not certify its error bound: the ",
+               "sampled error ", signif(lower, 4), " exceeds the bound ",
+               signif(bound, 4), ". The Gramians are too ill-conditioned for ",
+               "the reduction to be reliable.")
+  }
+  invisible(lower)
 }

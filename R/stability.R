@@ -252,6 +252,23 @@ ctrl_zeros <- function(sys) {
   if (!n) return(complex())
   M <- rbind(cbind(sys$A, sys$B), cbind(sys$C, sys$D))
   N <- blkdiag(diag(n), matrix(0, m, m))
+  # A diagonal similarity leaves N unchanged, so balancing M equilibrates
+  # the pencil without changing its generalized eigenvalues. This makes the
+  # result independent of the state coordinates' units.
+  M <- expm::balance(M, job = "S")$z
+  # Zeros are only defined when the pencil is regular (the transfer matrix
+  # has full normal rank); a singular pencil has a rank drop at every s.
+  s0 <- complex(real = c(0.37, -1.3), imaginary = c(1.1, 0.71)) *
+    max(1, norm(M, "1"))
+  full <- vapply(s0, function(s) {
+    numerical_rank(M - s * N)$rank == n + m
+  }, logical(1))
+  if (!any(full)) {
+    ctrl_abort("The system pencil is singular (the transfer matrix does not ",
+               "have full normal rank), so its invariant zeros are not ",
+               "defined. This happens, for example, when an input or output ",
+               "is disconnected.")
+  }
   z <- gen_eigenvalues(M, N)
   sort_poles(z, sys$dt)
 }

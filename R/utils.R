@@ -109,7 +109,7 @@ min_eig_sym <- function(X) {
 check_psd <- function(X, name, tol = NULL) {
   X <- check_symmetric(X, name)
   if (!length(X)) return(X)
-  tol <- tol %||% (100 * nrow(X) * .Machine$double.eps * max(1, norm(X, "2")))
+  tol <- tol %||% (100 * nrow(X) * .Machine$double.eps * norm(X, "2"))
   if (min_eig_sym(X) < -tol) {
     ctrl_abort("`", name, "` must be positive semidefinite (smallest eigenvalue ",
                signif(min_eig_sym(X), 3), ").")
@@ -120,7 +120,7 @@ check_psd <- function(X, name, tol = NULL) {
 check_pd <- function(X, name, tol = NULL) {
   X <- check_symmetric(X, name)
   if (!length(X)) return(X)
-  tol <- tol %||% (100 * nrow(X) * .Machine$double.eps * max(1, norm(X, "2")))
+  tol <- tol %||% (100 * nrow(X) * .Machine$double.eps * norm(X, "2"))
   if (min_eig_sym(X) <= tol) {
     ctrl_abort("`", name, "` must be positive definite (smallest eigenvalue ",
                signif(min_eig_sym(X), 3), ").")
@@ -311,4 +311,27 @@ osqp_solve <- function(model) {
   res <- NULL
   utils::capture.output(res <- model@Solve())
   res
+}
+
+# Diagonal state-coordinate scaling that balances [A B; C 0] (LAPACK dgebal,
+# scaling only). The transfer function is unchanged; results that depend on
+# conditioning (frequency response, Hamiltonian tests) no longer depend on
+# the units of the states.
+prescale_ss <- function(s) {
+  n <- nrow(s$A)
+  if (!n) return(s)
+  m <- ncol(s$B)
+  p <- nrow(s$C)
+  k <- max(m, p)
+  M <- matrix(0, n + k, n + k)
+  M[seq_len(n), seq_len(n)] <- s$A
+  M[seq_len(n), n + seq_len(m)] <- s$B
+  M[n + seq_len(p), seq_len(n)] <- s$C
+  if (!all(is.finite(M))) return(s)
+  d <- expm::balance(M, job = "S")$scale[seq_len(n)]
+  if (!all(is.finite(d)) || any(d <= 0)) return(s)
+  s$A <- s$A * outer(1 / d, d)
+  s$B <- s$B / d
+  s$C <- sweep(s$C, 2L, d, `*`)
+  s
 }

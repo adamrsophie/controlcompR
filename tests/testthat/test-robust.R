@@ -121,7 +121,7 @@ test_that("robust performance matches the SISO condition", {
   S <- 1 / (1 + Gw * Kw); T <- 1 - S
   ref <- max(Mod((0.5 * s + 0.5) / (s + 0.01)) * Mod(S) + Mod((s + 0.2) / (0.1 * s + 1)) * Mod(T))
   expect_equal(rp$peak, ref, tolerance = 1e-6)
-  expect_true(rp$exact)
+  expect_true(rp$criterion_exact)
   expect_equal(rp$robust_performance, ref < 1)
   expect_error(ctrl_robust_performance(G, K, ctrl_tf2ss(ctrl_append(Wp, Wp)), Wu), "scalar")
 })
