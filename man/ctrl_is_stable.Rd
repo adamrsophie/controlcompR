@@ -10,10 +10,13 @@ ctrl_is_stable(sys, tol = NULL)
 \item{sys}{A model.}
 
 \item{tol}{Boundary tolerance. Defaults to a multiple of machine precision
-scaled by the norm of the balanced \code{A}. For a model whose time scales
-differ by about 1e13 or more, the slowest stable poles can fall inside
-this band and are classified as marginal; pass a smaller \code{tol} when
-such poles are known to be accurate.}
+times the norm of the balanced \code{A} (the state coordinates are first
+scaled to balance \eqn{[A\ B; C\ 0]}, so the result does not depend on
+state units, and a uniformly slow continuous model keeps its relative
+accuracy; in discrete time the scale is at least one). For a model
+whose time scales differ by about 1e13 or more, the slowest stable
+poles can fall inside this band and are classified as marginal; pass a
+smaller \code{tol} when such poles are known to be accurate.}
 }
 \value{
 \code{TRUE} when the model is asymptotically stable.

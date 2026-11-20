@@ -21,8 +21,10 @@ ctrl_robust_stability(
 \item{type}{Uncertainty structure.}
 }
 \value{
-A list with \code{robustly_stable}, \code{nominally_stable}, \code{peak} (the
-H-infinity norm tested), \code{margin} (\code{1 / peak}) and \code{type}.
+A list with \code{robustly_stable} (decided on \code{upper_bound}),
+\code{nominally_stable}, \code{peak} (the H-infinity norm tested),
+\code{upper_bound} (the certified upper bound on that norm from
+\code{\link[=ctrl_norm]{ctrl_norm()}}), \code{margin} (\code{1 / peak}) and \code{type}.
 }
 \description{
 Test robust stability of the feedback loop of plant \code{G} and controller

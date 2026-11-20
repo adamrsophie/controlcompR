@@ -23,7 +23,11 @@ inside the unit circle. Poles on the boundary need more care: a simple
 pole on the imaginary axis gives a marginally stable model, but a repeated
 boundary pole with a nontrivial Jordan block grows without bound.
 `ctrl_stability()` distinguishes these cases with a tolerance scaled by
-the size of `A`:
+the size of `A`. The state coordinates are first balanced together with
+`B` and `C`, so the decision does not depend on state units, and each
+pole uses the tighter of a uniform band and its own first-order error
+bound (`pole_tol`), so the well-conditioned poles of a stiff model are
+classified correctly:
 
 ```{r}
 ctrl_stability(ctrl_ss(diag(c(-1, -2)), diag(2), diag(2)))$classification
@@ -39,6 +43,36 @@ models through the equivalent continuous poles \(\log(z)/T\)):
 ```{r}
 G <- ctrl_tf(9, c(1, 1.2, 9))
 ctrl_damp(G)
+```
+
+The same answer for a model whose states differ in units by 1e13, and for
+a stiff model with time constants 1e3 and 1e-11:
+
+```{r}
+scaled <- ctrl_ss(matrix(c(-1, 1e13, 0, -2), 2, byrow = TRUE), c(0, 1e-13),
+                  c(1, 0))
+ctrl_is_stable(scaled)
+stiff <- ctrl_ss(diag(c(-1e-3, -1e11)), c(1e-3, 1e11), c(1, 1))
+st <- ctrl_stability(stiff)
+st$classification
+st$pole_tol
+```
+
+`ctrl_pzmap()` collects poles and zeros (and has a `plot()` method):
+
+```{r}
+ctrl_pzmap(ctrl_tf(c(1, 2), c(1, 2, 5)))
+```
+
+Invariant zeros of a square multivariable model are the finite
+generalized eigenvalues of the system pencil. A well-conditioned
+feedthrough gives them as the eigenvalues of \(A - B D^{-1} C\), so a
+very large zero from a tiny `D` is kept; a pencil without full normal
+rank raises an error:
+
+```{r}
+ctrl_zeros(ctrl_ss(-1, 1, 1, D = 1e-6))
+try(ctrl_zeros(ctrl_ss(-diag(2), diag(2), matrix(c(1, 1, 0, 0), 2))))
 ```
 
 ## Controllability and observability
@@ -65,6 +99,19 @@ properties are what LQR, Kalman filtering and MPC need:
 ```{r}
 ctrl_is_stabilizable(ctrl_ss(A, c(0, 1), diag(2)))
 ctrl_observability(A, C = c(0, 1))$detectable
+```
+
+The predicates `ctrl_is_controllable()`, `ctrl_is_observable()`,
+`ctrl_is_stabilizable()` and `ctrl_is_detectable()` take a model. The
+classical matrices are available as `ctrl_ctrb()` and `ctrl_obsv()` for
+teaching and small examples (not for rank decisions):
+
+```{r}
+m <- ctrl_ss(A, c(1, 1), c(1, 0))
+c(controllable = ctrl_is_controllable(m), observable = ctrl_is_observable(m),
+  detectable = ctrl_is_detectable(m))
+ctrl_ctrb(m)
+ctrl_obsv(m)
 ```
 
 Rank decisions use tolerances. A nearly uncontrollable model is reported
@@ -105,7 +152,17 @@ and its discrete counterpart. The solvers use the extended matrix pencil
 of size \(2n + m\), compress the input block with a QR factorization (so
 `R` is never inverted) and compute an ordered generalized Schur
 decomposition with LAPACK `dgges`. The discrete solver does not need `A` to
-be invertible.
+be invertible. Before solving, the problem is equilibrated with exact
+power-of-two scalings that leave the gain unchanged: a common cost
+factor, a symplectic state scaling from balancing the Hamiltonian, a
+time scale (continuous time) and an input scaling that balances each
+column of the pencil. The solution is therefore invariant to the units
+of states, inputs, costs and time:
+
+```{r}
+k <- 1e8   # control in different units: B scaled by k, R by k^2
+c(ctrl_care(-1, 1, 1, 1)$P, ctrl_care(-1, k, 1, k^2)$P)
+```
 
 ```{r}
 ric <- ctrl_care(sys$A, sys$B, diag(2), 1)

@@ -152,6 +152,18 @@ ggplot2::ggplot(df, ggplot2::aes(t, angle)) + ggplot2::geom_line() +
   ggplot2::geom_hline(yintercept = pi, linetype = "dashed") + ggplot2::theme_bw()
 ```
 
+`ctrl_nmpc_step()` solves one step from a given state and returns the
+first input, the planned input and state trajectories, the objective and
+the optimizer status, for use in a custom loop. The state-bound penalty
+must be nonnegative:
+
+```{r}
+step <- ctrl_nmpc_step(nmpc, x = c(2.4, 0), x_ref = c(pi, 0))
+step$u
+c(ok = step$ok, objective = step$objective)
+dim(step$x_plan)
+```
+
 The problem is nonconvex: the result is a local optimum that depends on
 the initial guess (started from rest at the bottom, this controller
 stalls at a local optimum instead of swinging up), and no stability

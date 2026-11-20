@@ -14,8 +14,10 @@ A decreasing numeric vector.
 }
 \description{
 The square roots of the eigenvalues of \eqn{W_c W_o} for an
-asymptotically stable model, computed from Gramian factors as the
-singular values of \eqn{L_o^\top L_c}.
+asymptotically stable model, computed as the singular values of
+\eqn{L_o^\top L_c}, where the Gramian factors \eqn{L_c L_c^\top = W_c}
+and \eqn{L_o L_o^\top = W_o} come directly from Hammarling's method
+without forming the Gramians.
 }
 \examples{
 ctrl_hsvd(ctrl_tf(1, c(1, 3, 2)))

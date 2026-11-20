@@ -10,10 +10,13 @@ ctrl_stability(sys, tol = NULL, cluster_tol = NULL)
 \item{sys}{A model.}
 
 \item{tol}{Boundary tolerance. Defaults to a multiple of machine precision
-scaled by the norm of the balanced \code{A}. For a model whose time scales
-differ by about 1e13 or more, the slowest stable poles can fall inside
-this band and are classified as marginal; pass a smaller \code{tol} when
-such poles are known to be accurate.}
+times the norm of the balanced \code{A} (the state coordinates are first
+scaled to balance \eqn{[A\ B; C\ 0]}, so the result does not depend on
+state units, and a uniformly slow continuous model keeps its relative
+accuracy; in discrete time the scale is at least one). For a model
+whose time scales differ by about 1e13 or more, the slowest stable
+poles can fall inside this band and are classified as marginal; pass a
+smaller \code{tol} when such poles are known to be accurate.}
 
 \item{cluster_tol}{Tolerance for grouping eigenvalues into clusters.}
 }
@@ -22,7 +25,8 @@ An object of class \code{ctrl_stability} with \code{classification}
 (\code{"asymptotically stable"}, \code{"marginally stable"} or \code{"unstable"}),
 \code{stable} (asymptotic stability), \code{poles}, \code{boundary_poles},
 \code{unstable_poles}, \code{stability_margin} (distance of the slowest pole to
-the boundary; negative when unstable) and the tolerances used.
+the boundary; negative when unstable), the uniform band \code{tol}, the
+per-pole bands \code{pole_tol} actually used and \code{cluster_tol}.
 }
 \description{
 Classify the internal stability of a linear time-invariant model from its

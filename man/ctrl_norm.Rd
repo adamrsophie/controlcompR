@@ -22,10 +22,11 @@ frequency in rad per time unit) and \code{bounds}.
 \item \code{"2"}: the H2 norm. For an asymptotically stable continuous model it is
 \eqn{\sqrt{\mathrm{tr}(C W_c C^\top)}} when \code{D = 0} and infinite
 otherwise; for a discrete model it is
-\eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. The Gramian is
-computed after diagonal balancing; a realization whose Gramian is
-ill-conditioned for other reasons (nearly canceling input or output
-directions) loses relative accuracy, and \code{\link[=ctrl_minreal]{ctrl_minreal()}} first helps.
+\eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. It is computed as
+\eqn{\|C L_c\|_F} (plus the feedthrough term), with the Gramian factor
+\eqn{L_c L_c^\top = W_c} obtained directly by Hammarling's method after
+diagonal balancing, so the Gramian is never formed and its condition
+number is not squared.
 \item \code{"inf"}: the H-infinity norm \eqn{\sup_\omega \sigma_{\max}(G(j\omega))}
 of an asymptotically stable model, computed with the
 Bruinsma-Steinbuch two-step algorithm. The lower bound comes from

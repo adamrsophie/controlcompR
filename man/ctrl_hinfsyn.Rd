@@ -61,6 +61,9 @@ raised instead of returning an uncertified controller. The bisection
 stops at relative tolerance \code{tol} and returns the controller for the
 smallest feasible \eqn{\gamma} found, which is slightly suboptimal by
 design: the central controller becomes ill-conditioned at the optimum.
+When the H2 optimal controller already gives a zero closed-loop norm,
+the optimum zero is attained and that controller is returned with
+\code{gamma = 0}.
 }
 \examples{
 A <- matrix(c(0, 1, 0, 0), 2, byrow = TRUE)

@@ -10,6 +10,7 @@ Bruinsma
 Bucy
 Bumpless
 CMD
+Codecov
 ControlSystems
 Controllability
 Cx
@@ -25,6 +26,7 @@ Gahinet
 Gramian
 Gramians
 Hagglund
+Hammarling's
 Hankel
 Hautus
 Horner's
@@ -113,6 +115,7 @@ eigenstructure
 encirclements
 equilibrate
 equilibrated
+equilibration
 equilibria
 et
 exponentials
@@ -144,6 +147,7 @@ multivariable
 natively
 ne
 nonconvex
+nonfinite
 noninteractive
 nonsquare
 nonstiff
@@ -162,6 +166,7 @@ prewarping
 properness
 qquad
 quadratically
+representable
 residualization
 residualized
 saturations

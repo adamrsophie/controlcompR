@@ -42,8 +42,10 @@ the limits of every guarantee.
 
 ## Algorithms
 
-Every numerically sensitive computation uses a backward-stable algorithm,
-and the result is checked:
+Numerically sensitive computations use orthogonal decompositions and
+avoid explicitly forming squared or ill-conditioned quantities. Many
+results are checked after the fact, but the checks detect failures; they
+do not prove backward stability for every input. The main methods:
 
 * **Riccati equations**: ordered real Schur decomposition of the
   Hamiltonian (continuous) or symplectic pencil (discrete, generalized
@@ -56,16 +58,20 @@ and the result is checked:
 * **Controllability and observability**: orthogonal staircase forms
   (never the rank of the controllability matrix, which is numerically
   meaningless beyond small systems).
-* **Gramians and Hankel singular values**: Lyapunov solutions of the
-  controllability and observability Gramians.
+* **Gramians and Hankel singular values**: Cholesky factors of the
+  Gramians computed directly by Hammarling's method on the complex Schur
+  form, so the Gramians are never formed and their condition number is
+  never squared; the H2 norm is \(\|C L_c\|_F\) with the same factor.
 * **H-infinity norm**: the Bruinsma-Steinbuch level-set iteration on the
   Hamiltonian, with the imaginary-axis eigenvalue test.
 * **Discretization**: matrix exponential of an augmented matrix (zero-order
   and first-order hold), bilinear (Tustin) and matched pole-zero
   transformations.
-* **Frequency response**: a complex linear solve per frequency on the
-  state-space model, never polynomial evaluation of high-order transfer
-  functions.
+* **Frequency response**: a complex linear solve per frequency on a
+  diagonally balanced state-space model. Transfer function objects are
+  evaluated from their polynomial coefficients, which is accurate for
+  low orders; convert high-order transfer functions to state space first
+  (`ctrl_tf2ss()`) for better conditioning.
 * **Pole placement**: robust eigenstructure assignment (Kautsky, Nichols
   and Van Dooren), with the eigenvalues of the result verified.
 * **QPs**: OSQP with tight tolerances and solution polishing; every MPC
@@ -84,7 +90,12 @@ sol$poles
 Rank decisions and structural tests use relative tolerances based on the
 size and the norm of the problem, of the form
 \(\mathrm{tol} = c\, n^2\, \varepsilon\, \|M\|\) for the staircase forms.
-Stability on the boundary is decided with a tolerance, and boundary cases
+Stability is decided on a state realization balanced together with its
+input and output matrices, with per-pole bands from the first-order
+eigenvalue error bound, so the decision does not depend on state units.
+Covariance matrices are inverted on their support after equilibration
+(scaling to unit diagonal), so a small but positive variance is never
+treated as zero. Boundary cases
 are reported (`"marginally stable"` for linear models, `"inconclusive"`
 for equilibria of nonlinear models) instead of being forced into stable or
 unstable. Every function that takes a tolerance documents it.
@@ -102,12 +113,18 @@ than against stored numbers:
 * exact cross-checks between independent algorithms: MPC without active
   constraints equals LQR with the Riccati terminal weight, MHE without
   active constraints equals the Kalman filter, the H2 norm from the
-  Gramian equals the integral of the frequency response, the H-infinity
+  Gramian factor equals the integral of the frequency response, the H-infinity
   norm equals the peak of a dense frequency sweep;
 * analytic results: first and second order step responses, Ziegler-Nichols
   tables, balanced truncation error bounds;
+* invariance under changes of units: diagonal and orthogonal state
+  scalings, input and cost scalings and time scalings leave Riccati
+  solutions, Hankel singular values, norms, stability decisions, Kalman,
+  UKF, smoother and MHE posteriors unchanged (including covariances whose
+  entries span many orders of magnitude);
 * rejection of invalid problems: indefinite weights, unstabilizable pairs,
-  singular measurement noise, ill-posed interconnections, infeasible QPs.
+  singular measurement noise, ill-posed interconnections, infeasible QPs,
+  nonfinite inputs and arithmetic that overflows.
 
 ```{r}
 G <- ctrl_ss(matrix(c(-1, 2, 0, -3), 2), matrix(c(1, 0)), matrix(c(0, 1), 1))
@@ -149,7 +166,7 @@ synthesis, where both packages stop at a tolerance).
 | balanced truncation and residualization | implemented | stable part; unstable part kept |
 | ARX, subspace identification, validation tools | implemented | other model structures through sysid |
 | H2 synthesis | implemented | continuous time, \(D_{11} = 0\) |
-| H-infinity synthesis | experimental | continuous time, \(D_{11} = 0\), every result certified |
+| H-infinity synthesis | experimental | continuous time, \(D_{11} = 0\), every result checked against the upper bound of an independent norm computation |
 | nonlinear simulation, linearization, equilibria | implemented | |
 | EKF and UKF | implemented | |
 | nonlinear MPC | experimental | single shooting, local optimum |

@@ -325,8 +325,11 @@ ctrl_hinfsyn <- function(P, nmeas, ncon, gamma = NULL, tol = 1e-3,
     ctrl_abort("Certification failed: the H-infinity controller does not ",
                "stabilize the closed loop at gamma = ", signif(gamma, 6), ".")
   }
-  nrm <- as.numeric(ctrl_norm(cl, "inf"))
-  if (!(nrm < gamma * (1 + 1e-8))) {
+  nv <- ctrl_norm(cl, "inf")
+  nrm <- as.numeric(nv)
+  # certify with the upper bound of the norm computation, not its estimate
+  nup <- attr(nv, "bounds")[2] %||% nrm
+  if (!(nup < gamma * (1 + 1e-8))) {
     ctrl_abort("Certification failed: closed-loop H-infinity norm ",
                signif(nrm, 6), " is not below gamma = ", signif(gamma, 6), ".")
   }
@@ -542,8 +545,10 @@ ctrl_augw <- function(G, W1 = NULL, W2 = NULL, W3 = NULL) {
 #' @param K Controller (negative feedback).
 #' @param W Uncertainty weight (system or number).
 #' @param type Uncertainty structure.
-#' @return A list with `robustly_stable`, `nominally_stable`, `peak` (the
-#'   H-infinity norm tested), `margin` (`1 / peak`) and `type`.
+#' @return A list with `robustly_stable` (decided on `upper_bound`),
+#'   `nominally_stable`, `peak` (the H-infinity norm tested),
+#'   `upper_bound` (the certified upper bound on that norm from
+#'   [ctrl_norm()]), `margin` (`1 / peak`) and `type`.
 #' @examples
 #' G <- ctrl_tf(1, c(1, 1))
 #' K <- ctrl_tf(10, 1)
@@ -576,9 +581,12 @@ ctrl_robust_stability <- function(G, K, W, type = c("multiplicative_output",
     # K (I + G K)^-1 formed as one feedback interconnection, so the
     # controller's own poles do not remain as hidden modes
     additive = ctrl_series(W, ctrl_feedback(K, G)))
-  peak <- if (nominal) as.numeric(ctrl_norm(M, "inf")) else Inf
-  list(robustly_stable = nominal && peak < 1, nominally_stable = nominal,
-       peak = peak, margin = 1 / peak, type = type)
+  nv <- if (nominal) ctrl_norm(M, "inf") else Inf
+  peak <- as.numeric(nv)
+  # the decision uses the certified upper bound of the norm
+  upper <- if (nominal) attr(nv, "bounds")[2] %||% peak else Inf
+  list(robustly_stable = nominal && upper < 1, nominally_stable = nominal,
+       peak = peak, upper_bound = upper, margin = 1 / peak, type = type)
 }
 
 #' Robust performance under multiplicative output uncertainty

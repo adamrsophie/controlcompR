@@ -200,8 +200,9 @@ gramian_factors <- function(s) {
 #' \eqn{\mathrm{diag}(\sigma_1, \ldots, \sigma_r)} (the Hankel singular
 #' values); states with zero Hankel singular value (to tolerance) are
 #' removed. `ctrl_balred()` truncates the balanced realization to `order`
-#' states using the square-root method of Tombs and Laub, which avoids
-#' forming the balancing transformation from ill-conditioned Gramians.
+#' states using the square-root method of Tombs and Laub. The Gramian
+#' factors come directly from Hammarling's method, so neither the Gramians
+#' nor the balancing transformation are formed from squared quantities.
 #'
 #' For an asymptotically stable model, balanced truncation preserves
 #' stability and satisfies the a priori bound
@@ -216,6 +217,14 @@ gramian_factors <- function(s) {
 #' `error_bound` is the larger of the a priori bound and the sampled error
 #' plus its accuracy (relevant only when the bound is at rounding level or
 #' attained, as when a single Hankel singular value is discarded).
+#' `bound_status` says what supports the returned bound: `"certified"`
+#' when the H-infinity norm computation of the error system (see
+#' [ctrl_norm()]) gave a finite upper bound below it, `"estimated"` when
+#' that computation was unavailable and only the a priori bound and the
+#' sampled errors support it (samples cannot exclude a larger error between
+#' grid points). `ctrl_balreal()` runs the same check with the removed
+#' Hankel singular values, so a balanced realization that does not
+#' reproduce the transfer function raises an error.
 #'
 #' Unstable models are first split with [ctrl_stabsep()]; only the stable
 #' part is reduced and the unstable part is kept exactly, so `order` must be
@@ -226,9 +235,12 @@ gramian_factors <- function(s) {
 #' @param method `"truncate"` or `"matchdc"`.
 #' @param tol Relative tolerance below which Hankel singular values are
 #'   treated as zero in `ctrl_balreal()`.
-#' @return `ctrl_balreal()` returns a `ctrl_ss` model with attribute `hsv`.
-#'   `ctrl_balred()` returns the reduced `ctrl_ss` model with attributes
-#'   `hsv` (Hankel singular values of the stable part) and `error_bound`.
+#' @return `ctrl_balreal()` returns a `ctrl_ss` model with attributes `hsv`,
+#'   `error_bound` and `bound_status`. `ctrl_balred()` returns the reduced
+#'   `ctrl_ss` model with attributes `hsv` (Hankel singular values of the
+#'   stable part), `error_bound`, `bound_status` and `error_norm` (the
+#'   certified upper bound on \eqn{\|G - G_r\|_\infty} from [ctrl_norm()],
+#'   `NA` when unavailable).
 #' @examples
 #' G <- ctrl_tf(c(1, 11, 30), c(1, 12, 47, 72, 36))
 #' Gr <- ctrl_balred(G, 2)
@@ -249,7 +261,12 @@ ctrl_balreal <- function(sys, tol = 1e-12) {
   sv <- svd(t(f$Lo) %*% f$Lc)
   r <- sum(sv$d > tol * max(sv$d))
   out <- balanced_project(s, f, sv, r, "truncate")
+  # the realization must reproduce the transfer up to the removed states:
+  # the same check as for balanced truncation (an error if it fails)
+  chk <- check_reduction_bound(s, out, 2 * sum(sv$d[-seq_len(r)]), "truncate")
   attr(out, "hsv") <- sv$d
+  attr(out, "error_bound") <- chk$bound
+  attr(out, "bound_status") <- chk$status
   out
 }
 
@@ -334,9 +351,12 @@ ctrl_balred <- function(sys, order, method = c("truncate", "matchdc")) {
   out$input_names <- s$input_names
   out$output_names <- s$output_names
   bound <- 2 * sum(hsv[seq_along(hsv) > rs])
-  if (nrow(stable$A)) bound <- check_reduction_bound(stable, red, bound, method)
+  chk <- if (nrow(stable$A)) check_reduction_bound(stable, red, bound, method) else
+    list(bound = bound, status = "certified", error_norm = 0)
   attr(out, "hsv") <- hsv
-  attr(out, "error_bound") <- bound
+  attr(out, "error_bound") <- chk$bound
+  attr(out, "bound_status") <- chk$status
+  attr(out, "error_norm") <- chk$error_norm
   out
 }
 
@@ -397,5 +417,13 @@ check_reduction_bound <- function(full, red, bound, method) {
   }
   # a bound within rounding of the sampled error is widened by the
   # evaluation accuracy, so the reported bound covers the computed model
-  max(bound, lower + acc)
+  out <- max(bound, lower + acc)
+  # "certified": the H-infinity norm computation of the error system gave a
+  # finite upper bound that lies below the returned bound; "estimated": that
+  # computation was unavailable, so only the a priori bound and the
+  # sampled errors support it
+  status <- if (length(en) == 1L && is.finite(en) && en <= out * (1 + 1e-6)) {
+    "certified"
+  } else "estimated"
+  list(bound = out, status = status, error_norm = if (is.finite(en)) en else NA_real_)
 }

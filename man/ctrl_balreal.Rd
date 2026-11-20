@@ -20,9 +20,12 @@ treated as zero in \code{ctrl_balreal()}.}
 \item{method}{\code{"truncate"} or \code{"matchdc"}.}
 }
 \value{
-\code{ctrl_balreal()} returns a \code{ctrl_ss} model with attribute \code{hsv}.
-\code{ctrl_balred()} returns the reduced \code{ctrl_ss} model with attributes
-\code{hsv} (Hankel singular values of the stable part) and \code{error_bound}.
+\code{ctrl_balreal()} returns a \code{ctrl_ss} model with attributes \code{hsv},
+\code{error_bound} and \code{bound_status}. \code{ctrl_balred()} returns the reduced
+\code{ctrl_ss} model with attributes \code{hsv} (Hankel singular values of the
+stable part), \code{error_bound}, \code{bound_status} and \code{error_norm} (the
+certified upper bound on \eqn{\|G - G_r\|_\infty} from \code{\link[=ctrl_norm]{ctrl_norm()}},
+\code{NA} when unavailable).
 }
 \description{
 \code{ctrl_balreal()} returns a balanced realization of an asymptotically
@@ -30,8 +33,9 @@ stable model, in which both Gramians equal
 \eqn{\mathrm{diag}(\sigma_1, \ldots, \sigma_r)} (the Hankel singular
 values); states with zero Hankel singular value (to tolerance) are
 removed. \code{ctrl_balred()} truncates the balanced realization to \code{order}
-states using the square-root method of Tombs and Laub, which avoids
-forming the balancing transformation from ill-conditioned Gramians.
+states using the square-root method of Tombs and Laub. The Gramian
+factors come directly from Hammarling's method, so neither the Gramians
+nor the balancing transformation are formed from squared quantities.
 }
 \details{
 For an asymptotically stable model, balanced truncation preserves
@@ -47,6 +51,14 @@ the bound by more than that accuracy raises an error; otherwise
 \code{error_bound} is the larger of the a priori bound and the sampled error
 plus its accuracy (relevant only when the bound is at rounding level or
 attained, as when a single Hankel singular value is discarded).
+\code{bound_status} says what supports the returned bound: \code{"certified"}
+when the H-infinity norm computation of the error system (see
+\code{\link[=ctrl_norm]{ctrl_norm()}}) gave a finite upper bound below it, \code{"estimated"} when
+that computation was unavailable and only the a priori bound and the
+sampled errors support it (samples cannot exclude a larger error between
+grid points). \code{ctrl_balreal()} runs the same check with the removed
+Hankel singular values, so a balanced realization that does not
+reproduce the transfer function raises an error.
 
 Unstable models are first split with \code{\link[=ctrl_stabsep]{ctrl_stabsep()}}; only the stable
 part is reduced and the unstable part is kept exactly, so \code{order} must be

@@ -55,6 +55,18 @@ A static gain is a model without states:
 ctrl_gain(matrix(c(1, 2, 3, 4), 2))
 ```
 
+Predicates and accessors inspect a model without converting it.
+`ctrl_ssdata()` returns the matrices of any model as a plain list (it
+realizes transfer functions first), and `summary()` gives an overview:
+
+```{r}
+c(is_ctrl_system(sys), is_ctrl_ss(sys), is_ctrl_tf(sys))
+c(discrete = ctrl_is_discrete(sysd), proper = ctrl_is_proper(sys),
+  strictly_proper = ctrl_is_proper(sys, strict = TRUE))
+str(ctrl_ssdata(ctrl_tf(1, c(1, 1))))
+summary(sys)
+```
+
 ## Transfer functions and zero-pole-gain models
 
 Polynomial coefficients are in descending powers of `s` (or `z`):
@@ -74,6 +86,14 @@ order models:
 H <- ctrl_zpk(zeros = -3, poles = c(-1 + 2i, -1 - 2i), gain = 1)
 H
 ctrl_zpk2tf(H)
+ctrl_tf2zpk(G)
+```
+
+`ctrl_tf_minreal()` cancels common pole-zero pairs of a transfer function
+directly in polynomial form:
+
+```{r}
+ctrl_tf_minreal(ctrl_tf(c(1, 1), c(1, 3, 2)))  # (s + 1) / ((s + 1)(s + 2))
 ```
 
 ## Conversions
@@ -143,7 +163,23 @@ S <- ctrl_feedback(1, L)          # sensitivity 1 / (1 + L)
 ```
 
 `ctrl_series(sys1, sys2)` applies `sys1` first, so `C * G` equals
-`ctrl_series(G, C)` for single-input single-output models. For block
+`ctrl_series(G, C)` for single-input single-output models. The other
+operators follow the same pattern: `+` and `-` are `ctrl_parallel()`, a
+numeric scalar scales every channel, `/` divides by a scalar, a square
+matrix or a model (through `ctrl_inv()`), and `^` raises a model to an
+integer power. `ctrl_append()` stacks models block diagonally (their
+inputs and outputs side by side). Scaling that would overflow the
+coefficients raises an error instead of returning infinite entries:
+
+```{r}
+ctrl_parallel(G, 1) # G + 1
+ctrl_inv(ctrl_tf(c(1, 2), c(1, 3)))
+ctrl_dims(ctrl_append(G, ctrl_tf(1, c(1, 1))))
+G^2
+try(2 * ctrl_tf(1e308, 1))
+```
+
+ For block
 diagrams with named signals, `ctrl_sumblock()` and `ctrl_connect()` wire
 blocks by signal name:
 

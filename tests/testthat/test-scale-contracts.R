@@ -205,3 +205,15 @@ test_that("a tiny feedthrough gives a large finite zero", {
   expect_equal(Re(ctrl_zeros(ctrl_ss(-1, 1, 1, D = 1e-14))), -1e14 - 1,
                tolerance = 1e-10)
 })
+
+test_that("Hankel singular values of a model with complex poles match the Gramians", {
+  set.seed(4)
+  A <- -diag(c(0.5, 1, 2, 5, 10, 20, 50, 100)) + matrix(rnorm(64, sd = 0.3), 8)
+  G <- ctrl_ss(A, matrix(rnorm(8), 8), matrix(rnorm(8), 1))
+  hs <- ctrl_hsvd(G)
+  ref <- sort(sqrt(Mod(eigen(ctrl_gram(G, "c") %*% ctrl_gram(G, "o"))$values)),
+              decreasing = TRUE)
+  expect_length(hs, 8)
+  expect_equal(hs[1:4], ref[1:4], tolerance = 1e-8)
+  expect_equal(attr(ctrl_balreal(G), "hsv")[1:4], ref[1:4], tolerance = 1e-8)
+})

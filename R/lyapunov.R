@@ -238,7 +238,14 @@ lyap_factor <- function(A, B, discrete = FALSE) {
   }
   L <- sch$Z %*% U
   out <- cbind(Re(L), Im(L))
-  out[, colSums(abs(out)) > 0, drop = FALSE]
+  out <- out[, colSums(abs(out)) > 0, drop = FALSE]
+  # compress to at most n columns with an orthogonal factorization
+  # (out' P = Q R gives out out' = (R P')' (R P'))
+  if (ncol(out) > n) {
+    q <- qr(t(out), LAPACK = TRUE)
+    out <- t(qr.R(q)[, order(q$pivot), drop = FALSE])
+  }
+  out
 }
 
 # Back substitution for a complex upper triangular system.
