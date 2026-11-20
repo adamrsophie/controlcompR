@@ -15,7 +15,8 @@ ctrl_kalman_filter(
   x0 = NULL,
   P0 = NULL,
   G = NULL,
-  covariances = c("all", "variances")
+  covariances = c("all", "variances", "final"),
+  lag = NULL
 )
 
 ctrl_kalman_smoother(filter)
@@ -52,8 +53,20 @@ ctrl_kalman_smoother(filter)
 
   `"all"` (default) stores the covariance, innovation covariance and
   gain of every sample; `"variances"` stores only the filtered
-  variances, so memory grows with \\T n\\ instead of \\T n^2\\ (the
-  smoother then cannot be run).
+  variances, so memory grows with \\T n\\ instead of \\T n^2\\;
+  `"final"` stores no per-sample covariance information, only the final
+  covariances. The smoother needs `"all"`.
+
+- lag:
+
+  Optional fixed lag \\L \ge 0\\. When given, `lagged` holds the
+  fixed-lag smoothed estimates: row `k` is the mean of \\x_k\\ given the
+  measurements up to sample \\\min(k + L, T)\\. It needs only the last
+  \\L + 1\\ smoother gains, so it works with every `covariances` mode.
+
+  For online use, filter the data in chunks: pass `next_prediction` and
+  `next_covariance` of one run as `x0` and `P0` of the next. The chunked
+  estimates equal those of a single run over all the data.
 
 - filter:
 
@@ -64,13 +77,15 @@ ctrl_kalman_smoother(filter)
 `ctrl_kalman_filter()` returns an object of class `ctrl_kalman_filter`
 with `filtered` (`T x n`), `predicted` (`T x n`, row `k` is \\\hat
 x\_{k\|k-1}\\), `variances` (`T x n`, the diagonal of \\P\_{k\|k}\\),
-`P_filtered` and `P_predicted` (`n x n x T` arrays, `NULL` with
-`covariances = "variances"`), `innovations`, `innovation_cov`
-(`p x p x T`), `gain` (`n x p x T`), `nis` (normalized innovation
-squared), `loglik` (Gaussian log-likelihood of the measurements) and
-`next_prediction`, `next_covariance` (the prediction for the sample
-after the data). `ctrl_kalman_smoother()` returns a list with `smoothed`
-and `P_smoothed`.
+`P_filtered` and `P_predicted` (`n x n x T` arrays, `NULL` unless
+`covariances = "all"`, as are `innovation_cov` and `gain`; `variances`
+is `NULL` with `"final"`), `P_final` (the filtered covariance at the
+last sample), `lagged` (`NULL` without `lag`), `innovations`,
+`innovation_cov` (`p x p x T`), `gain` (`n x p x T`), `nis` (normalized
+innovation squared), `loglik` (Gaussian log-likelihood of the
+measurements) and `next_prediction`, `next_covariance` (the prediction
+for the sample after the data). `ctrl_kalman_smoother()` returns a list
+with `smoothed` and `P_smoothed`.
 
 ## Details
 

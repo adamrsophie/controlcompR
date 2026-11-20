@@ -86,7 +86,8 @@
 <span>  x0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  P0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  G <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  covariances <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"all"</span>, <span class="st">"variances"</span><span class="op">)</span></span>
+<span>  covariances <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"all"</span>, <span class="st">"variances"</span>, <span class="st">"final"</span><span class="op">)</span>,</span>
+<span>  lag <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">ctrl_kalman_smoother</span><span class="op">(</span><span class="va">filter</span><span class="op">)</span></span></code></pre></div>
@@ -125,7 +126,19 @@ zero and the identity).</p></dd>
 <dd><p><code>"all"</code> (default) stores the covariance, innovation
 covariance and gain of every sample; <code>"variances"</code> stores only the
 filtered variances, so memory grows with \(T n\) instead of
-\(T n^2\) (the smoother then cannot be run).</p></dd>
+\(T n^2\); <code>"final"</code> stores no per-sample covariance information,
+only the final covariances. The smoother needs <code>"all"</code>.</p></dd>
+
+
+<dt id="arg-lag">lag<a class="anchor" aria-label="anchor" href="#arg-lag"></a></dt>
+<dd><p>Optional fixed lag \(L \ge 0\). When given, <code>lagged</code> holds
+the fixed-lag smoothed estimates: row <code>k</code> is the mean of \(x_k\)
+given the measurements up to sample \(\min(k + L, T)\). It needs
+only the last \(L + 1\) smoother gains, so it works with every
+<code>covariances</code> mode.</p>
+<p>For online use, filter the data in chunks: pass <code>next_prediction</code> and
+<code>next_covariance</code> of one run as <code>x0</code> and <code>P0</code> of the next. The chunked
+estimates equal those of a single run over all the data.</p></dd>
 
 
 <dt id="arg-filter">filter<a class="anchor" aria-label="anchor" href="#arg-filter"></a></dt>
@@ -138,8 +151,10 @@ filtered variances, so memory grows with \(T n\) instead of
 <code>ctrl_kalman_filter</code> with <code>filtered</code> (<code>T x n</code>), <code>predicted</code> (<code>T x n</code>,
 row <code>k</code> is \(\hat x_{k|k-1}\)), <code>variances</code> (<code>T x n</code>, the diagonal of
 \(P_{k|k}\)), <code>P_filtered</code> and <code>P_predicted</code> (<code>n x n x T</code> arrays,
-<code>NULL</code> with <code>covariances = "variances"</code>), <code>innovations</code>,
-<code>innovation_cov</code> (<code>p x p x T</code>), <code>gain</code> (<code>n x p x T</code>), <code>nis</code>
+<code>NULL</code> unless <code>covariances = "all"</code>, as are <code>innovation_cov</code> and
+<code>gain</code>; <code>variances</code> is <code>NULL</code> with <code>"final"</code>), <code>P_final</code> (the filtered
+covariance at the last sample), <code>lagged</code> (<code>NULL</code> without <code>lag</code>),
+<code>innovations</code>, <code>innovation_cov</code> (<code>p x p x T</code>), <code>gain</code> (<code>n x p x T</code>), <code>nis</code>
 (normalized innovation squared), <code>loglik</code> (Gaussian log-likelihood of
 the measurements) and <code>next_prediction</code>, <code>next_covariance</code> (the
 prediction for the sample after the data).

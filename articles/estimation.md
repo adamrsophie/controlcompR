@@ -106,6 +106,31 @@ c(filter = sqrt(mean((run$filtered[, 1] - X[, 1])^2)),
 #> 0.04322331 0.03344030
 ```
 
+The smoother needs the covariance history of the whole run. For long or
+streaming data, `lag` gives fixed-lag smoothed estimates instead: row
+`k` uses the measurements up to sample `k + lag`, and only the last
+`lag + 1` smoother gains are kept, so it works with
+`covariances = "final"`, which stores no per-sample covariance
+information at all. Data can also be filtered in chunks by passing
+`next_prediction` and `next_covariance` on as the prior of the next
+chunk:
+
+``` r
+
+fl <- ctrl_kalman_filter(pd, y, Qn = diag(c(1e-4, 1e-3)), Rn = 0.01,
+                         x0 = c(0, 0), P0 = diag(2), lag = 10,
+                         covariances = "final")
+c(lag_10 = sqrt(mean((fl$lagged[, 1] - X[, 1])^2)))
+#>   lag_10 
+#> 0.034252
+first <- ctrl_kalman_filter(pd, y[1:75], Qn = diag(c(1e-4, 1e-3)), Rn = 0.01,
+                            x0 = c(0, 0), P0 = diag(2))
+second <- ctrl_kalman_filter(pd, y[76:Tn], Qn = diag(c(1e-4, 1e-3)), Rn = 0.01,
+                             x0 = first$next_prediction, P0 = first$next_covariance)
+max(abs(rbind(first$filtered, second$filtered) - run$filtered))
+#> [1] 0
+```
+
 Covariances are inverted only on their support, and that support is
 decided after scaling the covariance to unit diagonal. A small but
 positive variance therefore stays informative whatever the units of the

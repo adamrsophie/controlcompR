@@ -86,7 +86,7 @@ sim <- ctrl_simulate_mpc(mpc, x0 = c(2, 0), steps = 80)
 summary(sim)
 #> MPC simulation: 80 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 80
-#>   solve time: mean 0.000505 s, max 0.00154 s; mean iterations 392.2
+#>   solve time: mean 0.000814 s, max 0.00249 s; mean iterations 392.2
 #>   max input bound violation: 3.26e-11
 #>   max state bound violation (true plant): 0
 #>   max slack: 0
@@ -275,9 +275,9 @@ data.frame(
   velocity_violation = vapply(runs, function(r) max(0, abs(r$x[, 2]) - 0.6), 0)
 )
 #>   accuracy solve_time_ms input_difference velocity_violation
-#> 1     high      41.80926     0.000000e+00       0.000000e+00
-#> 2 standard      22.19434     1.164292e-07       1.164004e-08
-#> 3     fast      10.53425     3.245784e-03       1.405307e-04
+#> 1     high      67.43875     0.000000e+00       0.000000e+00
+#> 2 standard      35.33374     1.164292e-07       1.164004e-08
+#> 3     fast      16.78706     3.245784e-03       1.405307e-04
 ```
 
 Solver time is measured, so it varies between machines and runs; the

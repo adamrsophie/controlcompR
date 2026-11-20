@@ -47,7 +47,7 @@ sim_s <- ctrl_simulate_mpc(soft, c(0, 1), steps = 60)
 summary(sim_s)
 #> MPC simulation: 60 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 60
-#>   solve time: mean 2.44e-05 s, max 3.79e-05 s; mean iterations 49.58
+#>   solve time: mean 4.17e-05 s, max 6.68e-05 s; mean iterations 49.58
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0.94
 #>   max slack: 0.94
@@ -161,7 +161,7 @@ fast <- ctrl_mhe_run(ctrl_mhe(sys, horizon = 10, Qn = 4e-4, Rn = 0.09, x0 = 0,
 c(max_difference = max(abs(fast$estimates - est$estimates)),
   time_high_ms = 1e3 * sum(est$solve_time), time_fast_ms = 1e3 * sum(fast$solve_time))
 #> max_difference   time_high_ms   time_fast_ms 
-#>   5.012392e-05   2.005029e+00   1.141855e+00
+#>   5.012392e-05   3.004358e+00   1.672451e+00
 ```
 
 ``` r

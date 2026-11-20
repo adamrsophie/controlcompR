@@ -21,7 +21,7 @@ ctrl_ekf(
   Rn,
   x0 = NULL,
   P0 = NULL,
-  covariances = c("all", "variances")
+  covariances = c("all", "variances", "final")
 )
 
 ctrl_ukf(
@@ -35,7 +35,7 @@ ctrl_ukf(
   alpha = 1,
   beta = 2,
   kappa = 0,
-  covariances = c("all", "variances")
+  covariances = c("all", "variances", "final")
 )
 ```
 
@@ -63,7 +63,7 @@ ctrl_ukf(
 
 - covariances:
 
-  `"all"` (default) or `"variances"`; see
+  `"all"` (default), `"variances"` or `"final"`; see
   [`ctrl_kalman_filter()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md).
 
 - alpha, beta, kappa:
@@ -74,8 +74,9 @@ ctrl_ukf(
 
 A list of class `c("ctrl_nl_filter", "ctrl_kalman_filter")` with
 `filtered`, `variances`, `P_filtered` (`NULL` with
-`covariances = "variances"`), `innovations`, `nis` and `loglik`. It has
-no predicted covariances, so
+`covariances = "variances"` or `"final"`; `variances` is `NULL` with
+`"final"`), `P_final`, `innovations`, `nis` and `loglik`. It has no
+predicted covariances, so
 [`ctrl_kalman_smoother()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md)
 does not accept it.
 

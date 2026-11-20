@@ -213,7 +213,7 @@ sim_n$failures
 #> [1] 0
 tail(sim_n$x, 1)
 #>          angle         rate
-#> [61,] 3.141344 0.0007897792
+#> [61,] 3.141344 0.0007897896
 df <- data.frame(t = sim_n$time, angle = sim_n$x[, 1])
 ggplot2::ggplot(df, ggplot2::aes(t, angle)) + ggplot2::geom_line() +
   ggplot2::geom_hline(yintercept = pi, linetype = "dashed") + ggplot2::theme_bw()
@@ -264,7 +264,7 @@ tr <- ctrl_nl_trajopt(pd10, x0 = c(0, 0), horizon = 30, Q = 0, R = 0.01,
                       terminal_tol = 1e-4)
 tr
 #> Trajectory optimization: 30 steps, objective 6.346, converged: TRUE
-#>   terminal error: 3.623e-05
+#>   terminal error: 3.093e-05
 df <- data.frame(t = rep(tr$time[-1], 2),
                  value = c(tr$x[-1, 1], tr$u[, 1]),
                  series = rep(c("angle", "torque"), each = 30))
