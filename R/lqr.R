@@ -52,7 +52,7 @@ ctrl_lqr <- function(sys, Q, R, N = NULL) {
   Q <- expand_weight(Q, n, "Q")
   R <- expand_weight(R, m, "R")
   if (!is.null(N)) N <- as_real_matrix(N, "N", n, m)
-  ctr <- ctrl_controllability(s)
+  ctr <- ctrb_check(s$A, s$B, s$dt)
   if (!ctr$stabilizable) {
     ctrl_abort("(A, B) is not stabilizable; uncontrollable unstable modes: ",
                paste(format(signif(ctr$uncontrollable_modes, 4)),

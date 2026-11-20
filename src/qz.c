@@ -17,6 +17,10 @@
 
 extern double cc_sel_tol;
 SEXP cc_named_list(int n, const char **names);
+int cc_square_real(SEXP x, const char *name);
+int cc_mode(SEXP mode_);
+double cc_tol(SEXP tol_);
+int cc_lwork(double wq, int info, const char *routine);
 
 extern void F77_NAME(dgges)(const char *jobvsl, const char *jobvsr,
                             const char *sort,
@@ -43,8 +47,10 @@ static int gsel_dt(double *ar, double *ai, double *b)
 
 SEXP cc_qz(SEXP a_, SEXP b_, SEXP mode_, SEXP tol_)
 {
-    int n = nrows(a_), mode = asInteger(mode_), info = 0, sdim = 0, lwork = -1;
-    cc_sel_tol = asReal(tol_);
+    int n = cc_square_real(a_, "A"), mode = cc_mode(mode_), info = 0,
+        sdim = 0, lwork = -1, ld = n > 0 ? n : 1;
+    if (cc_square_real(b_, "B") != n) error("`A` and `B` must have the same size");
+    cc_sel_tol = cc_tol(tol_);
     SEXP AA = PROTECT(duplicate(a_));
     SEXP BB = PROTECT(duplicate(b_));
     SEXP Q = PROTECT(allocMatrix(REALSXP, n, n));
@@ -55,16 +61,16 @@ SEXP cc_qz(SEXP a_, SEXP b_, SEXP mode_, SEXP tol_)
     int *bwork = (int *) R_alloc(n > 0 ? n : 1, sizeof(int));
     const char *sort = mode == 0 ? "N" : "S";
     int (*sel)(double *, double *, double *) = mode == 2 ? gsel_dt : gsel_ct;
-    double wq;
-    F77_CALL(dgges)("V", "V", sort, sel, &n, REAL(AA), &n, REAL(BB), &n, &sdim,
-                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &n, REAL(Z), &n,
+    double wq = 0.0;
+    F77_CALL(dgges)("V", "V", sort, sel, &n, REAL(AA), &ld, REAL(BB), &ld, &sdim,
+                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &ld, REAL(Z), &ld,
                     &wq, &lwork, bwork, &info CC_FCONE CC_FCONE CC_FCONE);
-    lwork = (int) wq;
-    if (lwork < 1) lwork = 1;
+    lwork = cc_lwork(wq, info, "dgges");
     double *work = (double *) R_alloc(lwork, sizeof(double));
-    F77_CALL(dgges)("V", "V", sort, sel, &n, REAL(AA), &n, REAL(BB), &n, &sdim,
-                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &n, REAL(Z), &n,
+    F77_CALL(dgges)("V", "V", sort, sel, &n, REAL(AA), &ld, REAL(BB), &ld, &sdim,
+                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &ld, REAL(Z), &ld,
                     work, &lwork, bwork, &info CC_FCONE CC_FCONE CC_FCONE);
+    if (info < 0) error("LAPACK dgges: argument %d is invalid", -info);
     const char *nms[] = {"AA", "BB", "Q", "Z", "alphar", "alphai", "beta", "sdim", "info"};
     SEXP out = PROTECT(cc_named_list(9, nms));
     SET_VECTOR_ELT(out, 0, AA);

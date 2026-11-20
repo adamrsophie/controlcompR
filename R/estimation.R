@@ -110,7 +110,7 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
     ctrl_abort("The joint noise covariance [Qn Nn; Nn' Rn] is not positive ",
                "semidefinite.")
   }
-  obs <- ctrl_observability(s)
+  obs <- obsv_check(s$A, s$C, s$dt)
   if (!obs$detectable) {
     ctrl_abort("(A, C) is not detectable; unobservable unstable modes: ",
                paste(format(signif(obs$unobservable_modes, 4)), collapse = ", "),

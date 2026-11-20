@@ -237,8 +237,8 @@ summary.ctrl_ss <- function(object, ...) {
     dt = object$dt,
     poles = st$poles,
     stability = st$classification,
-    controllability_rank = if (n) ctrl_controllability(object)$rank else 0L,
-    observability_rank = if (n) ctrl_observability(object)$rank else 0L,
+    controllability_rank = if (n) ctrb_check(as_ss(object)$A, as_ss(object)$B)$rank else 0L,
+    observability_rank = if (n) obsv_check(as_ss(object)$A, as_ss(object)$C)$rank else 0L,
     dc_gain = tryCatch(ctrl_dcgain(object), error = function(e) NULL)
   )
   class(out) <- "ctrl_summary"

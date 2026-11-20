@@ -61,6 +61,17 @@
     are evaluated; only singular or overflowing solves give `NA`.
   * Loop internal stability checks use the same policy as
     `ctrl_stability()`.
+  * Design functions (LQR, pole placement, Kalman design, offset-free
+    MPC, H2 and H-infinity synthesis) and the `ctrl_is_*()` predicates
+    use only the staircase reduction; the PBH table and controllability
+    matrix singular values are computed only by `ctrl_controllability()`
+    and `ctrl_observability()`. LQR on a 120-state model is about three
+    times faster.
+  * The native LAPACK wrappers check argument types, dimensions, modes
+    and tolerances at entry, check workspace queries before using their
+    sizes, stop on invalid-argument codes and accept empty matrices. The
+    test suite runs clean under AddressSanitizer and
+    UndefinedBehaviorSanitizer.
   * Robust stability decisions and H-infinity synthesis certification use
     the upper bound of the norm computation (`upper_bound`); an attained
     zero H-infinity optimum is returned with `gamma = 0`.

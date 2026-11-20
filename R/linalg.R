@@ -27,6 +27,8 @@ schur_real <- function(A, order = c("none", "continuous", "discrete"), tol = 0) 
 qz_real <- function(A, B, order = c("none", "continuous", "discrete"), tol = 0) {
   order <- match.arg(order)
   mode <- match(order, c("none", "continuous", "discrete")) - 1L
+  A <- as.matrix(A)
+  B <- as.matrix(B)
   storage.mode(A) <- "double"
   storage.mode(B) <- "double"
   out <- .Call(cc_qz, A, B, mode, as.double(tol))
@@ -70,9 +72,13 @@ gen_eigenvalues <- function(A, B, tol = NULL, warn = TRUE) {
 
 # Solve A X + X B = C for quasi-triangular A and B (both in real Schur form).
 trsyl <- function(Ta, Tb, C, trana = "N", tranb = "N", isgn = 1L) {
+  Ta <- as.matrix(Ta)
+  Tb <- as.matrix(Tb)
+  C <- as.matrix(C)
+  storage.mode(Ta) <- "double"
+  storage.mode(Tb) <- "double"
   storage.mode(C) <- "double"
   out <- .Call(cc_trsyl, Ta, Tb, C, trana, tranb, as.integer(isgn))
-  if (out$info < 0L) ctrl_abort("Invalid argument to LAPACK dtrsyl.")
   if (out$info == 1L) {
     ctrl_warn("Sylvester equation is nearly singular; the solution was ",
               "computed with perturbed eigenvalues and may be inaccurate.")

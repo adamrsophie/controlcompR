@@ -682,7 +682,7 @@ ctrl_mpc_estimator <- function(mpc, type = c("output", "input"), Qn, Qd, Rn) {
   Ba <- rbind(s$B, matrix(0, nd, m))
   Ca <- cbind(s$C, Cd)
   aug <- ctrl_ss(Aa, Ba, Ca, s$D, dt = s$dt)
-  obs <- ctrl_observability(aug)
+  obs <- obsv_check(aug$A, aug$C, aug$dt)
   if (!obs$full) {
     ctrl_abort("The disturbance-augmented model is not observable; offset-free ",
                "estimation is impossible with this disturbance model.")

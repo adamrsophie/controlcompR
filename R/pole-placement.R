@@ -49,7 +49,7 @@ ctrl_place <- function(sys, B = NULL, poles, maxiter = 50L) {
   check_conjugate(poles, "poles")
   qb <- qr(B)
   if (qb$rank < m) ctrl_abort("`B` must have full column rank.")
-  ctr <- ctrl_controllability(A, B)
+  ctr <- ctrb_check(A, B)
   if (!ctr$full) {
     ctrl_abort("(A, B) is not controllable (rank ", ctr$rank, " of ", n,
                "); the uncontrollable modes cannot be moved.")

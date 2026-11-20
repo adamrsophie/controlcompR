@@ -86,10 +86,10 @@ synthesis_checks <- function(pp, what) {
     ctrl_abort("D21 must have full row rank (every measurement must be ",
                "corrupted by noise in w); this singular problem is not supported.")
   }
-  if (!ctrl_controllability(pp$A, pp$B2, discrete = FALSE)$stabilizable) {
+  if (!ctrb_check(pp$A, pp$B2)$stabilizable) {
     ctrl_abort("(A, B2) is not stabilizable.")
   }
-  if (!ctrl_observability(pp$A, pp$C2, discrete = FALSE)$detectable) {
+  if (!obsv_check(pp$A, pp$C2)$detectable) {
     ctrl_abort("(C2, A) is not detectable.")
   }
 }

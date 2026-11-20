@@ -136,7 +136,11 @@ ctrl_controllability <- function(sys, B = NULL, tol = NULL, discrete = NULL) {
   controllability_core(ab$A, ab$B, tol, dt, "controllable")
 }
 
-controllability_core <- function(A, B, tol, dt, word) {
+# `report = FALSE` gives the structural answer only (staircase rank and
+# uncontrollable modes), without the PBH table and the singular values of
+# the controllability matrix; design functions that only need to know
+# whether a model is stabilizable or controllable use it.
+controllability_core <- function(A, B, tol, dt, word, report = TRUE) {
   n <- nrow(A)
   st <- staircase(A, B, tol)
   nc <- st$nc
@@ -154,8 +158,8 @@ controllability_core <- function(A, B, tol, dt, word) {
     uncontrollable_modes = unc,
     basis = st$U[, seq_len(nc), drop = FALSE],
     transform = st$U,
-    pbh = if (n) pbh_table(A, B, st$tol) else NULL,
-    ctrb_singular_values = if (n) ctrb_sv(A, B) else numeric(),
+    pbh = if (report && n) pbh_table(A, B, st$tol) else NULL,
+    ctrb_singular_values = if (report && n) ctrb_sv(A, B) else numeric(),
     tol = st$tol,
     kind = word
   )
@@ -165,11 +169,22 @@ controllability_core <- function(A, B, tol, dt, word) {
     names(out)[names(out) == "stabilizable"] <- "detectable"
     names(out)[names(out) == "uncontrollable_modes"] <- "unobservable_modes"
     out$observable <- out$full
-    out$pbh$observable <- out$pbh$controllable
-    out$pbh$controllable <- NULL
+    if (!is.null(out$pbh)) {
+      out$pbh$observable <- out$pbh$controllable
+      out$pbh$controllable <- NULL
+    }
   }
   class(out) <- "ctrl_controllability"
   out
+}
+
+# Structural checks for design functions: the staircase answer only.
+ctrb_check <- function(A, B, dt = 0, tol = NULL) {
+  controllability_core(A, B, tol, dt, "controllable", report = FALSE)
+}
+
+obsv_check <- function(A, C, dt = 0, tol = NULL) {
+  controllability_core(t(A), t(C), tol, dt, "observable", report = FALSE)
 }
 
 #' Observability and detectability analysis
@@ -237,23 +252,29 @@ ctrb_sv <- function(A, B) {
 #' ctrl_is_detectable(ctrl_ss(diag(c(-1, 2)), c(0, 1), c(1, 0)))
 #' @export
 ctrl_is_stabilizable <- function(sys, tol = NULL) {
-  ctrl_controllability(sys, tol = tol)$stabilizable
+  ctrl_check_sys(sys, tol, "c")$stabilizable
 }
 
 #' @rdname ctrl_is_stabilizable
 #' @export
 ctrl_is_detectable <- function(sys, tol = NULL) {
-  ctrl_observability(sys, tol = tol)$detectable
+  ctrl_check_sys(sys, tol, "o")$detectable
 }
 
 #' @rdname ctrl_is_stabilizable
 #' @export
 ctrl_is_controllable <- function(sys, tol = NULL) {
-  ctrl_controllability(sys, tol = tol)$full
+  ctrl_check_sys(sys, tol, "c")$full
 }
 
 #' @rdname ctrl_is_stabilizable
 #' @export
 ctrl_is_observable <- function(sys, tol = NULL) {
-  ctrl_observability(sys, tol = tol)$full
+  ctrl_check_sys(sys, tol, "o")$full
+}
+
+ctrl_check_sys <- function(sys, tol, which) {
+  s <- as_ss(sys)
+  if (which == "c") ctrb_check(s$A, s$B, s$dt, tol) else
+    obsv_check(s$A, s$C, s$dt, tol)
 }
