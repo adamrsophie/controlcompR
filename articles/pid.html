@@ -197,8 +197,9 @@ hold at the controller sample interval):</p>
 <span><span class="co">#&gt; 1 1.96389 1.001498 4.29645 0.29033       2.388996       1.5             0</span></span></code></pre></div>
 <p>A plant with direct feedthrough makes the measurement depend on the
 input of the same sample. The controller output before saturation is
-affine in the measurement, so the simulator solves this algebraic loop
-exactly (with saturation) instead of inserting a hidden delay:</p>
+affine in the measurement with a slope known in closed form, so the
+simulator solves this algebraic loop exactly (with saturation) instead
+of inserting a hidden delay:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lead</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_c2d.html">ctrl_c2d</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, <span class="va">pid</span><span class="op">$</span><span class="va">dt</span><span class="op">)</span>   <span class="co"># D = 0.5</span></span>
 <span><span class="va">sim_ft</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_simulate_pid.html">ctrl_simulate_pid</a></span><span class="op">(</span><span class="va">lead</span>, <span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">1</span>, ki <span class="op">=</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="va">pid</span><span class="op">$</span><span class="va">dt</span><span class="op">)</span>,</span>
@@ -212,6 +213,29 @@ exactly (with saturation) instead of inserting a hidden delay:</p>
 <span><span class="co">#&gt; 5 0.08 0.3854339 0.7180715</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="one-step-at-a-time">One step at a time<a class="anchor" aria-label="anchor" href="#one-step-at-a-time"></a>
+</h2>
+<p>For embedding the controller in a custom loop,
+<code><a href="../reference/ctrl_pid_update.html">ctrl_pid_update()</a></code> advances the discrete implementation by
+one sample and returns the output, its parts and the state for the next
+call. <code>init = "hold"</code> (the default) assumes the signals were
+constant before the first sample (no derivative kick);
+<code>init = "zero"</code> assumes zero history, which reproduces the
+zero-state response of the controller transfer function:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pid1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">1</span>, ki <span class="op">=</span> <span class="fl">1</span>, kd <span class="op">=</span> <span class="fl">0.1</span>, Tf <span class="op">=</span> <span class="fl">0.05</span>, dt <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
+<span><span class="va">st</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">k</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_pid_update.html">ctrl_pid_update</a></span><span class="op">(</span><span class="va">pid1</span>, <span class="va">st</span>, r <span class="op">=</span> <span class="fl">1</span>, y <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
+<span>  <span class="va">st</span> <span class="op">&lt;-</span> <span class="va">out</span><span class="op">$</span><span class="va">state</span></span>
+<span><span class="op">}</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">out</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"u"</span>, <span class="st">"P"</span>, <span class="st">"I"</span>, <span class="st">"D"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   u   P   I   D </span></span>
+<span><span class="co">#&gt; 1.2 1.0 0.2 0.0</span></span>
+<span><span class="fu"><a href="../reference/ctrl_pid_update.html">ctrl_pid_update</a></span><span class="op">(</span><span class="va">pid1</span>, <span class="cn">NULL</span>, r <span class="op">=</span> <span class="fl">1</span>, y <span class="op">=</span> <span class="fl">0</span>, init <span class="op">=</span> <span class="st">"zero"</span><span class="op">)</span><span class="op">$</span><span class="va">u</span></span>
+<span><span class="co">#&gt; [1] 1</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="anti-windup">Anti-windup<a class="anchor" aria-label="anchor" href="#anti-windup"></a>
 </h2>
 <p>When the actuator saturates, an unprotected integrator keeps growing
@@ -220,7 +244,7 @@ Back-calculation feeds the difference between the saturated and
 unsaturated outputs back into the integrator with gain <code>kt</code>;
 clamping stops integration while the output is saturated in the
 direction of the error:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plant2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">mk</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">aw</span><span class="op">)</span> <span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">1</span>, ki <span class="op">=</span> <span class="fl">2</span>, u_min <span class="op">=</span> <span class="op">-</span><span class="fl">0.4</span>, u_max <span class="op">=</span> <span class="fl">0.4</span>,</span>
 <span>                            antiwindup <span class="op">=</span> <span class="va">aw</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
@@ -232,10 +256,10 @@ direction of the error:</p>
 <span><span class="co">#&gt; overshoot      0.0406833 0.01488736 0.01113191</span></span>
 <span><span class="co">#&gt; max_integrator 0.5183408 0.39461983 0.38336489</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">runs</span><span class="op">$</span><span class="va">none</span><span class="op">)</span></span></code></pre></div>
-<p><img src="pid_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<p><img src="pid_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">runs</span><span class="op">$</span><span class="va">backcalc</span><span class="op">)</span></span></code></pre></div>
-<p><img src="pid_files/figure-html/unnamed-chunk-7-2.png" class="r-plt" alt="" width="672"></p>
+<p><img src="pid_files/figure-html/unnamed-chunk-8-2.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level2">
 <h2 id="bumpless-transfer">Bumpless transfer<a class="anchor" aria-label="anchor" href="#bumpless-transfer"></a>
@@ -243,7 +267,7 @@ direction of the error:</p>
 <p>In manual mode the controller output follows an operator value while
 the integrator tracks it, so switching to automatic mode does not cause
 a jump:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">manual</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="fl">100</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">200</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">sim_bt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_simulate_pid.html">ctrl_simulate_pid</a></span><span class="op">(</span><span class="va">plant2</span>, <span class="fu"><a href="../reference/ctrl_pid.html">ctrl_pid</a></span><span class="op">(</span>kp <span class="op">=</span> <span class="fl">1</span>, ki <span class="op">=</span> <span class="fl">1</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>,</span>
 <span>                            reference <span class="op">=</span> <span class="fl">0.5</span>, steps <span class="op">=</span> <span class="fl">300</span>, manual <span class="op">=</span> <span class="va">manual</span><span class="op">)</span></span>
@@ -258,7 +282,7 @@ frequency-response rule uses the ultimate gain and period (from the gain
 margin and phase crossover); SIMC and AMIGO use a first-order plus
 dead-time model, which <code><a href="../reference/ctrl_fit_fopdt.html">ctrl_fit_fopdt()</a></code> estimates from a
 step response:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plant3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_fit_fopdt.html">ctrl_fit_fopdt</a></span><span class="op">(</span><span class="va">plant3</span><span class="op">)</span></span>
 <span><span class="va">fit</span></span>
@@ -288,9 +312,9 @@ realistic saturation and noise before using a tuned controller.</p>
 <div class="section level2">
 <h2 id="root-locus">Root locus<a class="anchor" aria-label="anchor" href="#root-locus"></a>
 </h2>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_rlocus.html">ctrl_rlocus</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="pid_files/figure-html/unnamed-chunk-10-1.png" class="r-plt" alt="" width="672"></p>
+<p><img src="pid_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="672"></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

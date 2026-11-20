@@ -181,13 +181,41 @@ conversions and interconnections:</p>
 <span><span class="co">#&gt;    u1 u2</span></span>
 <span><span class="co">#&gt; y1  1  3</span></span>
 <span><span class="co">#&gt; y2  2  4</span></span></code></pre></div>
+<p>Predicates and accessors inspect a model without converting it.
+<code><a href="../reference/ctrl_ssdata.html">ctrl_ssdata()</a></code> returns the matrices of any model as a plain
+list (it realizes transfer functions first), and <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>
+gives an overview:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="../reference/is_ctrl_ss.html">is_ctrl_system</a></span><span class="op">(</span><span class="va">sys</span><span class="op">)</span>, <span class="fu"><a href="../reference/is_ctrl_ss.html">is_ctrl_ss</a></span><span class="op">(</span><span class="va">sys</span><span class="op">)</span>, <span class="fu"><a href="../reference/is_ctrl_ss.html">is_ctrl_tf</a></span><span class="op">(</span><span class="va">sys</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1]  TRUE  TRUE FALSE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>discrete <span class="op">=</span> <span class="fu"><a href="../reference/ctrl_ssdata.html">ctrl_is_discrete</a></span><span class="op">(</span><span class="va">sysd</span><span class="op">)</span>, proper <span class="op">=</span> <span class="fu"><a href="../reference/ctrl_is_proper.html">ctrl_is_proper</a></span><span class="op">(</span><span class="va">sys</span><span class="op">)</span>,</span>
+<span>  strictly_proper <span class="op">=</span> <span class="fu"><a href="../reference/ctrl_is_proper.html">ctrl_is_proper</a></span><span class="op">(</span><span class="va">sys</span>, strict <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        discrete          proper strictly_proper </span></span>
+<span><span class="co">#&gt;            TRUE            TRUE            TRUE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_ssdata.html">ctrl_ssdata</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; List of 5</span></span>
+<span><span class="co">#&gt;  $ A : num [1, 1] -1</span></span>
+<span><span class="co">#&gt;  $ B : num [1, 1] 1</span></span>
+<span><span class="co">#&gt;  $ C : num [1, 1] 1</span></span>
+<span><span class="co">#&gt;  $ D : num [1, 1] 0</span></span>
+<span><span class="co">#&gt;  $ dt: num 0</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sys</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Model summary (continuous time)</span></span>
+<span><span class="co">#&gt;   states: 2, inputs: 1, outputs: 1</span></span>
+<span><span class="co">#&gt;   stability: asymptotically stable</span></span>
+<span><span class="co">#&gt;   poles: -0.4+1.96i, -0.4-1.96i</span></span>
+<span><span class="co">#&gt;   controllability rank: 2 of 2</span></span>
+<span><span class="co">#&gt;   observability rank: 2 of 2</span></span>
+<span><span class="co">#&gt;   DC gain:</span></span>
+<span><span class="co">#&gt;      u1</span></span>
+<span><span class="co">#&gt; y1 0.25</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="transfer-functions-and-zero-pole-gain-models">Transfer functions and zero-pole-gain models<a class="anchor" aria-label="anchor" href="#transfer-functions-and-zero-pole-gain-models"></a>
 </h2>
 <p>Polynomial coefficients are in descending powers of <code>s</code>
 (or <code>z</code>):</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">G</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">G</span></span>
 <span><span class="co">#&gt; Transfer function (continuous time)</span></span>
@@ -202,7 +230,7 @@ conversions and interconnections:</p>
 <p>Multivariable transfer functions are list matrices of numerators and
 denominators. The zero-pole-gain form is often better conditioned for
 high order models:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">H</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_zpk.html">ctrl_zpk</a></span><span class="op">(</span>zeros <span class="op">=</span> <span class="op">-</span><span class="fl">3</span>, poles <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span> <span class="op">+</span> <span class="fl">2i</span>, <span class="op">-</span><span class="fl">1</span> <span class="op">-</span> <span class="fl">2i</span><span class="op">)</span>, gain <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">H</span></span>
 <span><span class="co">#&gt; Zero-pole-gain model (continuous time)</span></span>
@@ -214,7 +242,21 @@ high order models:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;         s +     3</span></span>
 <span><span class="co">#&gt;   ---------------------</span></span>
-<span><span class="co">#&gt;   s^2 +     2 s +     5</span></span></code></pre></div>
+<span><span class="co">#&gt;   s^2 +     2 s +     5</span></span>
+<span><span class="fu"><a href="../reference/ctrl_tf2ss.html">ctrl_tf2zpk</a></span><span class="op">(</span><span class="va">G</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Zero-pole-gain model (continuous time)</span></span>
+<span><span class="co">#&gt;   gain: 1</span></span>
+<span><span class="co">#&gt;   zeros: -3+0i</span></span>
+<span><span class="co">#&gt;   poles: -1+2i, -1-2i</span></span></code></pre></div>
+<p><code><a href="../reference/ctrl_tf_minreal.html">ctrl_tf_minreal()</a></code> cancels common pole-zero pairs of a
+transfer function directly in polynomial form:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_tf_minreal.html">ctrl_tf_minreal</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>  <span class="co"># (s + 1) / ((s + 1)(s + 2))</span></span>
+<span><span class="co">#&gt; Transfer function (continuous time)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;         1</span></span>
+<span><span class="co">#&gt;   ---------</span></span>
+<span><span class="co">#&gt;   s +     2</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="conversions">Conversions<a class="anchor" aria-label="anchor" href="#conversions"></a>
@@ -222,7 +264,7 @@ high order models:</p>
 <p><code><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss()</a></code> builds a realization (minimal by default)
 and <code><a href="../reference/ctrl_tf2ss.html">ctrl_ss2tf()</a></code> computes the transfer function of each
 channel:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ss</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss</a></span><span class="op">(</span><span class="va">G</span><span class="op">)</span></span>
 <span><span class="va">ss</span></span>
 <span><span class="co">#&gt; State-space model (continuous time)</span></span>
@@ -255,7 +297,7 @@ channel:</p>
 <code><a href="../reference/ctrl_transform.html">ctrl_transform()</a></code> applies one explicitly. Pole-zero
 cancellations are removed by <code><a href="../reference/ctrl_minreal.html">ctrl_minreal()</a></code>, whose default
 tolerance is scaled by the norms of the model:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">Gc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span>  <span class="co"># (s + 1) / ((s + 1)(s + 2))</span></span>
 <span><span class="fu"><a href="../reference/ctrl_minreal.html">ctrl_minreal</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss</a></span><span class="op">(</span><span class="va">Gc</span>, minimal <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; State-space model (continuous time)</span></span>
@@ -288,7 +330,7 @@ The zero-order hold is computed from the exponential of an augmented
 matrix <span class="math inline">\exp\begin{pmatrix} A &amp; B \\ 0
 &amp; 0 \end{pmatrix} T</span>, which avoids inverting
 <code>A</code>:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">Gd</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_c2d.html">ctrl_c2d</a></span><span class="op">(</span><span class="va">sys</span>, <span class="fl">0.1</span><span class="op">)</span></span>
 <span><span class="va">Gd</span></span>
 <span><span class="co">#&gt; State-space model (discrete time, dt = 0.1)</span></span>
@@ -319,7 +361,7 @@ matrix <span class="math inline">\exp\begin{pmatrix} A &amp; B \\ 0
 is exact for piecewise constant inputs; Tustin preserves stability and
 maps the whole imaginary axis onto the unit circle, with frequency
 warping corrected at one frequency by <code>prewarp</code>:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">w0</span> <span class="op">&lt;-</span> <span class="fl">2</span></span>
 <span><span class="va">tus</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_c2d.html">ctrl_c2d</a></span><span class="op">(</span><span class="va">sys</span>, <span class="fl">0.1</span>, method <span class="op">=</span> <span class="st">"tustin"</span>, prewarp <span class="op">=</span> <span class="va">w0</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>continuous <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/complex.html" class="external-link">Mod</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_freqresp.html">ctrl_freqresp</a></span><span class="op">(</span><span class="va">sys</span>, <span class="va">w0</span><span class="op">)</span><span class="op">$</span><span class="va">response</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span>,</span>
@@ -335,7 +377,7 @@ poles on the negative real axis).</p>
 </h2>
 <p>Series, parallel and feedback connections work on any mix of models
 in the same time domain. Arithmetic operators are shorthand:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">C</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span>   <span class="co"># PI controller</span></span>
 <span><span class="va">L</span> <span class="op">&lt;-</span> <span class="va">C</span> <span class="op">*</span> <span class="va">G</span>                        <span class="co"># series: G after C</span></span>
 <span><span class="cn">T</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_series.html">ctrl_feedback</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span>             <span class="co"># unity negative feedback</span></span>
@@ -344,10 +386,41 @@ in the same time domain. Arithmetic operators are shorthand:</p>
 <span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_series.html">ctrl_feedback</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">L</span><span class="op">)</span>          <span class="co"># sensitivity 1 / (1 + L)</span></span></code></pre></div>
 <p><code>ctrl_series(sys1, sys2)</code> applies <code>sys1</code> first,
 so <code>C * G</code> equals <code>ctrl_series(G, C)</code> for
-single-input single-output models. For block diagrams with named
-signals, <code><a href="../reference/ctrl_sumblock.html">ctrl_sumblock()</a></code> and <code><a href="../reference/ctrl_connect.html">ctrl_connect()</a></code>
-wire blocks by signal name:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+single-input single-output models. The other operators follow the same
+pattern: <code>+</code> and <code>-</code> are
+<code><a href="../reference/ctrl_series.html">ctrl_parallel()</a></code>, a numeric scalar scales every channel,
+<code>/</code> divides by a scalar, a square matrix or a model (through
+<code><a href="../reference/ctrl_inv.html">ctrl_inv()</a></code>), and <code>^</code> raises a model to an
+integer power. <code><a href="../reference/ctrl_series.html">ctrl_append()</a></code> stacks models block diagonally
+(their inputs and outputs side by side). Scaling that would overflow the
+coefficients raises an error instead of returning infinite entries:</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_series.html">ctrl_parallel</a></span><span class="op">(</span><span class="va">G</span>, <span class="fl">1</span><span class="op">)</span> <span class="co"># G + 1</span></span>
+<span><span class="co">#&gt; Transfer function (continuous time)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   s^2 +     3 s +     8</span></span>
+<span><span class="co">#&gt;   ---------------------</span></span>
+<span><span class="co">#&gt;   s^2 +     2 s +     5</span></span>
+<span><span class="fu"><a href="../reference/ctrl_inv.html">ctrl_inv</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Transfer function (continuous time)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   s +     3</span></span>
+<span><span class="co">#&gt;   ---------</span></span>
+<span><span class="co">#&gt;   s +     2</span></span>
+<span><span class="fu"><a href="../reference/ctrl_ssdata.html">ctrl_dims</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_series.html">ctrl_append</a></span><span class="op">(</span><span class="va">G</span>, <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;  states  inputs outputs </span></span>
+<span><span class="co">#&gt;       3       2       2</span></span>
+<span><span class="va">G</span><span class="op">^</span><span class="fl">2</span></span>
+<span><span class="co">#&gt; Transfer function (continuous time)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;               s^2 +     6 s +     9</span></span>
+<span><span class="co">#&gt;   ---------------------------------------------</span></span>
+<span><span class="co">#&gt;   s^4 +     4 s^3 +    14 s^2 +    20 s +    25</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1e308</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Error : Scaling by 2 overflows the numerator coefficients.</span></span></code></pre></div>
+<p>For block diagrams with named signals, <code><a href="../reference/ctrl_sumblock.html">ctrl_sumblock()</a></code>
+and <code><a href="../reference/ctrl_connect.html">ctrl_connect()</a></code> wire blocks by signal name:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">Gs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss</a></span><span class="op">(</span><span class="va">G</span><span class="op">)</span></span>
 <span><span class="va">Gs</span><span class="op">$</span><span class="va">input_names</span> <span class="op">&lt;-</span> <span class="st">"u"</span></span>
 <span><span class="va">Gs</span><span class="op">$</span><span class="va">output_names</span> <span class="op">&lt;-</span> <span class="st">"y"</span></span>
@@ -383,7 +456,7 @@ wire blocks by signal name:</p>
 <span><span class="co">#&gt; u 2</span></span></code></pre></div>
 <p>The result is the closed loop from <code>r</code> to <code>y</code>
 and <code>u</code>, equal to the feedback connection above:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_dcgain.html">ctrl_dcgain</a></span><span class="op">(</span><span class="va">cl</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          r</span></span>
 <span><span class="co">#&gt; y 1.000000</span></span>

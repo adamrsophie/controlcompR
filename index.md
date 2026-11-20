@@ -16,14 +16,17 @@ programs are solved with [OSQP](https://osqp.org), and ODEs with
 
 Key results carry checks of their own: Riccati solutions are verified by
 their residual and closed-loop eigenvalues, H-infinity controllers by an
-independent norm computation, balanced truncation by a sampled check of
-its error bound, and MPC steps report solver status, bound violations
-and dynamics residuals. Some quantities are sampled rather than
-certified (for example the robust performance peak and Nyquist
-encirclement counts, which return `NA` when the frequency sweep cannot
-resolve them), and nonlinear estimators and controllers are local
-approximations. Each help page states the method, its assumptions and
-what is verified.
+independent norm computation, balanced truncation by sampled errors and
+the error system’s H-infinity norm (reported as `bound_status`,
+`"certified"` or `"estimated"`), and MPC steps report solver status,
+bound violations and dynamics residuals. These checks catch failures;
+they are not proofs of accuracy for every input. Some quantities are
+sampled rather than certified (for example the robust performance peak,
+which has a separate `certified` flag), Nyquist encirclement counts come
+from the argument principle and are `NA` when a closed-loop pole lies on
+the stability boundary, and nonlinear estimators and controllers are
+local approximations. Each help page states the method, its assumptions
+and what is verified.
 
 ## Installation
 

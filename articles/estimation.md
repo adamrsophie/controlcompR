@@ -106,6 +106,25 @@ c(filter = sqrt(mean((run$filtered[, 1] - X[, 1])^2)),
 #> 0.04322331 0.03344030
 ```
 
+Covariances are inverted only on their support, and that support is
+decided after scaling the covariance to unit diagonal. A small but
+positive variance therefore stays informative whatever the units of the
+other states. Here the first state has prior variance 1e14 and is never
+measured; the second is constant with prior variance 1 and one
+measurement of variance 0.01, so its smoothed mean is exactly 1/1.01:
+
+``` r
+
+Gs <- ctrl_ss(diag(2), matrix(0, 2, 1), matrix(c(0, 1), 1), dt = 1)
+f2 <- ctrl_kalman_filter(Gs, c(NA, 1), Qn = matrix(0, 2, 2), Rn = 0.01,
+                         P0 = diag(c(1e14, 1)))
+ctrl_kalman_smoother(f2)$smoothed[, 2] - 1 / 1.01
+#> [1] 2.220446e-16 2.220446e-16
+```
+
+Prior means, measurements and noise covariances must be finite; `NA`
+rows in `y` mark missing samples.
+
 ## LQG control
 
 An LQG controller combines LQR with a Kalman filter. By the separation
@@ -182,4 +201,7 @@ For nonlinear models,
 [`ctrl_ekf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ekf.md)
 and
 [`ctrl_ukf()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ekf.md)
-follow the same conventions; see the article on nonlinear systems.
+follow the same conventions; see the article on nonlinear systems. The
+UKF covariance update uses the same support rule, so for a linear model
+it reproduces the Kalman filter even when the prior variances differ by
+many orders of magnitude.

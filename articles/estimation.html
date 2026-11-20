@@ -200,6 +200,21 @@ Rauch-Tung-Striebel smoother uses all the data for every estimate:</p>
 <span>  smoother <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">(</span><span class="va">sm</span><span class="op">$</span><span class="va">smoothed</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="va">X</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;     filter   smoother </span></span>
 <span><span class="co">#&gt; 0.04322331 0.03344030</span></span></code></pre></div>
+<p>Covariances are inverted only on their support, and that support is
+decided after scaling the covariance to unit diagonal. A small but
+positive variance therefore stays informative whatever the units of the
+other states. Here the first state has prior variance 1e14 and is never
+measured; the second is constant with prior variance 1 and one
+measurement of variance 0.01, so its smoothed mean is exactly
+1/1.01:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">Gs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span>, dt <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_kalman_filter.html">ctrl_kalman_filter</a></span><span class="op">(</span><span class="va">Gs</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">1</span><span class="op">)</span>, Qn <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>, Rn <span class="op">=</span> <span class="fl">0.01</span>,</span>
+<span>                         P0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1e14</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/ctrl_kalman_filter.html">ctrl_kalman_smoother</a></span><span class="op">(</span><span class="va">f2</span><span class="op">)</span><span class="op">$</span><span class="va">smoothed</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span> <span class="op">-</span> <span class="fl">1</span> <span class="op">/</span> <span class="fl">1.01</span></span>
+<span><span class="co">#&gt; [1] 2.220446e-16 2.220446e-16</span></span></code></pre></div>
+<p>Prior means, measurements and noise covariances must be finite;
+<code>NA</code> rows in <code>y</code> mark missing samples.</p>
 </div>
 <div class="section level2">
 <h2 id="lqg-control">LQG control<a class="anchor" aria-label="anchor" href="#lqg-control"></a>
@@ -207,7 +222,7 @@ Rauch-Tung-Striebel smoother uses all the data for every estimate:</p>
 <p>An LQG controller combines LQR with a Kalman filter. By the
 separation principle the closed-loop poles are the union of the
 regulator and estimator poles:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lqg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_lqg.html">ctrl_lqg</a></span><span class="op">(</span><span class="va">pd</span>, Q <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0.1</span><span class="op">)</span><span class="op">)</span>, R <span class="op">=</span> <span class="fl">0.1</span>, Qn <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1e-4</span>, <span class="fl">1e-3</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>                Rn <span class="op">=</span> <span class="fl">0.01</span>, form <span class="op">=</span> <span class="st">"current"</span><span class="op">)</span></span>
 <span><span class="va">lqg</span></span>
@@ -227,7 +242,7 @@ computation.</p>
 </h3>
 <p>A stochastic design should be judged over many noise realizations,
 not one favorable trajectory:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_simulate_lqg.html">ctrl_simulate_lqg</a></span><span class="op">(</span><span class="va">pd</span>, <span class="va">lqg</span>, steps <span class="op">=</span> <span class="fl">200</span>, x0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
 <span>                         replications <span class="op">=</span> <span class="fl">20</span>, seed <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">summary</span><span class="op">[</span>, <span class="op">-</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
@@ -247,7 +262,7 @@ but an LQG controller has no guaranteed margins at all (Doyle, 1978).
 Always check the margins of the actual loop. The controller maps
 <code>y</code> to <code>u</code> including the minus sign, so the loop
 transfer function for the unity negative feedback convention is <span class="math inline">L = -K_c G</span>:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">Lloop</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_series.html">ctrl_series</a></span><span class="op">(</span><span class="op">-</span><span class="va">lqg</span><span class="op">$</span><span class="va">controller</span>, <span class="va">pd</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/ctrl_disk_margin.html">ctrl_disk_margin</a></span><span class="op">(</span><span class="va">Lloop</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Disk margin (skew 0): alpha = 1.355 at w = 2.444</span></span>
@@ -268,7 +283,9 @@ Nyquist curve stays from the critical point.</p>
 </h2>
 <p>For nonlinear models, <code><a href="../reference/ctrl_ekf.html">ctrl_ekf()</a></code> and
 <code><a href="../reference/ctrl_ekf.html">ctrl_ukf()</a></code> follow the same conventions; see the article on
-nonlinear systems.</p>
+nonlinear systems. The UKF covariance update uses the same support rule,
+so for a linear model it reproduces the Kalman filter even when the
+prior variances differ by many orders of magnitude.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

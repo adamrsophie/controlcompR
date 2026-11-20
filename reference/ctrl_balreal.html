@@ -4,14 +4,16 @@ stable model, in which both Gramians equal
 \(\mathrm{diag}(\sigma_1, \ldots, \sigma_r)\) (the Hankel singular
 values); states with zero Hankel singular value (to tolerance) are
 removed. ctrl_balred() truncates the balanced realization to order
-states using the square-root method of Tombs and Laub, which avoids
-forming the balancing transformation from ill-conditioned Gramians."><meta property="og:description" content="ctrl_balreal() returns a balanced realization of an asymptotically
+states using the square-root method of Tombs and Laub. The Gramian
+factors come directly from Hammarling's method, so neither the Gramians
+nor the balancing transformation are formed from squared quantities."><meta property="og:description" content="ctrl_balreal() returns a balanced realization of an asymptotically
 stable model, in which both Gramians equal
 \(\mathrm{diag}(\sigma_1, \ldots, \sigma_r)\) (the Hankel singular
 values); states with zero Hankel singular value (to tolerance) are
 removed. ctrl_balred() truncates the balanced realization to order
-states using the square-root method of Tombs and Laub, which avoids
-forming the balancing transformation from ill-conditioned Gramians."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
+states using the square-root method of Tombs and Laub. The Gramian
+factors come directly from Hammarling's method, so neither the Gramians
+nor the balancing transformation are formed from squared quantities."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -86,8 +88,9 @@ stable model, in which both Gramians equal
 \(\mathrm{diag}(\sigma_1, \ldots, \sigma_r)\) (the Hankel singular
 values); states with zero Hankel singular value (to tolerance) are
 removed. <code>ctrl_balred()</code> truncates the balanced realization to <code>order</code>
-states using the square-root method of Tombs and Laub, which avoids
-forming the balancing transformation from ill-conditioned Gramians.</p>
+states using the square-root method of Tombs and Laub. The Gramian
+factors come directly from Hammarling's method, so neither the Gramians
+nor the balancing transformation are formed from squared quantities.</p>
     </div>
 
     <div class="section level2">
@@ -120,9 +123,12 @@ treated as zero in <code>ctrl_balreal()</code>.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>ctrl_balreal()</code> returns a <code>ctrl_ss</code> model with attribute <code>hsv</code>.
-<code>ctrl_balred()</code> returns the reduced <code>ctrl_ss</code> model with attributes
-<code>hsv</code> (Hankel singular values of the stable part) and <code>error_bound</code>.</p>
+    <p><code>ctrl_balreal()</code> returns a <code>ctrl_ss</code> model with attributes <code>hsv</code>,
+<code>error_bound</code> and <code>bound_status</code>. <code>ctrl_balred()</code> returns the reduced
+<code>ctrl_ss</code> model with attributes <code>hsv</code> (Hankel singular values of the
+stable part), <code>error_bound</code>, <code>bound_status</code> and <code>error_norm</code> (the
+certified upper bound on \(\|G - G_r\|_\infty\) from <code><a href="ctrl_norm.html">ctrl_norm()</a></code>,
+<code>NA</code> when unavailable).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -138,7 +144,15 @@ estimated from the conditioning of \(zI - A\). A sampled error above
 the bound by more than that accuracy raises an error; otherwise
 <code>error_bound</code> is the larger of the a priori bound and the sampled error
 plus its accuracy (relevant only when the bound is at rounding level or
-attained, as when a single Hankel singular value is discarded).</p>
+attained, as when a single Hankel singular value is discarded).
+<code>bound_status</code> says what supports the returned bound: <code>"certified"</code>
+when the H-infinity norm computation of the error system (see
+<code><a href="ctrl_norm.html">ctrl_norm()</a></code>) gave a finite upper bound below it, <code>"estimated"</code> when
+that computation was unavailable and only the a priori bound and the
+sampled errors support it (samples cannot exclude a larger error between
+grid points). <code>ctrl_balreal()</code> runs the same check with the removed
+Hankel singular values, so a balanced realization that does not
+reproduce the transfer function raises an error.</p>
 <p>Unstable models are first split with <code><a href="ctrl_stabsep.html">ctrl_stabsep()</a></code>; only the stable
 part is reduced and the unstable part is kept exactly, so <code>order</code> must be
 at least the number of unstable poles.</p>

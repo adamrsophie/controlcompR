@@ -36,8 +36,11 @@ ctrl_robust_stability(
 
 ## Value
 
-A list with `robustly_stable`, `nominally_stable`, `peak` (the
-H-infinity norm tested), `margin` (`1 / peak`) and `type`.
+A list with `robustly_stable` (decided on `upper_bound`),
+`nominally_stable`, `peak` (the H-infinity norm tested), `upper_bound`
+(the certified upper bound on that norm from
+[`ctrl_norm()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_norm.md)),
+`margin` (`1 / peak`) and `type`.
 
 ## Details
 
@@ -75,6 +78,9 @@ ctrl_robust_stability(G, K, W)
 #> [1] TRUE
 #> 
 #> $peak
+#> [1] 4.762771
+#> 
+#> $upper_bound
 #> [1] 4.762771
 #> 
 #> $margin

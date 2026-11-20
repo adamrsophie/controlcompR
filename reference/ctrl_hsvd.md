@@ -1,8 +1,9 @@
 # Hankel singular values
 
 The square roots of the eigenvalues of \\W_c W_o\\ for an asymptotically
-stable model, computed from Gramian factors as the singular values of
-\\L_o^\top L_c\\.
+stable model, computed as the singular values of \\L_o^\top L_c\\, where
+the Gramian factors \\L_c L_c^\top = W_c\\ and \\L_o L_o^\top = W_o\\
+come directly from Hammarling's method without forming the Gramians.
 
 ## Usage
 

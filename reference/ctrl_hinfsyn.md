@@ -74,7 +74,9 @@ If the check fails, an error is raised instead of returning an
 uncertified controller. The bisection stops at relative tolerance `tol`
 and returns the controller for the smallest feasible \\\gamma\\ found,
 which is slightly suboptimal by design: the central controller becomes
-ill-conditioned at the optimum.
+ill-conditioned at the optimum. When the H2 optimal controller already
+gives a zero closed-loop norm, the optimum zero is attained and that
+controller is returned with `gamma = 0`.
 
 ## References
 
@@ -91,6 +93,58 @@ P <- ctrl_ss(A, cbind(diag(2), 0, c(0, 1)),
              rbind(c(1, 0), c(0, 0), c(1, 0)),
              rbind(c(0, 0, 0, 0), c(0, 0, 0, 1), c(0, 0, 1, 0)))
 hinf <- ctrl_hinfsyn(P, nmeas = 1, ncon = 1)
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
 c(gamma = hinf$gamma, certified_norm = hinf$norm)
 #>          gamma certified_norm 
 #>       2.896528       2.896523 

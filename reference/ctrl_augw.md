@@ -47,6 +47,45 @@ G <- ctrl_tf(1, c(1, 3, 2))
 W1 <- ctrl_tf(1, c(1, 0.01))
 P <- ctrl_augw(G, W1 = W1, W2 = 0.1)
 syn <- ctrl_hinfsyn(P, nmeas = 1, ncon = 1)
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
+#> Warning: NaNs produced
 syn$gamma
 #> [1] 0.6896671
 ```

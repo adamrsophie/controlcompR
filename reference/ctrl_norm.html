@@ -4,10 +4,11 @@
 &quot;2&quot;: the H2 norm. For an asymptotically stable continuous model it is
 \(\sqrt{\mathrm{tr}(C W_c C^\top)}\) when D = 0 and infinite
 otherwise; for a discrete model it is
-\(\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}\). The Gramian is
-computed after diagonal balancing; a realization whose Gramian is
-ill-conditioned for other reasons (nearly canceling input or output
-directions) loses relative accuracy, and ctrl_minreal() first helps.
+\(\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}\). It is computed as
+\(\|C L_c\|_F\) (plus the feedthrough term), with the Gramian factor
+\(L_c L_c^\top = W_c\) obtained directly by Hammarling's method after
+diagonal balancing, so the Gramian is never formed and its condition
+number is not squared.
 &quot;inf&quot;: the H-infinity norm \(\sup_\omega \sigma_{\max}(G(j\omega))\)
 of an asymptotically stable model, computed with the
 Bruinsma-Steinbuch two-step algorithm. The lower bound comes from
@@ -27,10 +28,11 @@ upper bound could be established.
 &quot;2&quot;: the H2 norm. For an asymptotically stable continuous model it is
 \(\sqrt{\mathrm{tr}(C W_c C^\top)}\) when D = 0 and infinite
 otherwise; for a discrete model it is
-\(\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}\). The Gramian is
-computed after diagonal balancing; a realization whose Gramian is
-ill-conditioned for other reasons (nearly canceling input or output
-directions) loses relative accuracy, and ctrl_minreal() first helps.
+\(\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}\). It is computed as
+\(\|C L_c\|_F\) (plus the feedthrough term), with the Gramian factor
+\(L_c L_c^\top = W_c\) obtained directly by Hammarling's method after
+diagonal balancing, so the Gramian is never formed and its condition
+number is not squared.
 &quot;inf&quot;: the H-infinity norm \(\sup_\omega \sigma_{\max}(G(j\omega))\)
 of an asymptotically stable model, computed with the
 Bruinsma-Steinbuch two-step algorithm. The lower bound comes from
@@ -119,10 +121,11 @@ upper bound could be established.
 <ul><li><p><code>"2"</code>: the H2 norm. For an asymptotically stable continuous model it is
 \(\sqrt{\mathrm{tr}(C W_c C^\top)}\) when <code>D = 0</code> and infinite
 otherwise; for a discrete model it is
-\(\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}\). The Gramian is
-computed after diagonal balancing; a realization whose Gramian is
-ill-conditioned for other reasons (nearly canceling input or output
-directions) loses relative accuracy, and <code><a href="ctrl_minreal.html">ctrl_minreal()</a></code> first helps.</p></li>
+\(\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}\). It is computed as
+\(\|C L_c\|_F\) (plus the feedthrough term), with the Gramian factor
+\(L_c L_c^\top = W_c\) obtained directly by Hammarling's method after
+diagonal balancing, so the Gramian is never formed and its condition
+number is not squared.</p></li>
 <li><p><code>"inf"</code>: the H-infinity norm \(\sup_\omega \sigma_{\max}(G(j\omega))\)
 of an asymptotically stable model, computed with the
 Bruinsma-Steinbuch two-step algorithm. The lower bound comes from

@@ -113,8 +113,10 @@ unstructured, stable, norm-bounded perturbations \(\Delta\) with
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with <code>robustly_stable</code>, <code>nominally_stable</code>, <code>peak</code> (the
-H-infinity norm tested), <code>margin</code> (<code>1 / peak</code>) and <code>type</code>.</p>
+    <p>A list with <code>robustly_stable</code> (decided on <code>upper_bound</code>),
+<code>nominally_stable</code>, <code>peak</code> (the H-infinity norm tested),
+<code>upper_bound</code> (the certified upper bound on that norm from
+<code><a href="ctrl_norm.html">ctrl_norm()</a></code>), <code>margin</code> (<code>1 / peak</code>) and <code>type</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -149,6 +151,9 @@ uncertainty, for which it can be conservative, and nothing about robust
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $peak</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4.762771</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $upper_bound</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4.762771</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $margin</span>

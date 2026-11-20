@@ -60,6 +60,39 @@ plot(hsv, log = "y", type = "b", ylab = "Hankel singular value")
 
 ![](model-reduction_files/figure-html/unnamed-chunk-3-1.png)
 
+They are computed from Cholesky factors of the two Gramians obtained
+directly with Hammarling’s method, without forming the Gramians. This
+matters when a direction is weakly controllable but strongly observable:
+here the realization is a rotated, badly scaled copy of I/(s+1), whose
+Gramians have eigenvalues spanning 16 orders of magnitude, yet the two
+Hankel singular values are exactly 0.5:
+
+``` r
+
+U <- matrix(c(1, 1, -1, 1), 2) / sqrt(2)
+Gr <- ctrl_ss(-diag(2), U %*% diag(c(1e4, 1e-4)), diag(c(1e-4, 1e4)) %*% t(U))
+ctrl_hsvd(Gr)
+#> [1] 0.5 0.5
+ctrl_norm(Gr, "2")
+#> [1] 1
+```
+
+[`ctrl_balreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_balreal.md)
+returns the balanced realization itself, in which both Gramians equal
+the diagonal matrix of Hankel singular values. It checks that the
+realization reproduces the transfer function:
+
+``` r
+
+bal <- ctrl_balreal(Gr)
+attr(bal, "hsv")
+#> [1] 0.5 0.5
+round(ctrl_dcgain(bal), 6)
+#>    u1 u2
+#> y1  1  0
+#> y2  0  1
+```
+
 ## Balanced truncation
 
 Truncating the balanced realization to order r keeps the stable dominant
@@ -77,7 +110,22 @@ c(actual = as.numeric(err), bound = attr(red, "error_bound"))
 #> 0.002092256 0.004039388
 ```
 
-The actual error is below the bound, as the theory guarantees.
+The actual error is below the bound, as the theory guarantees. The bound
+is also checked numerically: against the error sampled on a frequency
+grid and against the H-infinity norm of the error system. `bound_status`
+is `"certified"` when that norm computation gave a finite upper bound
+below the returned bound, and `"estimated"` when it was not available
+(samples alone cannot exclude a larger error between grid points). A
+reduction whose own samples contradict its bound raises an error.
+
+``` r
+
+attr(red, "bound_status")
+#> [1] "certified"
+attr(red, "error_norm")
+#> [1] 0.002092256
+```
+
 `method = "matchdc"` (singular perturbation) preserves the DC gain
 instead of high-frequency accuracy:
 
@@ -102,7 +150,7 @@ ggplot2::ggplot(df, ggplot2::aes(w, dB, color = model)) + ggplot2::geom_line() +
   ggplot2::scale_x_log10() + ggplot2::theme_bw()
 ```
 
-![](model-reduction_files/figure-html/unnamed-chunk-6-1.png)
+![](model-reduction_files/figure-html/unnamed-chunk-9-1.png)
 
 ## Unstable models
 

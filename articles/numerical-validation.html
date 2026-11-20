@@ -211,8 +211,10 @@ direct feedthrough</td>
 <div class="section level2">
 <h2 id="algorithms">Algorithms<a class="anchor" aria-label="anchor" href="#algorithms"></a>
 </h2>
-<p>Every numerically sensitive computation uses a backward-stable
-algorithm, and the result is checked:</p>
+<p>Numerically sensitive computations use orthogonal decompositions and
+avoid explicitly forming squared or ill-conditioned quantities. Many
+results are checked after the fact, but the checks detect failures; they
+do not prove backward stability for every input. The main methods:</p>
 <ul>
 <li>
 <strong>Riccati equations</strong>: ordered real Schur decomposition
@@ -229,8 +231,11 @@ Bartels-Stewart (continuous) or block back substitution (discrete).</li>
 staircase forms (never the rank of the controllability matrix, which is
 numerically meaningless beyond small systems).</li>
 <li>
-<strong>Gramians and Hankel singular values</strong>: Lyapunov
-solutions of the controllability and observability Gramians.</li>
+<strong>Gramians and Hankel singular values</strong>: Cholesky
+factors of the Gramians computed directly by Hammarling’s method on the
+complex Schur form, so the Gramians are never formed and their condition
+number is never squared; the H2 norm is <span class="math inline">\|C
+L_c\|_F</span> with the same factor.</li>
 <li>
 <strong>H-infinity norm</strong>: the Bruinsma-Steinbuch level-set
 iteration on the Hamiltonian, with the imaginary-axis eigenvalue
@@ -241,8 +246,10 @@ matrix (zero-order and first-order hold), bilinear (Tustin) and matched
 pole-zero transformations.</li>
 <li>
 <strong>Frequency response</strong>: a complex linear solve per
-frequency on the state-space model, never polynomial evaluation of
-high-order transfer functions.</li>
+frequency on a diagonally balanced state-space model. Transfer function
+objects are evaluated from their polynomial coefficients, which is
+accurate for low orders; convert high-order transfer functions to state
+space first (<code><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss()</a></code>) for better conditioning.</li>
 <li>
 <strong>Pole placement</strong>: robust eigenstructure assignment
 (Kautsky, Nichols and Van Dooren), with the eigenvalues of the result
@@ -257,7 +264,7 @@ dynamics residual.</li>
 <span><span class="va">B</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_care.html">ctrl_care</a></span><span class="op">(</span><span class="va">A</span>, <span class="va">B</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">sol</span><span class="op">$</span><span class="va">residual</span></span>
-<span><span class="co">#&gt; [1] 1.412282e-15</span></span>
+<span><span class="co">#&gt; [1] 1.720524e-15</span></span>
 <span><span class="va">sol</span><span class="op">$</span><span class="va">poles</span></span>
 <span><span class="co">#&gt; [1] -1.000000+0i -2.236068+0i</span></span></code></pre></div>
 </div>
@@ -266,8 +273,12 @@ dynamics residual.</li>
 </h2>
 <p>Rank decisions and structural tests use relative tolerances based on
 the size and the norm of the problem, of the form <span class="math inline">\mathrm{tol} = c\, n^2\, \varepsilon\, \|M\|</span>
-for the staircase forms. Stability on the boundary is decided with a
-tolerance, and boundary cases are reported
+for the staircase forms. Stability is decided on a state realization
+balanced together with its input and output matrices, with per-pole
+bands from the first-order eigenvalue error bound, so the decision does
+not depend on state units. Covariance matrices are inverted on their
+support after equilibration (scaling to unit diagonal), so a small but
+positive variance is never treated as zero. Boundary cases are reported
 (<code>"marginally stable"</code> for linear models,
 <code>"inconclusive"</code> for equilibria of nonlinear models) instead
 of being forced into stable or unstable. Every function that takes a
@@ -289,13 +300,18 @@ for LQG, <code>ctrl_ss2tf(ctrl_tf2ss(G))</code> equals
 <li>exact cross-checks between independent algorithms: MPC without
 active constraints equals LQR with the Riccati terminal weight, MHE
 without active constraints equals the Kalman filter, the H2 norm from
-the Gramian equals the integral of the frequency response, the
+the Gramian factor equals the integral of the frequency response, the
 H-infinity norm equals the peak of a dense frequency sweep;</li>
 <li>analytic results: first and second order step responses,
 Ziegler-Nichols tables, balanced truncation error bounds;</li>
+<li>invariance under changes of units: diagonal and orthogonal state
+scalings, input and cost scalings and time scalings leave Riccati
+solutions, Hankel singular values, norms, stability decisions, Kalman,
+UKF, smoother and MHE posteriors unchanged (including covariances whose
+entries span many orders of magnitude);</li>
 <li>rejection of invalid problems: indefinite weights, unstabilizable
 pairs, singular measurement noise, ill-posed interconnections,
-infeasible QPs.</li>
+infeasible QPs, nonfinite inputs and arithmetic that overflows.</li>
 </ul>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">G</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">0</span>, <span class="op">-</span><span class="fl">3</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
@@ -423,7 +439,8 @@ realization</td>
 <td>H-infinity synthesis</td>
 <td>experimental</td>
 <td>continuous time, <span class="math inline">D_{11} = 0</span>, every
-result certified</td>
+result checked against the upper bound of an independent norm
+computation</td>
 </tr>
 <tr class="even">
 <td>nonlinear simulation, linearization, equilibria</td>

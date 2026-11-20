@@ -29,7 +29,7 @@ lqr
 #>    position velocity
 #> u1       10    5.477
 #> closed-loop poles: -2.739+1.581i, -2.739-1.581i
-#> Riccati residual: 1.68e-15
+#> Riccati residual: 6.32e-16
 ```
 
 The returned cost matrix gives the optimal cost from any initial state,

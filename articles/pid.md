@@ -118,8 +118,9 @@ ctrl_performance(sim$time, sim$y, sim$r, u = sim$u, u_min = -1.5, u_max = 1.5)
 
 A plant with direct feedthrough makes the measurement depend on the
 input of the same sample. The controller output before saturation is
-affine in the measurement, so the simulator solves this algebraic loop
-exactly (with saturation) instead of inserting a hidden delay:
+affine in the measurement with a slope known in closed form, so the
+simulator solves this algebraic loop exactly (with saturation) instead
+of inserting a hidden delay:
 
 ``` r
 
@@ -133,6 +134,31 @@ sim_ft[, c("time", "y", "u")]
 #> 3 0.04 0.3597357 0.6930661
 #> 4 0.06 0.3726728 0.7057395
 #> 5 0.08 0.3854339 0.7180715
+```
+
+## One step at a time
+
+For embedding the controller in a custom loop,
+[`ctrl_pid_update()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_pid_update.md)
+advances the discrete implementation by one sample and returns the
+output, its parts and the state for the next call. `init = "hold"` (the
+default) assumes the signals were constant before the first sample (no
+derivative kick); `init = "zero"` assumes zero history, which reproduces
+the zero-state response of the controller transfer function:
+
+``` r
+
+pid1 <- ctrl_pid(kp = 1, ki = 1, kd = 0.1, Tf = 0.05, dt = 0.1)
+st <- NULL
+for (k in 1:3) {
+  out <- ctrl_pid_update(pid1, st, r = 1, y = 0)
+  st <- out$state
+}
+unlist(out[c("u", "P", "I", "D")])
+#>   u   P   I   D 
+#> 1.2 1.0 0.2 0.0
+ctrl_pid_update(pid1, NULL, r = 1, y = 0, init = "zero")$u
+#> [1] 1
 ```
 
 ## Anti-windup
@@ -159,14 +185,14 @@ sapply(runs, function(s) c(overshoot = max(s$y) - 0.35, max_integrator = max(s$I
 plot(runs$none)
 ```
 
-![](pid_files/figure-html/unnamed-chunk-7-1.png)
+![](pid_files/figure-html/unnamed-chunk-8-1.png)
 
 ``` r
 
 plot(runs$backcalc)
 ```
 
-![](pid_files/figure-html/unnamed-chunk-7-2.png)
+![](pid_files/figure-html/unnamed-chunk-8-2.png)
 
 ## Bumpless transfer
 
@@ -229,4 +255,4 @@ saturation and noise before using a tuned controller.
 plot(ctrl_rlocus(ctrl_tf(1, c(1, 3, 2, 0))))
 ```
 
-![](pid_files/figure-html/unnamed-chunk-10-1.png)
+![](pid_files/figure-html/unnamed-chunk-11-1.png)

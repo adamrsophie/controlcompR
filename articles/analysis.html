@@ -114,7 +114,12 @@ strictly inside the unit circle. Poles on the boundary need more care: a
 simple pole on the imaginary axis gives a marginally stable model, but a
 repeated boundary pole with a nontrivial Jordan block grows without
 bound. <code><a href="../reference/ctrl_stability.html">ctrl_stability()</a></code> distinguishes these cases with a
-tolerance scaled by the size of <code>A</code>:</p>
+tolerance scaled by the size of <code>A</code>. The state coordinates
+are first balanced together with <code>B</code> and <code>C</code>, so
+the decision does not depend on state units, and each pole uses the
+tighter of a uniform band and its own first-order error bound
+(<code>pole_tol</code>), so the well-conditioned poles of a stiff model
+are classified correctly:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_stability.html">ctrl_stability</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="op">-</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">classification</span></span>
 <span><span class="co">#&gt; [1] "asymptotically stable"</span></span>
@@ -135,6 +140,35 @@ tolerance scaled by the size of <code>A</code>:</p>
 <span><span class="co">#&gt;             pole damping frequency time_constant</span></span>
 <span><span class="co">#&gt; 1 -0.6+2.939388i     0.2         3      1.666667</span></span>
 <span><span class="co">#&gt; 2 -0.6-2.939388i     0.2         3      1.666667</span></span></code></pre></div>
+<p>The same answer for a model whose states differ in units by 1e13, and
+for a stiff model with time constants 1e3 and 1e-11:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">scaled</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1e13</span>, <span class="fl">0</span>, <span class="op">-</span><span class="fl">2</span><span class="op">)</span>, <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1e-13</span><span class="op">)</span>,</span>
+<span>                  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/ctrl_is_stable.html">ctrl_is_stable</a></span><span class="op">(</span><span class="va">scaled</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="va">stiff</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1e-3</span>, <span class="op">-</span><span class="fl">1e11</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1e-3</span>, <span class="fl">1e11</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">st</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_stability.html">ctrl_stability</a></span><span class="op">(</span><span class="va">stiff</span><span class="op">)</span></span>
+<span><span class="va">st</span><span class="op">$</span><span class="va">classification</span></span>
+<span><span class="co">#&gt; [1] "asymptotically stable"</span></span>
+<span><span class="va">st</span><span class="op">$</span><span class="va">pole_tol</span></span>
+<span><span class="co">#&gt; [1] 0.0004440892 0.0004440892</span></span></code></pre></div>
+<p><code><a href="../reference/ctrl_pzmap.html">ctrl_pzmap()</a></code> collects poles and zeros (and has a
+<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> method):</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_pzmap.html">ctrl_pzmap</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Poles: -1+2i, -1-2i</span></span>
+<span><span class="co">#&gt; Zeros: -2+0i</span></span></code></pre></div>
+<p>Invariant zeros of a square multivariable model are the finite
+generalized eigenvalues of the system pencil. A well-conditioned
+feedthrough gives them as the eigenvalues of <span class="math inline">A
+- B D^{-1} C</span>, so a very large zero from a tiny <code>D</code> is
+kept; a pencil without full normal rank raises an error:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_zeros.html">ctrl_zeros</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span>, D <span class="op">=</span> <span class="fl">1e-6</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] -1000001+0i</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_zeros.html">ctrl_zeros</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Error : The system pencil is singular (the transfer matrix does not have full normal rank), so its invariant zeros are not defined. This happens, for example, when an input or output is disconnected.</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="controllability-and-observability">Controllability and observability<a class="anchor" aria-label="anchor" href="#controllability-and-observability"></a>
@@ -145,7 +179,7 @@ like powers of <code>A</code>. The package uses an orthogonal staircase
 reduction instead, which also isolates the uncontrollable modes, and
 reports the Popov-Belevitch-Hautus test for each eigenvalue so the
 <em>distance</em> to uncontrollability can be judged:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_controllability.html">ctrl_controllability</a></span><span class="op">(</span><span class="va">A</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">res</span><span class="op">$</span><span class="va">rank</span></span>
@@ -161,15 +195,35 @@ reports the Popov-Belevitch-Hautus test for each eigenvalue so the
 <p>A model is <em>stabilizable</em> when every uncontrollable mode is
 stable and <em>detectable</em> when every unobservable mode is stable.
 These weaker properties are what LQR, Kalman filtering and MPC need:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_stabilizable</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="va">A</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
 <span><span class="fu"><a href="../reference/ctrl_observability.html">ctrl_observability</a></span><span class="op">(</span><span class="va">A</span>, C <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">detectable</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>The predicates <code><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_controllable()</a></code>,
+<code><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_observable()</a></code>, <code><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_stabilizable()</a></code>
+and <code><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_detectable()</a></code> take a model. The classical
+matrices are available as <code><a href="../reference/ctrl_ctrb.html">ctrl_ctrb()</a></code> and
+<code><a href="../reference/ctrl_ctrb.html">ctrl_obsv()</a></code> for teaching and small examples (not for rank
+decisions):</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="va">A</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>controllable <span class="op">=</span> <span class="fu"><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_controllable</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span>, observable <span class="op">=</span> <span class="fu"><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_observable</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span>,</span>
+<span>  detectable <span class="op">=</span> <span class="fu"><a href="../reference/ctrl_is_stabilizable.html">ctrl_is_detectable</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; controllable   observable   detectable </span></span>
+<span><span class="co">#&gt;         TRUE        FALSE        FALSE</span></span>
+<span><span class="fu"><a href="../reference/ctrl_ctrb.html">ctrl_ctrb</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span>
+<span><span class="co">#&gt;      [,1] [,2]</span></span>
+<span><span class="co">#&gt; [1,]    1   -1</span></span>
+<span><span class="co">#&gt; [2,]    1    2</span></span>
+<span><span class="fu"><a href="../reference/ctrl_ctrb.html">ctrl_obsv</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span></span>
+<span><span class="co">#&gt;      [,1] [,2]</span></span>
+<span><span class="co">#&gt; [1,]    1    0</span></span>
+<span><span class="co">#&gt; [2,]   -1    0</span></span></code></pre></div>
 <p>Rank decisions use tolerances. A nearly uncontrollable model is
 reported as controllable with a tiny PBH singular value; the numbers
 matter more than the yes or no answer:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">near</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_controllability.html">ctrl_controllability</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="op">-</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1e-9</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">near</span><span class="op">$</span><span class="va">controllable</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
@@ -185,7 +239,7 @@ A^\top + Q = 0</span> (or <span class="math inline">A X A^\top - X + Q =
 <code><a href="../reference/ctrl_sylvester.html">ctrl_sylvester()</a></code> solves <span class="math inline">A X + X B
 = C</span>. The solution of the Lyapunov equation with <span class="math inline">Q = BB^\top</span> is the controllability
 gramian:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sys</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">0</span>, <span class="op">-</span><span class="fl">3</span><span class="op">)</span>, <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">Wc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_gram.html">ctrl_gram</a></span><span class="op">(</span><span class="va">sys</span>, <span class="st">"c"</span><span class="op">)</span></span>
 <span><span class="va">Wc</span></span>
@@ -214,8 +268,17 @@ matrix pencil of size <span class="math inline">2n + m</span>, compress
 the input block with a QR factorization (so <code>R</code> is never
 inverted) and compute an ordered generalized Schur decomposition with
 LAPACK <code>dgges</code>. The discrete solver does not need
-<code>A</code> to be invertible.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code>A</code> to be invertible. Before solving, the problem is
+equilibrated with exact power-of-two scalings that leave the gain
+unchanged: a common cost factor, a symplectic state scaling from
+balancing the Hamiltonian, a time scale (continuous time) and an input
+scaling that balances each column of the pencil. The solution is
+therefore invariant to the units of states, inputs, costs and time:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fl">1e8</span>   <span class="co"># control in different units: B scaled by k, R by k^2</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_care.html">ctrl_care</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">$</span><span class="va">P</span>, <span class="fu"><a href="../reference/ctrl_care.html">ctrl_care</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="va">k</span>, <span class="fl">1</span>, <span class="va">k</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">$</span><span class="va">P</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.4142136 0.4142136</span></span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ric</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_care.html">ctrl_care</a></span><span class="op">(</span><span class="va">sys</span><span class="op">$</span><span class="va">A</span>, <span class="va">sys</span><span class="op">$</span><span class="va">B</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">ric</span></span>
 <span><span class="co">#&gt; Continuous algebraic Riccati equation: stabilizing solution</span></span>
@@ -223,14 +286,14 @@ LAPACK <code>dgges</code>. The discrete solver does not need
 <span><span class="co">#&gt;        [,1]   [,2]</span></span>
 <span><span class="co">#&gt; [1,] 0.3707 0.1379</span></span>
 <span><span class="co">#&gt; [2,] 0.1379 0.2354</span></span>
-<span><span class="co">#&gt; relative residual: 7.45e-16, symmetry error before symmetrization: 4.9e-16</span></span>
+<span><span class="co">#&gt; relative residual: 6.34e-16, symmetry error before symmetrization: 4.9e-16</span></span>
 <span><span class="co">#&gt; closed-loop poles: -2.236+0i, -2.646+0i</span></span></code></pre></div>
 <p>The result carries the residual, the symmetry error before
 symmetrization and the closed-loop poles, so the solution can be checked
 rather than trusted. When no stabilizing solution exists, for example
 because a mode on the imaginary axis is not reachable, the solver stops
 with an explanation instead of returning a wrong matrix:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_care.html">ctrl_care</a></span><span class="op">(</span><span class="va">osc</span><span class="op">$</span><span class="va">A</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> The computed Riccati solution is not stabilizing (closed-loop spectral abscissa 0); the problem is numerically too close to the boundary.</span></span></code></pre></div>

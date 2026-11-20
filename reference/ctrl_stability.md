@@ -17,11 +17,14 @@ ctrl_stability(sys, tol = NULL, cluster_tol = NULL)
 
 - tol:
 
-  Boundary tolerance. Defaults to a multiple of machine precision scaled
-  by the norm of the balanced `A`. For a model whose time scales differ
-  by about 1e13 or more, the slowest stable poles can fall inside this
-  band and are classified as marginal; pass a smaller `tol` when such
-  poles are known to be accurate.
+  Boundary tolerance. Defaults to a multiple of machine precision times
+  the norm of the balanced `A` (the state coordinates are first scaled
+  to balance \\\[A\\ B; C\\ 0\]\\, so the result does not depend on
+  state units, and a uniformly slow continuous model keeps its relative
+  accuracy; in discrete time the scale is at least one). For a model
+  whose time scales differ by about 1e13 or more, the slowest stable
+  poles can fall inside this band and are classified as marginal; pass a
+  smaller `tol` when such poles are known to be accurate.
 
 - cluster_tol:
 
@@ -33,7 +36,8 @@ An object of class `ctrl_stability` with `classification`
 (`"asymptotically stable"`, `"marginally stable"` or `"unstable"`),
 `stable` (asymptotic stability), `poles`, `boundary_poles`,
 `unstable_poles`, `stability_margin` (distance of the slowest pole to
-the boundary; negative when unstable) and the tolerances used.
+the boundary; negative when unstable), the uniform band `tol`, the
+per-pole bands `pole_tol` actually used and `cluster_tol`.
 
 ## Details
 

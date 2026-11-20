@@ -180,6 +180,24 @@ ggplot2::ggplot(df, ggplot2::aes(t, angle)) + ggplot2::geom_line() +
 
 ![](nonlinear_files/figure-html/unnamed-chunk-9-1.png)
 
+[`ctrl_nmpc_step()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nmpc.md)
+solves one step from a given state and returns the first input, the
+planned input and state trajectories, the objective and the optimizer
+status, for use in a custom loop. The state-bound penalty must be
+nonnegative:
+
+``` r
+
+step <- ctrl_nmpc_step(nmpc, x = c(2.4, 0), x_ref = c(pi, 0))
+step$u
+#> [1] 8
+c(ok = step$ok, objective = step$objective)
+#>        ok objective 
+#>   1.00000  80.49117
+dim(step$x_plan)
+#> [1] 21  2
+```
+
 The problem is nonconvex: the result is a local optimum that depends on
 the initial guess (started from rest at the bottom, this controller
 stalls at a local optimum instead of swinging up), and no stability
@@ -213,7 +231,7 @@ ggplot2::ggplot(df, ggplot2::aes(t, value)) + ggplot2::geom_step() +
   ggplot2::facet_wrap(~series, ncol = 1, scales = "free_y") + ggplot2::theme_bw()
 ```
 
-![](nonlinear_files/figure-html/unnamed-chunk-10-1.png)
+![](nonlinear_files/figure-html/unnamed-chunk-11-1.png)
 
 The torque saturates and reverses: the pendulum is pumped before it can
 be brought up, which a controller planning only 20 samples ahead does

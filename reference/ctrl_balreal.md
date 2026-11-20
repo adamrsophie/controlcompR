@@ -5,8 +5,9 @@ stable model, in which both Gramians equal \\\mathrm{diag}(\sigma_1,
 \ldots, \sigma_r)\\ (the Hankel singular values); states with zero
 Hankel singular value (to tolerance) are removed. `ctrl_balred()`
 truncates the balanced realization to `order` states using the
-square-root method of Tombs and Laub, which avoids forming the balancing
-transformation from ill-conditioned Gramians.
+square-root method of Tombs and Laub. The Gramian factors come directly
+from Hammarling's method, so neither the Gramians nor the balancing
+transformation are formed from squared quantities.
 
 ## Usage
 
@@ -37,9 +38,13 @@ ctrl_balred(sys, order, method = c("truncate", "matchdc"))
 
 ## Value
 
-`ctrl_balreal()` returns a `ctrl_ss` model with attribute `hsv`.
-`ctrl_balred()` returns the reduced `ctrl_ss` model with attributes
-`hsv` (Hankel singular values of the stable part) and `error_bound`.
+`ctrl_balreal()` returns a `ctrl_ss` model with attributes `hsv`,
+`error_bound` and `bound_status`. `ctrl_balred()` returns the reduced
+`ctrl_ss` model with attributes `hsv` (Hankel singular values of the
+stable part), `error_bound`, `bound_status` and `error_norm` (the
+certified upper bound on \\\\G - G_r\\\_\infty\\ from
+[`ctrl_norm()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_norm.md),
+`NA` when unavailable).
 
 ## Details
 
@@ -55,7 +60,16 @@ realization and its rounding error estimated from the conditioning of
 raises an error; otherwise `error_bound` is the larger of the a priori
 bound and the sampled error plus its accuracy (relevant only when the
 bound is at rounding level or attained, as when a single Hankel singular
-value is discarded).
+value is discarded). `bound_status` says what supports the returned
+bound: `"certified"` when the H-infinity norm computation of the error
+system (see
+[`ctrl_norm()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_norm.md))
+gave a finite upper bound below it, `"estimated"` when that computation
+was unavailable and only the a priori bound and the sampled errors
+support it (samples cannot exclude a larger error between grid points).
+`ctrl_balreal()` runs the same check with the removed Hankel singular
+values, so a balanced realization that does not reproduce the transfer
+function raises an error.
 
 Unstable models are first split with
 [`ctrl_stabsep()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_stabsep.md);

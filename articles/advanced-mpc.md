@@ -47,7 +47,7 @@ sim_s <- ctrl_simulate_mpc(soft, c(0, 1), steps = 60)
 summary(sim_s)
 #> MPC simulation: 60 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 60
-#>   solve time: mean 2.19e-05 s, max 3.14e-05 s; mean iterations 49.58
+#>   solve time: mean 2.24e-05 s, max 3.12e-05 s; mean iterations 49.58
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0.94
 #>   max slack: 0.94
@@ -100,7 +100,12 @@ process noise. The first term, the *arrival cost*, summarizes the data
 before the window. Here the prior mean is propagated from the previous
 MHE estimate and the prior covariance follows the Kalman filter
 recursion. With no active constraints MHE then equals the Kalman filter
-exactly, which the tests verify.
+exactly, which the tests verify. Directions with zero prior variance
+become equality constraints; the zero decision is made on the covariance
+scaled to unit diagonal, so a small positive variance remains a (strong)
+prior instead of an equality. The QP is solved in variables scaled to
+unit curvature, so solver tolerances do not depend on the units of
+states or covariances.
 
 MHE is not a Kalman filter: when states have physical bounds (a
 concentration cannot be negative), the bounds enter the estimate. The
@@ -124,7 +129,7 @@ mhe <- ctrl_mhe(sys, horizon = 10, Qn = 4e-4, Rn = 0.09, x0 = 0, P0 = 1, x_min =
 est <- ctrl_mhe_run(mhe, y)
 c(kalman_min = min(kf$filtered), mhe_min = min(est$estimates))
 #>    kalman_min       mhe_min 
-#> -2.331457e-01 -1.610433e-17
+#> -2.331457e-01 -8.269883e-18
 c(kalman_rmse = sqrt(mean((kf$filtered[, 1] - xs)^2)),
   mhe_rmse = sqrt(mean((est$estimates[, 1] - xs)^2)))
 #> kalman_rmse    mhe_rmse 
@@ -141,7 +146,7 @@ cold <- ctrl_mhe_run(mhe, y, warm_start = FALSE)
 c(max_difference = max(abs(cold$estimates - est$estimates)),
   iterations_cold = sum(cold$iterations), iterations_warm = sum(est$iterations))
 #>  max_difference iterations_cold iterations_warm 
-#>               0            5400            5625
+#>               0            6225            6025
 ```
 
 ``` r

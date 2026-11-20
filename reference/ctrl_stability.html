@@ -90,10 +90,13 @@ poles, with an explicit numerical tolerance.</p>
 
 <dt id="arg-tol">tol<a class="anchor" aria-label="anchor" href="#arg-tol"></a></dt>
 <dd><p>Boundary tolerance. Defaults to a multiple of machine precision
-scaled by the norm of the balanced <code>A</code>. For a model whose time scales
-differ by about 1e13 or more, the slowest stable poles can fall inside
-this band and are classified as marginal; pass a smaller <code>tol</code> when
-such poles are known to be accurate.</p></dd>
+times the norm of the balanced <code>A</code> (the state coordinates are first
+scaled to balance \([A\ B; C\ 0]\), so the result does not depend on
+state units, and a uniformly slow continuous model keeps its relative
+accuracy; in discrete time the scale is at least one). For a model
+whose time scales differ by about 1e13 or more, the slowest stable
+poles can fall inside this band and are classified as marginal; pass a
+smaller <code>tol</code> when such poles are known to be accurate.</p></dd>
 
 
 <dt id="arg-cluster-tol">cluster_tol<a class="anchor" aria-label="anchor" href="#arg-cluster-tol"></a></dt>
@@ -106,7 +109,8 @@ such poles are known to be accurate.</p></dd>
 (<code>"asymptotically stable"</code>, <code>"marginally stable"</code> or <code>"unstable"</code>),
 <code>stable</code> (asymptotic stability), <code>poles</code>, <code>boundary_poles</code>,
 <code>unstable_poles</code>, <code>stability_margin</code> (distance of the slowest pole to
-the boundary; negative when unstable) and the tolerances used.</p>
+the boundary; negative when unstable), the uniform band <code>tol</code>, the
+per-pole bands <code>pole_tol</code> actually used and <code>cluster_tol</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

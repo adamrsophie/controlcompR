@@ -91,6 +91,39 @@ ctrl_gain(matrix(c(1, 2, 3, 4), 2))
 #> y2  2  4
 ```
 
+Predicates and accessors inspect a model without converting it.
+[`ctrl_ssdata()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_ssdata.md)
+returns the matrices of any model as a plain list (it realizes transfer
+functions first), and [`summary()`](https://rdrr.io/r/base/summary.html)
+gives an overview:
+
+``` r
+
+c(is_ctrl_system(sys), is_ctrl_ss(sys), is_ctrl_tf(sys))
+#> [1]  TRUE  TRUE FALSE
+c(discrete = ctrl_is_discrete(sysd), proper = ctrl_is_proper(sys),
+  strictly_proper = ctrl_is_proper(sys, strict = TRUE))
+#>        discrete          proper strictly_proper 
+#>            TRUE            TRUE            TRUE
+str(ctrl_ssdata(ctrl_tf(1, c(1, 1))))
+#> List of 5
+#>  $ A : num [1, 1] -1
+#>  $ B : num [1, 1] 1
+#>  $ C : num [1, 1] 1
+#>  $ D : num [1, 1] 0
+#>  $ dt: num 0
+summary(sys)
+#> Model summary (continuous time)
+#>   states: 2, inputs: 1, outputs: 1
+#>   stability: asymptotically stable
+#>   poles: -0.4+1.96i, -0.4-1.96i
+#>   controllability rank: 2 of 2
+#>   observability rank: 2 of 2
+#>   DC gain:
+#>      u1
+#> y1 0.25
+```
+
 ## Transfer functions and zero-pole-gain models
 
 Polynomial coefficients are in descending powers of `s` (or `z`):
@@ -128,6 +161,25 @@ ctrl_zpk2tf(H)
 #>         s +     3
 #>   ---------------------
 #>   s^2 +     2 s +     5
+ctrl_tf2zpk(G)
+#> Zero-pole-gain model (continuous time)
+#>   gain: 1
+#>   zeros: -3+0i
+#>   poles: -1+2i, -1-2i
+```
+
+[`ctrl_tf_minreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf_minreal.md)
+cancels common pole-zero pairs of a transfer function directly in
+polynomial form:
+
+``` r
+
+ctrl_tf_minreal(ctrl_tf(c(1, 1), c(1, 3, 2)))  # (s + 1) / ((s + 1)(s + 2))
+#> Transfer function (continuous time)
+#> 
+#>         1
+#>   ---------
+#>   s +     2
 ```
 
 ## Conversions
@@ -274,8 +326,46 @@ S <- ctrl_feedback(1, L)          # sensitivity 1 / (1 + L)
 ```
 
 `ctrl_series(sys1, sys2)` applies `sys1` first, so `C * G` equals
-`ctrl_series(G, C)` for single-input single-output models. For block
-diagrams with named signals,
+`ctrl_series(G, C)` for single-input single-output models. The other
+operators follow the same pattern: `+` and `-` are
+[`ctrl_parallel()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_series.md),
+a numeric scalar scales every channel, `/` divides by a scalar, a square
+matrix or a model (through
+[`ctrl_inv()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_inv.md)),
+and `^` raises a model to an integer power.
+[`ctrl_append()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_series.md)
+stacks models block diagonally (their inputs and outputs side by side).
+Scaling that would overflow the coefficients raises an error instead of
+returning infinite entries:
+
+``` r
+
+ctrl_parallel(G, 1) # G + 1
+#> Transfer function (continuous time)
+#> 
+#>   s^2 +     3 s +     8
+#>   ---------------------
+#>   s^2 +     2 s +     5
+ctrl_inv(ctrl_tf(c(1, 2), c(1, 3)))
+#> Transfer function (continuous time)
+#> 
+#>   s +     3
+#>   ---------
+#>   s +     2
+ctrl_dims(ctrl_append(G, ctrl_tf(1, c(1, 1))))
+#>  states  inputs outputs 
+#>       3       2       2
+G^2
+#> Transfer function (continuous time)
+#> 
+#>               s^2 +     6 s +     9
+#>   ---------------------------------------------
+#>   s^4 +     4 s^3 +    14 s^2 +    20 s +    25
+try(2 * ctrl_tf(1e308, 1))
+#> Error : Scaling by 2 overflows the numerator coefficients.
+```
+
+For block diagrams with named signals,
 [`ctrl_sumblock()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_sumblock.md)
 and
 [`ctrl_connect()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_connect.md)

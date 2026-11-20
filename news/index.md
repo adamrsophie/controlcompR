@@ -39,8 +39,27 @@
   - Fifteen articles and a reference comparison against python-control
     and SLICOT.
 - Numerical contracts worth knowing:
+  - Gramian factors for Hankel singular values, balanced realization,
+    balanced truncation and the H2 norm are computed directly with
+    Hammarling’s method, so the Gramians are never formed and rotated or
+    badly scaled realizations keep their weak directions.
   - Balanced truncation checks its error bound on a frequency sample and
-    stops with an error when the bound cannot be certified.
+    against the error system’s H-infinity norm, stops with an error when
+    its samples contradict the bound, and reports `bound_status`
+    (`"certified"` or `"estimated"`) and `error_norm`.
+    [`ctrl_balreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_balreal.md)
+    runs the same check on the removed states.
+  - Stability is decided on a realization balanced together with `B` and
+    `C`, without a fixed unit floor in continuous time, and with
+    per-pole bands from the first-order eigenvalue error bound
+    (`pole_tol`).
+  - Covariances are inverted on their support after scaling to unit
+    diagonal in the UKF update, the RTS smoother and the MHE arrival
+    cost, so a small positive variance is never treated as zero; the MHE
+    QP is solved in variables scaled to unit curvature.
+  - Robust stability decisions and H-infinity synthesis certification
+    use the upper bound of the norm computation (`upper_bound`); an
+    attained zero H-infinity optimum is returned with `gamma = 0`.
   - [`ctrl_robust_performance()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_robust_performance.md)
     samples its peaks (including zero and infinite frequency) and
     reports a separate `certified` flag from a rigorous upper bound; the
@@ -50,7 +69,10 @@
     closed-loop pole lies on the stability boundary or `1 + D = 0`.
   - [`ctrl_zeros()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_zeros.md)
     stops with an error for systems whose pencil is singular (no full
-    normal rank).
+    normal rank), decided by evaluating the transfer matrix away from
+    every computed eigenvalue and pole. With a well-conditioned `D` the
+    zeros are the eigenvalues of `A - B D^-1 C`; an eigenvalue that
+    cannot be told apart from infinity gives a warning.
   - Step, impulse and initial responses are applied at time zero; grids
     that start later report the same response at their own instants.
   - [`ctrl_step_info()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_step_info.md)
@@ -70,11 +92,23 @@
   - Numeric scalars scale every channel of MIMO models; dividing a model
     by a square numeric matrix multiplies by its inverse on the input
     side.
-  - Riccati solvers equilibrate the equation (state units, time scale
-    and weight scale) before solving; the reported residual is that of
-    the equilibrated equation.
+  - Riccati solvers equilibrate the equation (weight scale, state units,
+    time scale and input units) before solving, so solutions are
+    invariant to the units of states, inputs, costs and time; the
+    reported residual is that of the equilibrated equation.
   - The Kalman filter, EKF, UKF and MHE reject non-numeric data and rows
     that are only partly missing; an entirely `NA` row is a missing
     sample.
-  - Fast or slow SISO transfer functions are realized with scaled
-    states.
+  - Fast or slow SISO transfer functions are realized with scaled states
+    when the scaled coefficients stay representable; otherwise the
+    unscaled companion form is used.
+  - Matched discretization treats a root as an origin root only when it
+    is negligible both against the other roots and against the sample
+    interval.
+  - The PID loop through plant feedthrough uses the exact affine slope
+    of the controller output.
+  - Scalar model arithmetic that overflows, nonfinite Kalman prior means
+    and negative NMPC penalties are rejected.
+  - Static loops adopt the clock of a discrete weight in
+    [`ctrl_robust_performance()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_robust_performance.md);
+    synthesis rank checks on `D12` and `D21` are relative to each block.

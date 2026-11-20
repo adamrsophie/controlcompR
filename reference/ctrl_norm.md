@@ -3,12 +3,10 @@
 - `"2"`: the H2 norm. For an asymptotically stable continuous model it
   is \\\sqrt{\mathrm{tr}(C W_c C^\top)}\\ when `D = 0` and infinite
   otherwise; for a discrete model it is \\\sqrt{\mathrm{tr}(C W_c
-  C^\top + D D^\top)}\\. The Gramian is computed after diagonal
-  balancing; a realization whose Gramian is ill-conditioned for other
-  reasons (nearly canceling input or output directions) loses relative
-  accuracy, and
-  [`ctrl_minreal()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_minreal.md)
-  first helps.
+  C^\top + D D^\top)}\\. It is computed as \\\\C L_c\\\_F\\ (plus the
+  feedthrough term), with the Gramian factor \\L_c L_c^\top = W_c\\
+  obtained directly by Hammarling's method after diagonal balancing, so
+  the Gramian is never formed and its condition number is not squared.
 
 - `"inf"`: the H-infinity norm \\\sup\_\omega
   \sigma\_{\max}(G(j\omega))\\ of an asymptotically stable model,

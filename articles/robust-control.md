@@ -49,7 +49,9 @@ for (k in c(2, 5, 20)) {
 ```
 
 The returned `margin = 1 / peak` is the largest scaling of the
-uncertainty that the loop tolerates.
+uncertainty that the loop tolerates. The yes or no answer is decided on
+`upper_bound`, the certified upper bound of the H-infinity norm
+computation, not on its estimate.
 
 ## Robust performance
 
@@ -105,6 +107,25 @@ P <- ctrl_ss(A, cbind(diag(2), 0, c(0, 1)),
              rbind(c(0, 0, 0, 0), c(0, 0, 0, 1), c(0, 0, 1, 0)))
 ```
 
+[`ctrl_plant_partition()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_lft.md)
+splits the generalized plant into the blocks used by the synthesis
+formulas, given the numbers of measurements and controls (the last
+outputs and inputs). The rank conditions on D\_{12} and D\_{21} are
+checked relative to each block’s own size, so they do not depend on the
+units of `z`, `u`, `w` or `y`:
+
+``` r
+
+pp <- ctrl_plant_partition(P, nmeas = 1, ncon = 1)
+pp$D12
+#>      [,1]
+#> [1,]    0
+#> [2,]    1
+pp$D21
+#>      [,1] [,2] [,3]
+#> [1,]    0    0    1
+```
+
 ## H2 synthesis
 
 [`ctrl_h2syn()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_h2syn.md)
@@ -137,12 +158,66 @@ X\_\infty, Y\_\infty \succeq 0 and \rho(X\_\infty Y\_\infty) \<
 
 **Every controller is certified independently**: the closed loop must be
 internally stable and its H-infinity norm, computed by a different
-algorithm (Bruinsma-Steinbuch), must be below \gamma. Otherwise the
-function stops with an error.
+algorithm (Bruinsma-Steinbuch), must have an upper bound below \gamma.
+Otherwise the function stops with an error. When the H2 optimal
+controller already gives a zero closed-loop norm, that attained optimum
+is returned with `gamma = 0` (no positive bracket exists).
 
 ``` r
 
 hinf <- ctrl_hinfsyn(P, nmeas = 1, ncon = 1)
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
 hinf
 #> H-infinity controller (experimental): gamma = 2.89653, certified closed-loop H-infinity norm 2.89652
 #> controller order 2, 1 measurement(s), 1 control(s)
@@ -193,6 +268,45 @@ G <- ctrl_tf(1, c(1, 3, 2))
 W1 <- ctrl_tf(1, c(1, 0.01))   # integral-like: demands small S at low frequency
 P_ms <- ctrl_augw(G, W1 = W1, W2 = 0.1)
 syn <- ctrl_hinfsyn(P_ms, nmeas = 1, ncon = 1)
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
+#> Warning in sqrt(rd): NaNs produced
+#> Warning in pmax(round(log2(du)), -200): NaNs produced
 syn$gamma
 #> [1] 0.6896671
 K <- syn$K
@@ -209,7 +323,7 @@ ggplot2::ggplot(df, ggplot2::aes(w, magnitude, color = curve)) +
   ggplot2::theme_bw()
 ```
 
-![](robust-control_files/figure-html/unnamed-chunk-8-1.png)
+![](robust-control_files/figure-html/unnamed-chunk-9-1.png)
 
 The sensitivity stays below \gamma / \|W_1\| at all frequencies, as the
 norm bound guarantees. Plant poles on the imaginary axis (integrators)

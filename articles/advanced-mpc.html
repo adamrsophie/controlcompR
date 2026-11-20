@@ -144,7 +144,7 @@ actuators cannot exceed them.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim_s</span><span class="op">)</span></span>
 <span><span class="co">#&gt; MPC simulation: 60 samples, 0 failed solves (0%)</span></span>
 <span><span class="co">#&gt;   solver statuses: solved = 60</span></span>
-<span><span class="co">#&gt;   solve time: mean 2.19e-05 s, max 3.14e-05 s; mean iterations 49.58</span></span>
+<span><span class="co">#&gt;   solve time: mean 2.24e-05 s, max 3.12e-05 s; mean iterations 49.58</span></span>
 <span><span class="co">#&gt;   max input bound violation: 0</span></span>
 <span><span class="co">#&gt;   max state bound violation (true plant): 0.94</span></span>
 <span><span class="co">#&gt;   max slack: 0.94</span></span></code></pre></div>
@@ -196,7 +196,12 @@ The first term, the <em>arrival cost</em>, summarizes the data before
 the window. Here the prior mean is propagated from the previous MHE
 estimate and the prior covariance follows the Kalman filter recursion.
 With no active constraints MHE then equals the Kalman filter exactly,
-which the tests verify.</p>
+which the tests verify. Directions with zero prior variance become
+equality constraints; the zero decision is made on the covariance scaled
+to unit diagonal, so a small positive variance remains a (strong) prior
+instead of an equality. The QP is solved in variables scaled to unit
+curvature, so solver tolerances do not depend on the units of states or
+covariances.</p>
 <p>MHE is not a Kalman filter: when states have physical bounds (a
 concentration cannot be negative), the bounds enter the estimate. The
 price is one QP per sample, growing with the window length.</p>
@@ -217,7 +222,7 @@ price is one QP per sample, growing with the window length.</p>
 <span><span class="va">est</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_mhe.html">ctrl_mhe_run</a></span><span class="op">(</span><span class="va">mhe</span>, <span class="va">y</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>kalman_min <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">kf</span><span class="op">$</span><span class="va">filtered</span><span class="op">)</span>, mhe_min <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    kalman_min       mhe_min </span></span>
-<span><span class="co">#&gt; -2.331457e-01 -1.610433e-17</span></span>
+<span><span class="co">#&gt; -2.331457e-01 -8.269883e-18</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>kalman_rmse <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">(</span><span class="va">kf</span><span class="op">$</span><span class="va">filtered</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="va">xs</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  mhe_rmse <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">(</span><span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="va">xs</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; kalman_rmse    mhe_rmse </span></span>
@@ -230,7 +235,7 @@ The estimates do not change; only the solver work does:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>max_difference <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">cold</span><span class="op">$</span><span class="va">estimates</span> <span class="op">-</span> <span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  iterations_cold <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">cold</span><span class="op">$</span><span class="va">iterations</span><span class="op">)</span>, iterations_warm <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">est</span><span class="op">$</span><span class="va">iterations</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;  max_difference iterations_cold iterations_warm </span></span>
-<span><span class="co">#&gt;               0            5400            5625</span></span></code></pre></div>
+<span><span class="co">#&gt;               0            6225            6025</span></span></code></pre></div>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>k <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">Tn</span>, <span class="fl">3</span><span class="op">)</span>,</span>
 <span>                 value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">xs</span>, <span class="va">kf</span><span class="op">$</span><span class="va">filtered</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, <span class="va">est</span><span class="op">$</span><span class="va">estimates</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span>,</span>

@@ -108,18 +108,28 @@
 <div class="section level2">
 <h2 id="frequency-response">Frequency response<a class="anchor" aria-label="anchor" href="#frequency-response"></a>
 </h2>
-<p><code><a href="../reference/ctrl_freqresp.html">ctrl_freqresp()</a></code> evaluates <span class="math inline">G(j\omega)</span> (or <span class="math inline">G(e^{j\omega T})</span>) on a grid, with one complex
-linear solve <span class="math inline">C (j\omega I - A)^{-1} B +
-D</span> per frequency, so no polynomial is ever evaluated. The default
-grid extends one to two decades beyond the poles and zeros and is denser
-near lightly damped modes:</p>
+<p><code><a href="../reference/ctrl_freqresp.html">ctrl_freqresp()</a></code> evaluates <span class="math inline">G(j\omega)</span> (or <span class="math inline">G(e^{j\omega T})</span>) on a grid. State-space
+models use one complex linear solve <span class="math inline">C (j\omega
+I - A)^{-1} B + D</span> per frequency on a diagonally balanced
+realization; transfer function objects are evaluated from their
+coefficients, which is accurate for low orders (convert high-order
+transfer functions with <code><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss()</a></code> first). The default
+grid from <code><a href="../reference/ctrl_freq_grid.html">ctrl_freq_grid()</a></code> extends one to two decades
+beyond the poles and zeros and is denser near lightly damped modes:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">G</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">10</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0.4</span>, <span class="fl">25</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fr</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_freqresp.html">ctrl_freqresp</a></span><span class="op">(</span><span class="va">G</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fr</span><span class="op">$</span><span class="va">response</span><span class="op">[</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="op">]</span></span>
 <span><span class="co">#&gt; [1]  0.3937539-4.0022309i  0.4096084-0.4234935i -1.0000000-5.0000000i</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_freq_grid.html">ctrl_freq_grid</a></span><span class="op">(</span><span class="va">G</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1]   0.1 100.0</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_bode.html">ctrl_bode</a></span><span class="op">(</span><span class="va">G</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="frequency-response_files/figure-html/unnamed-chunk-2-1.png" class="r-plt" alt="" width="672"></p>
+<p><code><a href="../reference/ctrl_bandwidth.html">ctrl_bandwidth()</a></code> is the first frequency where the gain
+falls a given number of decibels (3 by default) below its DC value:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_bandwidth.html">ctrl_bandwidth</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.9976283</span></span></code></pre></div>
 <p>Phase is unwrapped along the grid. If the grid is too coarse near a
 resonance the unwrapping can jump; supply a denser <code>w</code> when
 in doubt.</p>
@@ -127,16 +137,16 @@ in doubt.</p>
 <div class="section level2">
 <h2 id="nyquist-and-nichols-plots">Nyquist and Nichols plots<a class="anchor" aria-label="anchor" href="#nyquist-and-nichols-plots"></a>
 </h2>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">L</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">ny</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_bode.html">ctrl_nyquist</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span></span>
 <span><span class="va">ny</span><span class="op">$</span><span class="va">encirclements</span></span>
 <span><span class="co">#&gt; [1] 0</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">ny</span><span class="op">)</span></span></code></pre></div>
-<p><img src="frequency-response_files/figure-html/unnamed-chunk-3-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<p><img src="frequency-response_files/figure-html/unnamed-chunk-4-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_bode.html">ctrl_nichols</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="frequency-response_files/figure-html/unnamed-chunk-3-2.png" class="r-plt" alt="" width="672"></p>
+<p><img src="frequency-response_files/figure-html/unnamed-chunk-4-2.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level2">
 <h2 id="gain-phase-and-delay-margins">Gain, phase and delay margins<a class="anchor" aria-label="anchor" href="#gain-phase-and-delay-margins"></a>
@@ -148,7 +158,7 @@ searching a frequency grid: the phase crossovers are the real roots of
 gain crossovers the roots of <span class="math inline">|L(j\omega)| =
 1</span>. All crossings are returned, and the margins refer to the
 critical ones:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_margin.html">ctrl_margin</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span></span>
 <span><span class="va">m</span></span>
 <span><span class="co">#&gt; Stability margins (unity negative feedback)</span></span>
@@ -171,7 +181,7 @@ disk margins and singular values.</p>
 stability under simultaneous gain and phase variations <span class="math inline">f</span> in a disk; with skew 0 the guaranteed range
 is gain in <span class="math inline">[(1 - \alpha/2)/(1 + \alpha/2), (1
 + \alpha/2)/(1 - \alpha/2)]</span> together with phase <span class="math inline">\pm 2\arctan(\alpha/2)</span>:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_disk_margin.html">ctrl_disk_margin</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Disk margin (skew 0): alpha = 0.8093 at w = 1.166</span></span>
 <span><span class="co">#&gt;   gain margin: [0.4239, 2.359] (-7.456 to 7.456 dB)</span></span>
@@ -180,7 +190,7 @@ is gain in <span class="math inline">[(1 - \alpha/2)/(1 + \alpha/2), (1
 <div class="section level2">
 <h2 id="sensitivity-functions">Sensitivity functions<a class="anchor" aria-label="anchor" href="#sensitivity-functions"></a>
 </h2>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">C</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">g4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_sensitivity.html">ctrl_gangof4</a></span><span class="op">(</span><span class="va">P</span>, <span class="va">C</span><span class="op">)</span></span>
@@ -192,6 +202,24 @@ is gain in <span class="math inline">[(1 - \alpha/2)/(1 + \alpha/2), (1
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $frequency</span></span>
 <span><span class="co">#&gt; [1] 8.572122</span></span></code></pre></div>
+<p>For a loop transfer function alone, <code><a href="../reference/ctrl_sensitivity.html">ctrl_sensitivity()</a></code>
+returns the sensitivity <span class="math inline">S = (I +
+L)^{-1}</span> and complementary sensitivity <span class="math inline">T
+= L (I + L)^{-1}</span>:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">st</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_sensitivity.html">ctrl_sensitivity</a></span><span class="op">(</span><span class="va">C</span> <span class="op">*</span> <span class="va">P</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/ctrl_bandwidth.html">ctrl_peak</a></span><span class="op">(</span><span class="va">st</span><span class="op">$</span><span class="va">S</span><span class="op">)</span></span>
+<span><span class="co">#&gt; $gain</span></span>
+<span><span class="co">#&gt; [1] 1.148627</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $frequency</span></span>
+<span><span class="co">#&gt; [1] 8.572122</span></span>
+<span><span class="fu"><a href="../reference/ctrl_bandwidth.html">ctrl_peak</a></span><span class="op">(</span><span class="va">st</span><span class="op">$</span><span class="cn">T</span><span class="op">)</span></span>
+<span><span class="co">#&gt; $gain</span></span>
+<span><span class="co">#&gt; [1] 1</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $frequency</span></span>
+<span><span class="co">#&gt; [1] 0</span></span></code></pre></div>
 <p>The peak of the sensitivity <span class="math inline">M_s =
 \|S\|_\infty</span> is the inverse of the distance from the Nyquist
 curve to the critical point, a single number that bounds both gain and
@@ -200,7 +228,7 @@ phase margins.</p>
 <div class="section level2">
 <h2 id="system-norms">System norms<a class="anchor" aria-label="anchor" href="#system-norms"></a>
 </h2>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sys</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="op">-</span><span class="fl">4</span>, <span class="op">-</span><span class="fl">0.4</span><span class="op">)</span>, <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/ctrl_norm.html">ctrl_norm</a></span><span class="op">(</span><span class="va">sys</span>, <span class="st">"2"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0.559017</span></span>
@@ -210,13 +238,16 @@ phase margins.</p>
 <span><span class="co">#&gt; [1] 1.979899</span></span>
 <span><span class="co">#&gt; attr(,"bounds")</span></span>
 <span><span class="co">#&gt; [1] 1.256297 1.256297</span></span></code></pre></div>
-<p>The H2 norm comes from the controllability gramian; the H-infinity
-norm from the Bruinsma-Steinbuch iteration on the eigenvalues of a
-Hamiltonian matrix, which converges quadratically and returns certified
-lower and upper bounds (attribute <code>bounds</code>) and the peak
-frequency. For the oscillator above the peak is close to the resonance
-<span class="math inline">\omega = 2</span>:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<p>The H2 norm is <span class="math inline">\|C L_c\|_F</span>, where
+the controllability Gramian factor <span class="math inline">L_c
+L_c^\top = W_c</span> is computed directly by Hammarling’s method (the
+Gramian itself is never formed, so a realization with nearly canceling
+directions keeps its accuracy); the H-infinity norm from the
+Bruinsma-Steinbuch iteration on the eigenvalues of a Hamiltonian matrix,
+which converges quadratically and returns certified lower and upper
+bounds (attribute <code>bounds</code>) and the peak frequency. For the
+oscillator above the peak is close to the resonance <span class="math inline">\omega = 2</span>:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attributes.html" class="external-link">attributes</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_norm.html">ctrl_norm</a></span><span class="op">(</span><span class="va">sys</span>, <span class="st">"inf"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $frequency</span></span>
 <span><span class="co">#&gt; [1] 1.979899</span></span>
