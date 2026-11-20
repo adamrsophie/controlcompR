@@ -131,7 +131,10 @@ plot(ctrl_bode(L))
 * A model that predicts the data well is not automatically adequate for
   feedback design.
 * H-infinity synthesis is experimental: continuous time, \(D_{11} = 0\),
-  and every controller is certified by an independent norm computation.
+  and every controller is checked by an independent norm computation
+  (its upper bound must lie below \(\gamma\)).
+* Built-in checks (residuals, sampled errors, norm bounds) detect
+  failures; they are not proofs of accuracy for every input.
 
 The article *Numerical validation and scope* lists the conventions, the
 tolerances, the reference comparisons and the capability matrix with the

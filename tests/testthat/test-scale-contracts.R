@@ -217,3 +217,23 @@ test_that("Hankel singular values of a model with complex poles match the Gramia
   expect_equal(hs[1:4], ref[1:4], tolerance = 1e-8)
   expect_equal(attr(ctrl_balreal(G), "hsv")[1:4], ref[1:4], tolerance = 1e-8)
 })
+
+test_that("the reduction bound check rejects a reduced model that violates it", {
+  G <- ctrl_ss(diag(c(-1, -2)), c(1, 1), c(1, 1))
+  wrong <- ctrl_ss(-1, 1, 1)  # drops 1 / (s + 2), error 0.5 at DC
+  expect_error(controlcompR:::check_reduction_bound(G, wrong, 1e-3, "truncate"),
+               "certify")
+  ok <- controlcompR:::check_reduction_bound(G, wrong, 1, "truncate")
+  expect_identical(ok$status, "certified")
+})
+
+test_that("MHE matches the Kalman update for a rotated anisotropic prior", {
+  U <- matrix(c(1, 1, -1, 1), 2) / sqrt(2)
+  P0 <- U %*% diag(c(1, 1e-13)) %*% t(U)
+  C <- matrix(c(0, 1), 1)
+  sys <- ctrl_ss(diag(2), matrix(0, 2, 1), C, dt = 1)
+  r <- ctrl_mhe_run(ctrl_mhe(sys, 1, Qn = P0, Rn = 1e-13, x0 = c(0, 0), P0 = P0),
+                    1e-7)
+  K <- P0 %*% t(C) %*% solve(C %*% P0 %*% t(C) + 1e-13)
+  expect_equal(unname(r$estimates[1, ]), drop(K) * 1e-7, tolerance = 1e-6)
+})

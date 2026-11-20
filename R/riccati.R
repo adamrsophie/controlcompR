@@ -147,8 +147,10 @@ riccati_solve <- function(A, B, Q, R, S, discrete, check_weights) {
   #    comes last because it leaves G = B R^-1 B' and P unchanged, while
   #    the steps above rescale R and B differently.
   bsn <- sqrt(colSums(B^2) + colSums(S^2))
-  rd <- diag(R)
-  du <- ifelse(bsn > 0, bsn / rd, 1 / sqrt(rd))
+  # |R_jj|: the H-infinity equations solve with an indefinite R, and the
+  # congruence by a positive diagonal is exact for any sign
+  rd <- abs(diag(R))
+  du <- ifelse(rd > 0, ifelse(bsn > 0, bsn / rd, 1 / sqrt(rd)), 1)
   du <- 2^pmin(pmax(round(log2(du)), -200), 200)
   du[!is.finite(du)] <- 1
   B <- sweep(B, 2L, du, `*`)

@@ -98,8 +98,9 @@ constraints MHE then equals the Kalman filter exactly, which the tests
 verify. Directions with zero prior variance become equality constraints;
 the zero decision is made on the covariance scaled to unit diagonal, so a
 small positive variance remains a (strong) prior instead of an equality.
-The QP is solved in variables scaled to unit curvature, so solver
-tolerances do not depend on the units of states or covariances.
+The QP is solved in the prior's own coordinates, scaled to unit
+curvature, so solver tolerances do not depend on the units or the
+orientation of the states and covariances.
 
 MHE is not a Kalman filter: when states have physical bounds (a
 concentration cannot be negative), the bounds enter the estimate. The

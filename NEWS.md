@@ -50,8 +50,11 @@
     bands from the first-order eigenvalue error bound (`pole_tol`).
   * Covariances are inverted on their support after scaling to unit
     diagonal in the UKF update, the RTS smoother and the MHE arrival
-    cost, so a small positive variance is never treated as zero; the MHE
-    QP is solved in variables scaled to unit curvature.
+    cost, and every direction of a covariance accepted as positive
+    definite is kept, also when rotated away from the axes; the MHE QP is
+    solved in the prior's own coordinates scaled to unit curvature.
+  * Loop internal stability checks use the same policy as
+    `ctrl_stability()`.
   * Robust stability decisions and H-infinity synthesis certification use
     the upper bound of the norm computation (`upper_bound`); an attained
     zero H-infinity optimum is returned with `gamma = 0`.
@@ -64,9 +67,9 @@
   * `ctrl_zeros()` stops with an error for systems whose pencil is
     singular (no full normal rank), decided by evaluating the transfer
     matrix away from every computed eigenvalue and pole. With a
-    well-conditioned `D` the zeros are the eigenvalues of
-    `A - B D^-1 C`; an eigenvalue that cannot be told apart from infinity
-    gives a warning.
+    well-conditioned `D`, zeros too large for the pencil to separate from
+    infinity are taken from `A - B D^-1 C`; otherwise an eigenvalue that
+    cannot be told apart from infinity gives a warning.
   * Step, impulse and initial responses are applied at time zero; grids
     that start later report the same response at their own instants.
   * `ctrl_step_info()` reports `final_value_known` separately from

@@ -93,7 +93,7 @@ plot(sim)
 | PID | parallel and standard forms, derivative filter, setpoint weights, saturation, back-calculation and clamping anti-windup, bumpless transfer, Ziegler-Nichols, SIMC and AMIGO tuning, FOPDT fitting |
 | MPC | sparse QP with input, rate, state, output and terminal constraints, soft constraints, control horizon, preview references, offset-free tracking, explicit failure handling |
 | Estimation with constraints | moving horizon estimation with warm starts |
-| Robust control | H2 synthesis, H-infinity synthesis (experimental, certified), mixed-sensitivity plants, small-gain robust stability and robust performance tests |
+| Robust control | H2 synthesis, H-infinity synthesis (experimental, checked by an independent norm bound), mixed-sensitivity plants, small-gain robust stability and robust performance tests |
 | Model reduction | Hankel singular values, balanced realization, balanced truncation and residualization with error bounds |
 | Identification | ARX, order selection, subspace (MOESP) identification, simulation and prediction fit, residual tests, conversion of `sysid` models |
 | Nonlinear systems | simulation, linearization, equilibria, discretization, EKF, UKF, nonlinear MPC (experimental), trajectory optimization |

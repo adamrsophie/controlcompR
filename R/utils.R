@@ -362,17 +362,22 @@ measurement_matrix <- function(y, p) {
 
 # Inverse on the support of a symmetric positive semidefinite matrix,
 # computed on the equilibrated matrix D^-1 P D^-1 (D = sqrt(diag(P))) so
-# that the rank decision does not depend on the units of the coordinates:
-# a small but positive variance is kept, and only directions that are
-# negligible relative to their own scale count as deterministic. Returns
-# the generalized inverse `inv` (equal to solve(P) for positive definite
-# P) and an orthonormal basis `null` of the deterministic directions.
-psd_pinv <- function(P, tol = 1e-12) {
+# that the rank decision does not depend on the units of the coordinates.
+# A direction is kept when its equilibrated eigenvalue is above the level
+# at which check_pd() accepts a matrix as positive definite (100 n eps), so
+# a covariance accepted as positive definite keeps all its directions,
+# also when its small directions are rotated away from the axes. Returns
+# the generalized inverse `inv` (equal to solve(P) on the kept support), a
+# factor `factor` with factor factor' = P on the support (so
+# factor' inv factor = I) and an orthonormal basis `null` of the
+# deterministic directions.
+psd_pinv <- function(P, tol = 100 * nrow(as.matrix(P)) * .Machine$double.eps) {
   P <- as.matrix(P)
   n <- nrow(P)
   d <- sqrt(pmax(diag(P), 0))
   pos <- d > 0
   inv <- matrix(0, n, n)
+  fac <- matrix(0, n, 0)
   nul <- diag(n)[, !pos, drop = FALSE]
   if (any(pos)) {
     e <- eigen(symmetrize(P[pos, pos, drop = FALSE] / outer(d[pos], d[pos])),
@@ -380,11 +385,14 @@ psd_pinv <- function(P, tol = 1e-12) {
     keep <- e$values > tol * max(e$values)
     V <- e$vectors[, keep, drop = FALSE] / d[pos]
     inv[pos, pos] <- V %*% (t(V) / e$values[keep])
+    fac <- matrix(0, n, sum(keep))
+    fac[pos, ] <- sweep(e$vectors[, keep, drop = FALSE] * d[pos], 2L,
+                        sqrt(e$values[keep]), `*`)
     if (any(!keep)) {
       N <- matrix(0, n, sum(!keep))
       N[pos, ] <- e$vectors[, !keep, drop = FALSE] / d[pos]
       nul <- cbind(nul, qr.Q(qr(N)))
     }
   }
-  list(inv = inv, null = nul)
+  list(inv = inv, factor = fac, null = nul)
 }

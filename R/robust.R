@@ -776,7 +776,9 @@ loop_internally_stable <- function(G, K) {
   Acl <- rbind(cbind(G$A + G$B %*% Fx, G$B %*% Fk),
                cbind(K$B %*% (G$C + G$D %*% Fx), K$A + K$B %*% G$D %*% Fk))
   if (!nrow(Acl)) return(TRUE)
-  ev <- eigen(Acl, only.values = TRUE)$values
-  # a static plant or controller adopts the other's time domain
-  if (common_dt(G, K) > 0) all(Mod(ev) < 1) else all(Re(ev) < 0)
+  # the same stability policy as ctrl_stability(); a static plant or
+  # controller adopts the other's time domain
+  n <- nrow(Acl)
+  ctrl_is_stable(ctrl_ss(Acl, matrix(0, n, 1), matrix(0, 1, n),
+                         dt = common_dt(G, K)))
 }

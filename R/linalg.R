@@ -45,7 +45,7 @@ qz_real <- function(A, B, order = c("none", "continuous", "discrete"), tol = 0) 
 }
 
 # Finite generalized eigenvalues of the pencil (A, B).
-gen_eigenvalues <- function(A, B, tol = NULL) {
+gen_eigenvalues <- function(A, B, tol = NULL, warn = TRUE) {
   if (!length(A)) return(complex())
   q <- qz_real(A, B)
   # beta is computed from an orthogonally equivalent copy of B, so its scale
@@ -58,7 +58,7 @@ gen_eigenvalues <- function(A, B, tol = NULL) {
   # silently
   unsure <- !finite & abs(q$beta) > 10 * nrow(A) * .Machine$double.eps * sc &
     abs(q$alpha) > 0
-  if (any(unsure)) {
+  if (warn && any(unsure)) {
     ctrl_warn(sum(unsure), " generalized eigenvalue(s) of size about ",
               paste(signif(Mod(q$alpha[unsure] / q$beta[unsure]), 3),
                     collapse = ", "),

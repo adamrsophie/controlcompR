@@ -276,9 +276,9 @@ ctrl_dcgain <- function(sys) {
 #' \begin{pmatrix} I & 0 \\ 0 & 0 \end{pmatrix},}
 #' computed with the QZ algorithm. When `D` is well-conditioned relative to
 #' its own size (reciprocal condition number above \eqn{\sqrt\epsilon}),
-#' the pencil has exactly `m` infinite eigenvalues and the zeros are
-#' computed as the eigenvalues of \eqn{A - B D^{-1} C}, so a very large
-#' finite zero (from a tiny feedthrough) is kept. Otherwise a generalized
+#' there are exactly `n` finite zeros; zeros too large for the pencil to
+#' separate from infinity (from a tiny feedthrough) are then taken as the
+#' largest eigenvalues of \eqn{A - B D^{-1} C}, so they are kept. Otherwise a generalized
 #' eigenvalue that cannot be told apart from infinity at working precision
 #' is treated as infinite with a warning. Zeros need a regular pencil (full
 #' normal rank); this is checked by evaluating the transfer matrix at
@@ -311,12 +311,9 @@ ctrl_zeros <- function(sys) {
   }
   if (!n) return(complex())
   # with a well-conditioned feedthrough (relative to its own size, whatever
-  # its units) the pencil has exactly m infinite eigenvalues and the zeros
-  # are the eigenvalues of A - B D^-1 C, however large they are
-  if (rcond(sys$D) > sqrt(.Machine$double.eps)) {
-    z <- eigen(sys$A - sys$B %*% solve(sys$D, sys$C), only.values = TRUE)$values
-    return(sort_poles(as.complex(z), sys$dt))
-  }
+  # its units) the pencil has exactly m infinite eigenvalues, so there are
+  # exactly n finite zeros: those of A - B D^-1 C
+  regular_D <- rcond(sys$D) > sqrt(.Machine$double.eps)
   M <- rbind(cbind(sys$A, sys$B), cbind(sys$C, sys$D))
   N <- blkdiag(diag(n), matrix(0, m, m))
   # A diagonal similarity leaves N unchanged, so balancing M equilibrates
@@ -326,7 +323,16 @@ ctrl_zeros <- function(sys) {
   # scale N to the size of M so that finite and infinite eigenvalues are
   # separated on a common scale, then restore the units
   c <- max(norm(M, "1"), .Machine$double.xmin)
-  z <- gen_eigenvalues(M, c * N) * c
+  z <- gen_eigenvalues(M, c * N, warn = !regular_D) * c
+  if (regular_D && length(z) < n) {
+    # zeros so large that the pencil cannot tell them from infinity: take
+    # them from A - B D^-1 C, whose largest eigenvalues are accurate
+    # relative to their size (the QZ values stay for the moderate zeros,
+    # which A - B D^-1 C would resolve only to eps ||B D^-1 C||)
+    zd <- as.complex(eigen(sys$A - sys$B %*% solve(sys$D, sys$C),
+                           only.values = TRUE)$values)
+    z <- c(z, zd[order(Mod(zd), decreasing = TRUE)][seq_len(n - length(z))])
+  }
   # Zeros are only defined when the pencil is regular, i.e. the transfer
   # matrix has full normal rank. If the pencil is regular, G(s) has full
   # rank at every point that is neither a zero nor a pole, and every zero

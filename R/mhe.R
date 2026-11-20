@@ -192,21 +192,33 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     }
     H <- Matrix::sparseMatrix(i = Hm$i, j = Hm$j, x = Hm$x, dims = c(nz, nz))
     A <- Matrix::sparseMatrix(i = Ac$i, j = Ac$j, x = Ac$x, dims = c(r, nz))
-    # solve in scaled variables z = dv * zs with dv = 1 / sqrt(diag(H)), so
-    # every variable has unit curvature whatever the units of the states and
-    # covariances, then normalize the objective; the solution, objective and
-    # duals are mapped back afterwards (constraint rows are not rescaled, so
-    # the duals keep their meaning)
-    hd <- Matrix::diag(H)
+    # change of variables z = M zs before calling the solver, so that
+    # solver tolerances do not depend on the units or the orientation of
+    # the prior: the first state of the window is written in the prior's
+    # own coordinates [F N] (F F' = P on its support, N its deterministic
+    # directions), which turns the arrival cost into an identity block even
+    # for a rotated, very anisotropic covariance; then every variable is
+    # scaled to unit curvature and the objective is normalized. The
+    # solution, objective and duals are mapped back afterwards (constraint
+    # rows are not rescaled, so the duals keep their meaning).
+    T1 <- cbind(sp$factor, Nul)
+    Mt <- Matrix::bdiag(Matrix::Matrix(T1, sparse = TRUE), Matrix::Diagonal(nz - n))
+    H1 <- Matrix::t(Mt) %*% H %*% Mt
+    hd <- Matrix::diag(H1)
     dv <- ifelse(is.finite(hd) & hd > 0, 1 / sqrt(hd), 1)
-    Dv <- Matrix::Diagonal(x = dv)
-    Hs <- Dv %*% H %*% Dv
+    Mv <- Mt %*% Matrix::Diagonal(x = dv)
+    Hs <- Matrix::t(Mv) %*% H %*% Mv
+    Hs <- (Hs + Matrix::t(Hs)) / 2
     osc <- max(abs(Matrix::diag(Hs)))
     if (!is.finite(osc) || osc <= 0) osc <- 1
     model <- osqp::osqp(P = methods::as(Matrix::triu(Hs / osc), "CsparseMatrix"),
-                        q = dv * qv / osc,
-                        A = methods::as(A %*% Dv, "CsparseMatrix"), l = lo,
+                        q = as.numeric(Matrix::t(Mv) %*% qv) / osc,
+                        A = methods::as(A %*% Mv, "CsparseMatrix"), l = lo,
                         u = hi, pars = do.call(osqp::osqpSettings, mhe$settings))
+    to_scaled <- function(z) {
+      z[seq_len(n)] <- solve(T1, z[seq_len(n)])
+      z / dv
+    }
     lay <- c(dyn = L - 1L, nul = ncol(Nul),
              xb = if (any(is.finite(c(mhe$x_min, mhe$x_max)))) L else 0L,
              wb = if (L > 1L && any(is.finite(c(mhe$w_min, mhe$w_max)))) L - 1L else 0L,
@@ -222,7 +234,7 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
                                        lay_prev[["nul"]]),
                            q, lay_prev[["wb"]], lay[["wb"]], sh),
               rep(0, lay[["free"]]))
-      model@WarmStart(x = mhe_shift(zprev, sh, L, n, q, s, U[Tk - 1L, ]) / dv,
+      model@WarmStart(x = to_scaled(mhe_shift(zprev, sh, L, n, q, s, U[Tk - 1L, ])),
                       y = if (length(yw) == r) yw / osc else NULL)
     }
     res <- osqp_solve(model)
@@ -231,7 +243,7 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
       ctrl_abort("MHE QP failed at sample ", Tk, " with status \"",
                  res$info$status, "\".")
     }
-    zsol <- dv * res$x
+    zsol <- as.numeric(Mv %*% res$x)
     est[Tk, ] <- zsol[xi(L)]
     obj[Tk] <- osc * res$info$obj_val + const
     stime[Tk] <- res$info$solve_time
