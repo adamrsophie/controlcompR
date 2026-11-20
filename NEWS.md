@@ -79,21 +79,34 @@
   * Frequency responses on many points use one complex Schur
     factorization and triangular solves (about six times faster at 120
     states); short point lists keep the dense solve.
-  * The controllability staircase transforms only the trailing blocks;
-    QZ computes only the Schur vectors the caller needs.
-  * MPC and MHE assemble their QPs from chunked triplets in linear time;
-    MHE reuses the OSQP workspace while the QP sparsity is unchanged and
-    advances the prior covariance lazily instead of storing one per
-    sample.
+  * The controllability staircase applies each stage as the Householder
+    reflectors of the SVD range basis, only to the trailing blocks (about
+    four times faster at 120 states with one input); QZ computes only the
+    Schur vectors the caller needs, and the Riccati pencil compression
+    applies its QR reflectors without forming the orthogonal factor.
+  * MPC and MHE assemble their QPs from chunked triplets in linear time.
+    MHE builds the scaled QP directly from small dense blocks with a
+    sparsity pattern that depends only on the window layout, so a full
+    window only refills the numbers of the reused OSQP workspace (about
+    twice as fast), and it advances the prior covariance lazily instead
+    of storing one per sample.
   * ARX order selection builds the lagged regressors once (about five
     times faster); ARX prediction is vectorized and N4SID validation does
-    not simulate twice.
+    not simulate twice. N4SID writes its Hankel stack in place, factors it
+    with the blocked LAPACK QR (only the triangular factor), takes the
+    excitation rank from that factor and fits B, D and x0 without
+    Kronecker products (about three times faster at 20000 samples).
   * The LQG simulation factors its constant algebraic loop once.
   * NMPC shares each prediction between the cost and the gradient, and
     `ctrl_nlsys()` accepts analytic Jacobians (`jacobian`), used by
     linearization, the EKF and NMPC instead of finite differences.
   * `ctrl_kalman_filter()`, `ctrl_ekf()` and `ctrl_ukf()` accept
-    `covariances = "variances"` to store only the filtered variances.
+    `covariances = "variances"` to store only the filtered variances and
+    `"final"` to store no per-sample covariance information; all return
+    `P_final`. `ctrl_kalman_filter(lag = )` returns fixed-lag smoothed
+    estimates with memory independent of the run length, and chunked
+    filtering through `next_prediction` and `next_covariance` reproduces
+    a single run.
   * `ctrl_mpc()` and `ctrl_mhe()` accept `accuracy = "high"`
     (default), `"standard"` or `"fast"` solver profiles; the MPC article
     measures the trade-off.

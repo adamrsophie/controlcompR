@@ -73,3 +73,64 @@ test_that("ARX order selection with a shared regressor bank matches single fits"
     expect_equal(tab$bic[r], m$bic)
   }
 })
+
+test_that("fixed-lag smoothing, final storage and chunked filtering agree", {
+  set.seed(3)
+  sys <- ctrl_ss(matrix(c(1, 0.1, 0, 0.95), 2, byrow = TRUE), c(0.005, 0.1),
+                 c(1, 0), dt = 0.1)
+  Tn <- 40
+  y <- cumsum(rnorm(Tn, sd = 0.1))
+  y[c(10, 11)] <- NA
+  Qn <- diag(c(1e-4, 1e-3))
+  kf <- function(yy, ...) ctrl_kalman_filter(sys, yy, Qn = Qn, Rn = 0.01, ...)
+  full <- kf(y)
+  expect_equal(kf(y, lag = Tn)$lagged, ctrl_kalman_smoother(full)$smoothed)
+  expect_equal(kf(y, lag = 0)$lagged, full$filtered)
+  L <- 4
+  fl <- kf(y, lag = L, covariances = "final")
+  for (k in c(1, 9, 20, Tn - 2, Tn)) {
+    ref <- ctrl_kalman_smoother(kf(y[seq_len(min(k + L, Tn))]))$smoothed[k, ]
+    expect_equal(fl$lagged[k, ], ref)
+  }
+  expect_null(fl$variances)
+  expect_null(fl$P_filtered)
+  expect_equal(fl$P_final, full$P_filtered[, , Tn])
+  expect_error(kf(y, lag = -1), "nonnegative")
+  expect_error(ctrl_kalman_smoother(fl), "covariance history")
+  a <- kf(y[1:25])
+  b <- kf(y[26:Tn], x0 = a$next_prediction, P0 = a$next_covariance)
+  expect_equal(rbind(a$filtered, b$filtered), full$filtered)
+  expect_equal(a$loglik + b$loglik, full$loglik)
+  nl <- ctrl_nlsys(update = function(t, x, u, p) 0.9 * x,
+                   output = function(t, x, u, p) x, nstates = 1, ninputs = 0, dt = 1)
+  e <- ctrl_ekf(nl, y, Qn = 0.01, Rn = 0.01, covariances = "final")
+  expect_null(e$variances)
+  expect_equal(drop(e$P_final), ctrl_ekf(nl, y, Qn = 0.01, Rn = 0.01)$P_filtered[1, 1, Tn])
+})
+
+test_that("Householder staircase keeps the controllable subspace and similarity", {
+  set.seed(7)
+  n <- 30
+  A <- matrix(rnorm(n * n), n) / sqrt(n)
+  B <- matrix(rnorm(n), n)
+  # make (A, B) uncontrollable: a 10 state block not reached by B
+  A[21:30, 1:20] <- 0
+  B[21:30, ] <- 0
+  st <- staircase(A, B)
+  expect_identical(st$nc, 20L)
+  expect_equal(crossprod(st$U), diag(n))
+  expect_equal(t(st$U) %*% A %*% st$U, st$A)
+  expect_equal(max(abs(st$A[21:30, 1:20])), 0, tolerance = 1e-12)
+  expect_equal(max(abs(st$B[21:30, ])), 0, tolerance = 1e-12)
+})
+
+test_that("N4SID with the native QR and direct Hankel stack is unchanged", {
+  set.seed(2)
+  true <- ctrl_ss(matrix(c(0.7, 0.2, -0.2, 0.7), 2), c(1, 0.5), c(1, 1), dt = 1)
+  u <- rnorm(600)
+  y <- ctrl_simulate(true, input = u, times = 0:599)$y[, 1, 1]
+  m <- ctrl_n4sid(ctrl_iddata(y, u), order = 2, feedthrough = TRUE)
+  expect_equal(sort(Mod(ctrl_poles(m$sys))), sort(Mod(ctrl_poles(true))), tolerance = 1e-8)
+  expect_lt(max(abs(m$residuals)), 1e-8)
+  expect_error(ctrl_n4sid(ctrl_iddata(y, rep(1, 600)), order = 2), "persistently exciting")
+})

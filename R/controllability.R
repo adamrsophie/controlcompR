@@ -72,17 +72,20 @@ staircase <- function(A, B, tol = NULL) {
   M <- B
   while (k < n) {
     if (!length(M) || ncol(M) == 0L) break
-    s <- svd(M, nu = nrow(M), nv = 0)
+    # the rank decision and the range basis come from the SVD; the
+    # transformation is applied as the r Householder reflectors of that
+    # basis, so each stage costs O(r n^2) instead of a dense (n - k) square
+    # product, and only the trailing rows and columns it changes are touched
+    # (the leading k states are already in staircase form)
+    s <- svd(M, nu = min(dim(M)), nv = 0)
     r <- sum(s$d > (if (k == 0L) tol_b else tol_a))
     if (r == 0L) break
-    # apply the orthogonal block only to the trailing rows and columns it
-    # changes (the leading k states are already in staircase form)
     tr <- (k + 1L):n
-    u <- s$u
-    A[tr, ] <- crossprod(u, A[tr, , drop = FALSE])
-    A[, tr] <- A[, tr, drop = FALSE] %*% u
-    B[tr, ] <- crossprod(u, B[tr, , drop = FALSE])
-    U[, tr] <- U[, tr, drop = FALSE] %*% u
+    h <- qr(s$u[, seq_len(r), drop = FALSE])
+    A[tr, ] <- qr.qty(h, A[tr, , drop = FALSE])
+    A[, tr] <- t(qr.qty(h, t(A[, tr, drop = FALSE])))
+    B[tr, ] <- qr.qty(h, B[tr, , drop = FALSE])
+    U[, tr] <- t(qr.qty(h, t(U[, tr, drop = FALSE])))
     prev <- (k + 1L):(k + r)
     k <- k + r
     if (k >= n) break

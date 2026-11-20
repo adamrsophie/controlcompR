@@ -469,12 +469,13 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
 #' @param u Inputs (`T x m`) or `NULL`.
 #' @param Qn,Rn Process and measurement noise covariances.
 #' @param x0,P0 Prior mean and covariance.
-#' @param covariances `"all"` (default) or `"variances"`; see
+#' @param covariances `"all"` (default), `"variances"` or `"final"`; see
 #'   [ctrl_kalman_filter()].
 #' @param alpha,beta,kappa Unscented transform parameters.
 #' @return A list of class `c("ctrl_nl_filter", "ctrl_kalman_filter")` with
 #'   `filtered`, `variances`, `P_filtered` (`NULL` with
-#'   `covariances = "variances"`), `innovations`, `nis` and `loglik`. It has no
+#'   `covariances = "variances"` or `"final"`; `variances` is `NULL` with
+#'   `"final"`), `P_final`, `innovations`, `nis` and `loglik`. It has no
 #'   predicted covariances, so [ctrl_kalman_smoother()] does not accept it.
 #' @examples
 #' f <- function(k, x, u, p) c(x[1] + 0.1 * x[2], x[2] - 0.1 * sin(x[1]))
@@ -492,8 +493,10 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
 #' tail(cbind(ekf$filtered, ukf$filtered), 2)
 #' @export
 ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
-                     covariances = c("all", "variances")) {
-  keep <- match.arg(covariances) == "all"
+                     covariances = c("all", "variances", "final")) {
+  mode <- match.arg(covariances)
+  keep <- mode == "all"
+  keep_var <- mode != "final"
   z <- nl_filter_inputs(sys, y, u, Qn, Rn, x0, P0)
   n <- sys$n
   p <- sys$p
@@ -503,7 +506,7 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
   Tn <- z$Tn
   xf <- matrix(0, Tn, n)
   Pf <- if (keep) array(0, c(n, n, Tn))
-  vars <- matrix(0, Tn, n)
+  vars <- if (keep_var) matrix(0, Tn, n)
   innov <- matrix(NA_real_, Tn, p)
   nis <- rep(NA_real_, Tn)
   loglik <- 0
@@ -525,13 +528,15 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
       loglik <- loglik + st[["ll"]]
     }
     xf[k, ] <- x
-    vars[k, ] <- diag(P)
+    if (keep_var) vars[k, ] <- diag(P)
     if (keep) Pf[, , k] <- P
+    Pk <- P
     Fj <- nl_jac(sys, tk, x, uk, "A")
     x <- nl_f(sys, tk, x, uk)
     P <- symmetrize(Fj %*% P %*% t(Fj) + z$Qn)
   }
   nl_filter_finish(list(filtered = xf, variances = vars, P_filtered = Pf,
+                        P_final = if (Tn) Pk,
                         innovations = innov,
                         nis = nis, loglik = loglik), sys)
 }
@@ -539,8 +544,10 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
 #' @rdname ctrl_ekf
 #' @export
 ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
-                     beta = 2, kappa = 0, covariances = c("all", "variances")) {
-  keep <- match.arg(covariances) == "all"
+                     beta = 2, kappa = 0, covariances = c("all", "variances", "final")) {
+  mode <- match.arg(covariances)
+  keep <- mode == "all"
+  keep_var <- mode != "final"
   z <- nl_filter_inputs(sys, y, u, Qn, Rn, x0, P0)
   n <- sys$n
   p <- sys$p
@@ -562,7 +569,7 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
   Tn <- z$Tn
   xf <- matrix(0, Tn, n)
   Pf <- if (keep) array(0, c(n, n, Tn))
-  vars <- matrix(0, Tn, n)
+  vars <- if (keep_var) matrix(0, Tn, n)
   innov <- matrix(NA_real_, Tn, p)
   nis <- rep(NA_real_, Tn)
   loglik <- 0
@@ -597,8 +604,9 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
       loglik <- loglik + st[["ll"]]
     }
     xf[k, ] <- x
-    vars[k, ] <- diag(P)
+    if (keep_var) vars[k, ] <- diag(P)
     if (keep) Pf[, , k] <- P
+    Pk <- P
     Xs <- sigma(x, P)
     Fs <- matrix(apply(Xs, 2, function(xx) nl_f(sys, tk, xx, uk)), nrow = n)
     x <- drop(Fs %*% wm)
@@ -606,6 +614,7 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
     P <- symmetrize(dF %*% (wc * t(dF)) + z$Qn)
   }
   nl_filter_finish(list(filtered = xf, variances = vars, P_filtered = Pf,
+                        P_final = if (Tn) Pk,
                         innovations = innov,
                         nis = nis, loglik = loglik), sys)
 }
@@ -626,7 +635,8 @@ nl_innovation_stats <- function(e, S) {
 }
 
 nl_filter_finish <- function(out, sys) {
-  colnames(out$filtered) <- colnames(out$variances) <- sys$state_names
+  colnames(out$filtered) <- sys$state_names
+  if (!is.null(out$variances)) colnames(out$variances) <- sys$state_names
   out$plant <- sys
   class(out) <- c("ctrl_nl_filter", "ctrl_kalman_filter")
   out

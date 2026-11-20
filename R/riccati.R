@@ -196,9 +196,13 @@ riccati_core <- function(A, B, Q, R, S, discrete) {
   if (qx$rank < m) {
     ctrl_abort("The input block of the Riccati pencil is rank deficient.")
   }
-  W <- qr.Q(qx, complete = TRUE)[, m + seq_len(2L * n), drop = FALSE]
-  Mr <- t(W) %*% M[, seq_len(2L * n), drop = FALSE]
-  Nr <- t(W) %*% N[, seq_len(2L * n), drop = FALSE]
+  # apply the Householder reflectors directly instead of forming the full
+  # orthogonal factor; rows after the first m span the left null space
+  keep <- m + seq_len(2L * n)
+  j <- seq_len(2L * n)
+  MN <- qr.qty(qx, cbind(M[, j, drop = FALSE], N[, j, drop = FALSE]))[keep, , drop = FALSE]
+  Mr <- MN[, j, drop = FALSE]
+  Nr <- MN[, 2L * n + j, drop = FALSE]
   # balance the pencil scale for the ordering test
   sc <- max(norm(Mr, "1"), norm(Nr, "1"), 1)
   tol_sel <- 100 * .Machine$double.eps * (2 * n)

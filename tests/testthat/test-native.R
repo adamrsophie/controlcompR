@@ -27,6 +27,15 @@ test_that("native entry points reject malformed direct calls", {
   expect_error(.Call(cr, Ac, Ac, matrix(0i, 1, 3), 1i, 0), "1 x 2")
   expect_error(.Call(cr, Ac, Ac, Ac, 1, 0), "complex vector")
   expect_error(.Call(cr, Ac, Ac, Ac, 1i, -1), "nonnegative")
+  cqr <- get("cc_qr_r", ns)
+  expect_error(.Call(cqr, 1:4), "double matrix")
+  expect_identical(dim(.Call(cqr, matrix(0, 0, 3))), c(0L, 3L))
+  set.seed(1)
+  X <- matrix(rnorm(60), 12)
+  R <- .Call(cqr, X)
+  expect_equal(abs(diag(R)), abs(diag(qr.R(qr(X)))))
+  expect_equal(crossprod(R), crossprod(X))
+  expect_equal(R[lower.tri(R)], rep(0, sum(lower.tri(R))))
 })
 
 test_that("native wrappers handle empty and integer inputs", {

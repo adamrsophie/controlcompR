@@ -14,7 +14,8 @@ ctrl_kalman_filter(
   x0 = NULL,
   P0 = NULL,
   G = NULL,
-  covariances = c("all", "variances")
+  covariances = c("all", "variances", "final"),
+  lag = NULL
 )
 
 ctrl_kalman_smoother(filter)
@@ -36,7 +37,18 @@ zero and the identity).}
 \item{covariances}{\code{"all"} (default) stores the covariance, innovation
 covariance and gain of every sample; \code{"variances"} stores only the
 filtered variances, so memory grows with \eqn{T n} instead of
-\eqn{T n^2} (the smoother then cannot be run).}
+\eqn{T n^2}; \code{"final"} stores no per-sample covariance information,
+only the final covariances. The smoother needs \code{"all"}.}
+
+\item{lag}{Optional fixed lag \eqn{L \ge 0}. When given, \code{lagged} holds
+the fixed-lag smoothed estimates: row \code{k} is the mean of \eqn{x_k}
+given the measurements up to sample \eqn{\min(k + L, T)}. It needs
+only the last \eqn{L + 1} smoother gains, so it works with every
+\code{covariances} mode.
+
+For online use, filter the data in chunks: pass \code{next_prediction} and
+\code{next_covariance} of one run as \code{x0} and \code{P0} of the next. The chunked
+estimates equal those of a single run over all the data.}
 
 \item{filter}{A \code{ctrl_kalman_filter} result.}
 }
@@ -45,8 +57,10 @@ filtered variances, so memory grows with \eqn{T n} instead of
 \code{ctrl_kalman_filter} with \code{filtered} (\verb{T x n}), \code{predicted} (\verb{T x n},
 row \code{k} is \eqn{\hat x_{k|k-1}}), \code{variances} (\verb{T x n}, the diagonal of
 \eqn{P_{k|k}}), \code{P_filtered} and \code{P_predicted} (\verb{n x n x T} arrays,
-\code{NULL} with \code{covariances = "variances"}), \code{innovations},
-\code{innovation_cov} (\verb{p x p x T}), \code{gain} (\verb{n x p x T}), \code{nis}
+\code{NULL} unless \code{covariances = "all"}, as are \code{innovation_cov} and
+\code{gain}; \code{variances} is \code{NULL} with \code{"final"}), \code{P_final} (the filtered
+covariance at the last sample), \code{lagged} (\code{NULL} without \code{lag}),
+\code{innovations}, \code{innovation_cov} (\verb{p x p x T}), \code{gain} (\verb{n x p x T}), \code{nis}
 (normalized innovation squared), \code{loglik} (Gaussian log-likelihood of
 the measurements) and \code{next_prediction}, \code{next_covariance} (the
 prediction for the sample after the data).

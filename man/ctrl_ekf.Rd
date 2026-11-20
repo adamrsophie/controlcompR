@@ -13,7 +13,7 @@ ctrl_ekf(
   Rn,
   x0 = NULL,
   P0 = NULL,
-  covariances = c("all", "variances")
+  covariances = c("all", "variances", "final")
 )
 
 ctrl_ukf(
@@ -27,7 +27,7 @@ ctrl_ukf(
   alpha = 1,
   beta = 2,
   kappa = 0,
-  covariances = c("all", "variances")
+  covariances = c("all", "variances", "final")
 )
 }
 \arguments{
@@ -41,7 +41,7 @@ ctrl_ukf(
 
 \item{x0, P0}{Prior mean and covariance.}
 
-\item{covariances}{\code{"all"} (default) or \code{"variances"}; see
+\item{covariances}{\code{"all"} (default), \code{"variances"} or \code{"final"}; see
 \code{\link[=ctrl_kalman_filter]{ctrl_kalman_filter()}}.}
 
 \item{alpha, beta, kappa}{Unscented transform parameters.}
@@ -49,7 +49,8 @@ ctrl_ukf(
 \value{
 A list of class \code{c("ctrl_nl_filter", "ctrl_kalman_filter")} with
 \code{filtered}, \code{variances}, \code{P_filtered} (\code{NULL} with
-\code{covariances = "variances"}), \code{innovations}, \code{nis} and \code{loglik}. It has no
+\code{covariances = "variances"} or \code{"final"}; \code{variances} is \code{NULL} with
+\code{"final"}), \code{P_final}, \code{innovations}, \code{nis} and \code{loglik}. It has no
 predicted covariances, so \code{\link[=ctrl_kalman_smoother]{ctrl_kalman_smoother()}} does not accept it.
 }
 \description{

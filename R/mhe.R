@@ -138,72 +138,18 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     xi <- function(j) (j - 1L) * n + seq_len(n)
     wi <- function(j) L * n + (j - 1L) * q + seq_len(q)
     nz <- L * n + (L - 1L) * q
-    Hm <- trip_new()
+    fin <- vapply(st + seq_len(L) - 1L, function(k) all(is.finite(Y[k, ])), TRUE)
+    CRC <- 2 * t(s$C) %*% Ri %*% s$C
     qv <- numeric(nz)
-    trip_add(Hm, xi(1), xi(1), 2 * Pinv)
     qv[xi(1)] <- -2 * drop(Pinv %*% xbar)
     for (j in seq_len(L)) {
-      k <- st + j - 1L
-      if (all(is.finite(Y[k, ]))) {
-        trip_add(Hm, xi(j), xi(j), 2 * t(s$C) %*% Ri %*% s$C)
+      if (fin[j]) {
+        k <- st + j - 1L
         rk <- drop(Y[k, ] - s$D %*% U[k, ])
         qv[xi(j)] <- qv[xi(j)] - 2 * drop(t(s$C) %*% Ri %*% rk)
         const <- const + sum(rk * (Ri %*% rk))
       }
-      if (j < L) trip_add(Hm, wi(j), wi(j), 2 * Qi)
     }
-    Ac <- trip_new()
-    lo <- hi <- list()
-    r <- 0L
-    if (L > 1L) {
-      for (j in seq_len(L - 1L)) {
-        rows <- r + seq_len(n)
-        trip_add(Ac, rows, xi(j + 1L), diag(n))
-        trip_add(Ac, rows, xi(j), -s$A)
-        trip_add(Ac, rows, wi(j), -mhe$G)
-        bu <- drop(s$B %*% U[st + j - 1L, ])
-        lo[[length(lo) + 1L]] <- bu
-        hi[[length(hi) + 1L]] <- bu
-        r <- r + n
-      }
-    }
-    if (ncol(Nul)) {
-      rows <- r + seq_len(ncol(Nul))
-      trip_add(Ac, rows, xi(1), t(Nul))
-      nb <- drop(t(Nul) %*% xbar)
-      lo[[length(lo) + 1L]] <- nb
-      hi[[length(hi) + 1L]] <- nb
-      r <- r + ncol(Nul)
-    }
-    if (any(is.finite(c(mhe$x_min, mhe$x_max)))) {
-      for (j in seq_len(L)) {
-        rows <- r + seq_len(n)
-        trip_add(Ac, rows, xi(j), diag(n))
-        lo[[length(lo) + 1L]] <- rep_len(mhe$x_min, n)
-        hi[[length(hi) + 1L]] <- rep_len(mhe$x_max, n)
-        r <- r + n
-      }
-    }
-    if (L > 1L && any(is.finite(c(mhe$w_min, mhe$w_max)))) {
-      for (j in seq_len(L - 1L)) {
-        rows <- r + seq_len(q)
-        trip_add(Ac, rows, wi(j), diag(q))
-        lo[[length(lo) + 1L]] <- rep_len(mhe$w_min, q)
-        hi[[length(hi) + 1L]] <- rep_len(mhe$w_max, q)
-        r <- r + q
-      }
-    }
-    if (r == 0L) {
-      # OSQP needs at least one constraint row; add a free one
-      trip_add(Ac, 1L, 1L, matrix(1))
-      lo <- list(-Inf)
-      hi <- list(Inf)
-      r <- 1L
-    }
-    lo <- unlist(lo, use.names = FALSE)
-    hi <- unlist(hi, use.names = FALSE)
-    H <- trip_sparse(Hm, c(nz, nz))
-    A <- trip_sparse(Ac, c(r, nz))
     # change of variables z = M zs before calling the solver, so that
     # solver tolerances do not depend on the units or the orientation of
     # the prior: the first state of the window is written in the prior's
@@ -213,31 +159,119 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     # scaled to unit curvature and the objective is normalized. The
     # solution, objective and duals are mapped back afterwards (constraint
     # rows are not rescaled, so the duals keep their meaning).
+    # The Hessian is block diagonal (one block per state and disturbance),
+    # so the scaled problem is assembled block by block; every block is
+    # stored in full (explicit zeros included), so the sparsity pattern
+    # depends only on the window layout and never on the data.
     T1 <- cbind(sp$factor, Nul)
-    Mt <- Matrix::bdiag(Matrix::Matrix(T1, sparse = TRUE), Matrix::Diagonal(nz - n))
-    H1 <- Matrix::t(Mt) %*% H %*% Mt
-    hd <- Matrix::diag(H1)
-    dv <- ifelse(is.finite(hd) & hd > 0, 1 / sqrt(hd), 1)
-    Mv <- Mt %*% Matrix::Diagonal(x = dv)
-    Hs <- Matrix::t(Mv) %*% H %*% Mv
-    Hs <- (Hs + Matrix::t(Hs)) / 2
-    osc <- max(abs(Matrix::diag(Hs)))
+    Hx1 <- t(T1) %*% (2 * Pinv + if (fin[1L]) CRC else 0) %*% T1
+    unit <- function(h) {
+      d <- diag(h)
+      ifelse(is.finite(d) & d > 0, 1 / sqrt(d), 1)
+    }
+    dv <- numeric(nz)
+    dv[xi(1)] <- unit(Hx1)
+    dmeas <- unit(CRC)
+    dfree <- rep(1, n)
+    for (j in seq_len(L)[-1L]) dv[xi(j)] <- if (fin[j]) dmeas else dfree
+    dw <- unit(2 * Qi)
+    for (j in seq_len(L - 1L)) dv[wi(j)] <- dw
+    blk <- function(H, d) d * H * rep(d, each = length(d))
+    Hb <- vector("list", 2L * L - 1L)
+    Hb[[1L]] <- list(xi(1), blk(Hx1, dv[xi(1)]))
+    for (j in seq_len(L)[-1L]) {
+      Hb[[j]] <- list(xi(j), blk(if (fin[j]) CRC else matrix(0, n, n), dv[xi(j)]))
+    }
+    for (j in seq_len(L - 1L)) Hb[[L + j]] <- list(wi(j), blk(2 * Qi, dw))
+    osc <- max(vapply(Hb, function(b) max(abs(diag(b[[2L]]))), 0))
     if (!is.finite(osc) || osc <= 0) osc <- 1
-    Pm <- methods::as(Matrix::triu(Hs / osc), "CsparseMatrix")
-    Am <- methods::as(A %*% Mv, "CsparseMatrix")
-    qs <- as.numeric(Matrix::t(Mv) %*% qv) / osc
+    Hm <- trip_new()
+    for (b in Hb) {
+      k <- length(b[[1L]])
+      ut <- upper_index(k)
+      trip_push(Hm, b[[1L]][ut$i], b[[1L]][ut$j], b[[2L]][ut$lin] / osc)
+    }
+    # constraint blocks in the scaled variables: a block on the first state
+    # is multiplied by T1 D1, any other block by its diagonal scaling
+    M1 <- T1 * rep(dv[xi(1)], each = n)
+    Ac <- trip_new()
+    put <- function(rows, cols, M) {
+      trip_push(Ac, rep(rows, times = length(cols)), rep(cols, each = length(rows)),
+                as.vector(M))
+    }
+    putd <- function(rows, cols, d) trip_push(Ac, rows, cols, d)
+    lo <- hi <- list()
+    r <- 0L
+    if (L > 1L) {
+      for (j in seq_len(L - 1L)) {
+        rows <- r + seq_len(n)
+        putd(rows, xi(j + 1L), dv[xi(j + 1L)])
+        put(rows, xi(j), if (j == 1L) -s$A %*% M1 else -s$A * rep(dv[xi(j)], each = n))
+        put(rows, wi(j), -mhe$G * rep(dw, each = n))
+        bu <- drop(s$B %*% U[st + j - 1L, ])
+        lo[[length(lo) + 1L]] <- bu
+        hi[[length(hi) + 1L]] <- bu
+        r <- r + n
+      }
+    }
+    if (ncol(Nul)) {
+      rows <- r + seq_len(ncol(Nul))
+      put(rows, xi(1), t(Nul) %*% M1)
+      nb <- drop(t(Nul) %*% xbar)
+      lo[[length(lo) + 1L]] <- nb
+      hi[[length(hi) + 1L]] <- nb
+      r <- r + ncol(Nul)
+    }
+    if (any(is.finite(c(mhe$x_min, mhe$x_max)))) {
+      for (j in seq_len(L)) {
+        rows <- r + seq_len(n)
+        if (j == 1L) put(rows, xi(1), M1) else putd(rows, xi(j), dv[xi(j)])
+        lo[[length(lo) + 1L]] <- rep_len(mhe$x_min, n)
+        hi[[length(hi) + 1L]] <- rep_len(mhe$x_max, n)
+        r <- r + n
+      }
+    }
+    if (L > 1L && any(is.finite(c(mhe$w_min, mhe$w_max)))) {
+      for (j in seq_len(L - 1L)) {
+        rows <- r + seq_len(q)
+        putd(rows, wi(j), dw)
+        lo[[length(lo) + 1L]] <- rep_len(mhe$w_min, q)
+        hi[[length(hi) + 1L]] <- rep_len(mhe$w_max, q)
+        r <- r + q
+      }
+    }
+    if (r == 0L) {
+      # OSQP needs at least one constraint row; add a free one
+      put(1L, xi(1), M1[1L, , drop = FALSE])
+      lo <- list(-Inf)
+      hi <- list(Inf)
+      r <- 1L
+    }
+    lo <- unlist(lo, use.names = FALSE)
+    hi <- unlist(hi, use.names = FALSE)
+    qs <- dv * qv
+    qs[xi(1)] <- dv[xi(1)] * drop(crossprod(T1, qv[xi(1)]))
+    qs <- qs / osc
+    Pt <- trip_flat(Hm)
+    At <- trip_flat(Ac)
     # once the window is full the QP keeps its sparsity pattern from sample
-    # to sample (unless missing data or a change of support alters it), so
-    # the solver workspace is reused and only the numbers are updated
-    if (!is.null(model) && same_pattern(Pm, Pprev) && same_pattern(Am, Aprev)) {
-      model@Update(q = qs, l = lo, u = hi, Px = Pm@x, Ax = Am@x)
+    # to sample (unless the support of the prior changes), so the solver
+    # workspace is reused and only the numbers are updated
+    if (!is.null(model) && identical(Pt$i, Pprev$i) && identical(Pt$j, Pprev$j) &&
+        identical(At$i, Aprev$i) && identical(At$j, Aprev$j)) {
+      model@Update(q = qs, l = lo, u = hi, Px = Pt$x[Pprev$o], Ax = At$x[Aprev$o])
       if (!isTRUE(warm_start)) model@ColdStart()
+      Pt$o <- Pprev$o
+      At$o <- Aprev$o
     } else {
-      model <- osqp::osqp(P = Pm, q = qs, A = Am, l = lo, u = hi,
+      Pt$o <- order(Pt$j, Pt$i)
+      At$o <- order(At$j, At$i)
+      model <- osqp::osqp(P = csc_matrix(Pt, c(nz, nz), upper = TRUE), q = qs,
+                          A = csc_matrix(At, c(r, nz)), l = lo, u = hi,
                           pars = do.call(osqp::osqpSettings, mhe$settings))
     }
-    Pprev <- Pm
-    Aprev <- Am
+    Pprev <- Pt
+    Aprev <- At
     to_scaled <- function(z) {
       z[seq_len(n)] <- solve(T1, z[seq_len(n)])
       z / dv
@@ -266,7 +300,8 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
       ctrl_abort("MHE QP failed at sample ", Tk, " with status \"",
                  res$info$status, "\".")
     }
-    zsol <- as.numeric(Mv %*% res$x)
+    zsol <- dv * res$x
+    zsol[xi(1)] <- drop(T1 %*% zsol[xi(1)])
     est[Tk, ] <- zsol[xi(L)]
     obj[Tk] <- osc * res$info$obj_val + const
     stime[Tk] <- res$info$solve_time
@@ -307,8 +342,29 @@ shift_blocks <- function(v, size, prev, new, shift) {
 # Drop the first k entries; v[-seq_len(0)] would drop everything.
 drop_head <- function(v, k) if (k > 0) v[-seq_len(k)] else v
 
-# TRUE when two sparse (CSC) matrices have the same dimensions and pattern.
-same_pattern <- function(X, Y) {
-  !is.null(Y) && identical(X@Dim, Y@Dim) && identical(X@p, Y@p) &&
-    identical(X@i, Y@i)
+# Row, column and linear indices of the upper triangle (with the diagonal)
+# of a k x k matrix, in column major order.
+upper_index <- function(k) {
+  j <- rep(seq_len(k), seq_len(k))
+  i <- sequence(seq_len(k))
+  list(i = i, j = j, lin = (j - 1L) * k + i)
+}
+
+# Triplets of a trip_new() collection as flat vectors.
+trip_flat <- function(tr) {
+  list(i = unlist(tr$i, use.names = FALSE), j = unlist(tr$j, use.names = FALSE),
+       x = unlist(tr$x, use.names = FALSE))
+}
+
+# Compressed sparse column matrix from duplicate-free triplets whose column
+# major order is `t$o`; explicit zeros are kept, so the stored entries (and
+# the order the solver expects in an update) are exactly t$x[t$o].
+csc_matrix <- function(t, dims, upper = FALSE) {
+  o <- t$o
+  args <- list(i = as.integer(t$i[o] - 1L),
+               p = as.integer(c(0L, cumsum(tabulate(t$j, dims[2L])))),
+               x = as.numeric(t$x[o]), Dim = as.integer(dims))
+  # OSQP takes the upper triangle of P as a triangular matrix as it is
+  if (upper) do.call(methods::new, c("dtCMatrix", args, uplo = "U", diag = "N"))
+  else do.call(methods::new, c("dgCMatrix", args))
 }

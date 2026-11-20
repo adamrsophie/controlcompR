@@ -180,13 +180,25 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
 #' @param covariances `"all"` (default) stores the covariance, innovation
 #'   covariance and gain of every sample; `"variances"` stores only the
 #'   filtered variances, so memory grows with \eqn{T n} instead of
-#'   \eqn{T n^2} (the smoother then cannot be run).
+#'   \eqn{T n^2}; `"final"` stores no per-sample covariance information,
+#'   only the final covariances. The smoother needs `"all"`.
+#' @param lag Optional fixed lag \eqn{L \ge 0}. When given, `lagged` holds
+#'   the fixed-lag smoothed estimates: row `k` is the mean of \eqn{x_k}
+#'   given the measurements up to sample \eqn{\min(k + L, T)}. It needs
+#'   only the last \eqn{L + 1} smoother gains, so it works with every
+#'   `covariances` mode.
+#'
+#' For online use, filter the data in chunks: pass `next_prediction` and
+#' `next_covariance` of one run as `x0` and `P0` of the next. The chunked
+#' estimates equal those of a single run over all the data.
 #' @return `ctrl_kalman_filter()` returns an object of class
 #'   `ctrl_kalman_filter` with `filtered` (`T x n`), `predicted` (`T x n`,
 #'   row `k` is \eqn{\hat x_{k|k-1}}), `variances` (`T x n`, the diagonal of
 #'   \eqn{P_{k|k}}), `P_filtered` and `P_predicted` (`n x n x T` arrays,
-#'   `NULL` with `covariances = "variances"`), `innovations`,
-#'   `innovation_cov` (`p x p x T`), `gain` (`n x p x T`), `nis`
+#'   `NULL` unless `covariances = "all"`, as are `innovation_cov` and
+#'   `gain`; `variances` is `NULL` with `"final"`), `P_final` (the filtered
+#'   covariance at the last sample), `lagged` (`NULL` without `lag`),
+#'   `innovations`, `innovation_cov` (`p x p x T`), `gain` (`n x p x T`), `nis`
 #'   (normalized innovation squared), `loglik` (Gaussian log-likelihood of
 #'   the measurements) and `next_prediction`, `next_covariance` (the
 #'   prediction for the sample after the data).
@@ -207,8 +219,11 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
 #' sm <- ctrl_kalman_smoother(kf)
 #' @export
 ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
-                               G = NULL, covariances = c("all", "variances")) {
-  keep <- match.arg(covariances) == "all"
+                               G = NULL, covariances = c("all", "variances", "final"),
+                               lag = NULL) {
+  mode <- match.arg(covariances)
+  keep <- mode == "all"
+  keep_var <- mode != "final"
   s <- as_ss(sys)
   if (s$dt == 0) {
     ctrl_abort("The time-varying Kalman filter needs a discrete time model; ",
@@ -235,11 +250,16 @@ ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
   Pp <- if (keep) array(0, c(n, n, Tn))
   Sarr <- if (keep) array(NA_real_, c(p, p, Tn))
   Karr <- if (keep) array(0, c(n, p, Tn))
-  vars <- matrix(0, Tn, n)
+  vars <- if (keep_var) matrix(0, Tn, n)
   innov <- matrix(NA_real_, Tn, p)
   nis <- rep(NA_real_, Tn)
   loglik <- 0
   In <- diag(n)
+  if (!is.null(lag) && (!is.numeric(lag) || length(lag) != 1L || !is.finite(lag) ||
+                        lag < 0 || lag != round(lag))) {
+    ctrl_abort("`lag` must be a nonnegative integer.")
+  }
+  fl <- if (!is.null(lag)) fixed_lag_new(as.integer(lag), Tn, n)
   for (k in seq_len(Tn)) {
     pred[k, ] <- x
     if (keep) Pp[, , k] <- P
@@ -265,18 +285,81 @@ ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
                  k, ").")
     }
     filt[k, ] <- x
-    vars[k, ] <- diag(P)
+    if (keep_var) vars[k, ] <- diag(P)
     if (keep) Pf[, , k] <- P
+    Pk <- P
+    xk <- x
     x <- drop(s$A %*% x + s$B %*% U[k, ])
     P <- symmetrize(s$A %*% P %*% t(s$A) + Qx)
+    if (!is.null(fl)) {
+      # smoother gain of sample k, as in ctrl_kalman_smoother()
+      J <- Pk %*% t(s$A) %*% psd_pinv(P)$inv
+      fixed_lag_push(fl, k, xk, J, x)
+    }
   }
-  colnames(filt) <- colnames(pred) <- colnames(vars) <- s$state_names
+  lagged <- if (!is.null(fl)) fixed_lag_finish(fl)
+  colnames(filt) <- colnames(pred) <- s$state_names
+  if (keep_var) colnames(vars) <- s$state_names
+  if (!is.null(lagged)) colnames(lagged) <- s$state_names
+  P_final <- if (Tn) Pk else NULL
   structure(list(filtered = filt, predicted = pred, variances = vars,
+                 lagged = lagged, P_final = P_final,
                  P_filtered = Pf,
                  P_predicted = Pp, innovations = innov, innovation_cov = Sarr,
                  gain = Karr, nis = nis, loglik = loglik, plant = s,
                  next_prediction = x, next_covariance = P, y = Y, u = U),
             class = "ctrl_kalman_filter")
+}
+
+# Fixed-lag smoothing with a ring buffer of the last lag + 1 samples. Entry
+# j holds the filtered mean of sample j, its smoother gain and the
+# prediction of sample j + 1; the backward pass from sample k over the
+# buffer gives the estimate of sample k - lag given data up to k.
+fixed_lag_new <- function(lag, Tn, n) {
+  e <- new.env(parent = emptyenv())
+  e$lag <- lag
+  e$size <- lag + 1L
+  e$xf <- vector("list", lag + 1L)
+  e$J <- vector("list", lag + 1L)
+  e$xp <- vector("list", lag + 1L)
+  e$out <- matrix(NA_real_, Tn, n)
+  e$last <- 0L
+  e
+}
+
+fixed_lag_slot <- function(e, j) (j - 1L) %% e$size + 1L
+
+# backward pass from sample k down to sample `to`; writes rows to..k when
+# `all` is TRUE, otherwise only row `to`
+fixed_lag_back <- function(e, k, to, all = FALSE) {
+  xs <- e$xf[[fixed_lag_slot(e, k)]]
+  if (all) e$out[k, ] <- xs
+  j <- k - 1L
+  while (j >= to) {
+    i <- fixed_lag_slot(e, j)
+    xs <- e$xf[[i]] + drop(e$J[[i]] %*% (xs - e$xp[[i]]))
+    if (all) e$out[j, ] <- xs
+    j <- j - 1L
+  }
+  if (!all) e$out[to, ] <- xs
+  invisible()
+}
+
+fixed_lag_push <- function(e, k, xf, J, xp) {
+  i <- fixed_lag_slot(e, k)
+  # the lists are detached before assignment so they are modified in place
+  l <- e$xf; e$xf <- NULL; l[[i]] <- xf; e$xf <- l
+  l <- e$J; e$J <- NULL; l[[i]] <- J; e$J <- l
+  l <- e$xp; e$xp <- NULL; l[[i]] <- xp; e$xp <- l
+  if (k > e$lag) fixed_lag_back(e, k, k - e$lag)
+  e$last <- k
+  invisible()
+}
+
+fixed_lag_finish <- function(e) {
+  k <- e$last
+  if (k >= 1L) fixed_lag_back(e, k, max(1L, k - e$lag), all = TRUE)
+  e$out
 }
 
 #' @export
@@ -333,7 +416,8 @@ plot.ctrl_kalman_filter <- function(x, truth = NULL, ...) {
   Tn <- nrow(x$filtered)
   rows <- list()
   for (j in seq_len(ncol(x$filtered))) {
-    v <- if (!is.null(x$variances)) x$variances[, j] else x$P_filtered[j, j, ]
+    v <- if (!is.null(x$variances)) x$variances[, j] else
+      if (!is.null(x$P_filtered)) x$P_filtered[j, j, ] else rep(NA_real_, Tn)
     sd <- sqrt(pmax(v, 0))
     rows[[j]] <- data.frame(k = seq_len(Tn), state = colnames(x$filtered)[j],
                             estimate = x$filtered[, j],
@@ -343,10 +427,12 @@ plot.ctrl_kalman_filter <- function(x, truth = NULL, ...) {
                               as.matrix(truth)[, j])
   }
   df <- do.call(rbind, rows)
-  g <- ggplot2::ggplot(df, ggplot2::aes(x = .data$k)) +
-    ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$lower, ymax = .data$upper),
-                         fill = "grey80") +
-    ggplot2::geom_line(ggplot2::aes(y = .data$estimate, color = "estimate"))
+  g <- ggplot2::ggplot(df, ggplot2::aes(x = .data$k))
+  if (any(is.finite(df$lower))) {
+    g <- g + ggplot2::geom_ribbon(ggplot2::aes(ymin = .data$lower, ymax = .data$upper),
+                                  fill = "grey80")
+  }
+  g <- g + ggplot2::geom_line(ggplot2::aes(y = .data$estimate, color = "estimate"))
   if (!is.null(truth)) {
     g <- g + ggplot2::geom_line(ggplot2::aes(y = .data$truth, color = "true"),
                                 linetype = "dashed")

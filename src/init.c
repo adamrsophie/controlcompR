@@ -7,6 +7,7 @@ SEXP cc_qz(SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP cc_trsyl(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP cc_stein(SEXP, SEXP, SEXP, SEXP);
 SEXP cc_resolvent(SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP cc_qr_r(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"cc_schur", (DL_FUNC) &cc_schur, 3},
@@ -14,6 +15,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"cc_trsyl", (DL_FUNC) &cc_trsyl, 6},
     {"cc_stein", (DL_FUNC) &cc_stein, 4},
     {"cc_resolvent", (DL_FUNC) &cc_resolvent, 5},
+    {"cc_qr_r", (DL_FUNC) &cc_qr_r, 1},
     {NULL, NULL, 0}
 };
 

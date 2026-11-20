@@ -256,32 +256,36 @@ ctrl_n4sid <- function(data, order = NULL, horizon = NULL, feedthrough = FALSE) 
   }
   N <- Tn - 2L * i + 1L
   if (N < 2L * i * (m + p)) ctrl_abort("Too few samples for horizon ", i, ".")
-  hank <- function(X, start) {
-    k <- ncol(X)
-    H <- matrix(0, i * k, N)
-    for (r in seq_len(i)) H[(r - 1L) * k + seq_len(k), ] <- t(X[start + r - 1L + seq_len(N) - 1L, , drop = FALSE])
-    H
-  }
-  Up <- hank(U, 1L)
-  Uf <- hank(U, i + 1L)
-  Yp <- hank(Y, 1L)
-  Yf <- hank(Y, i + 1L)
-  # the input must be persistently exciting of order 2i
-  ur <- qr(t(rbind(Uf, Up)))$rank
-  if (ur < 2L * i * m) {
-    ctrl_abort("The input is not persistently exciting of order ", 2L * i,
-               " (rank ", ur, " of ", 2L * i * m, "); the system cannot be ",
-               "identified from these data. Use a richer input or a shorter horizon.")
-  }
-  M <- rbind(Uf, Up, Yp, Yf) / sqrt(N)
-  # tol = 0 disables column pivoting, which would scramble the block structure
-  qm <- qr(t(M), tol = 0)
-  if (!identical(qm$pivot, seq_len(nrow(M)))) {
-    ctrl_abort("Internal error: pivoted QR in subspace identification.")
-  }
-  L <- t(qr.R(qm))
+  # the transposed block Hankel matrices [Uf; Up; Yp; Yf]' are written
+  # directly into one N x 2i(m + p) matrix (no per-block copies or
+  # transposes); block row r of a Hankel matrix starting at `start` is the
+  # data slice X[start + r - 1 + 0:(N - 1), ]
   nu <- i * m
   nz <- i * (m + p)
+  tM <- matrix(0, N, 2L * nz)
+  blocks <- list(list(U, i + 1L, 0L), list(U, 1L, nu), list(Y, 1L, 2L * nu),
+                 list(Y, i + 1L, nu + nz))
+  for (bl in blocks) {
+    X <- bl[[1L]]
+    k <- ncol(X)
+    for (r in seq_len(i)) {
+      tM[, bl[[3L]] + (r - 1L) * k + seq_len(k)] <-
+        X[bl[[2L]] + r - 1L + seq_len(N) - 1L, , drop = FALSE]
+    }
+  }
+  # unpivoted blocked QR (LAPACK dgeqrf); pivoting would scramble the block
+  # structure, and only the triangular factor is needed: M = L Q'
+  Rm <- .Call(cc_qr_r, tM / sqrt(N))
+  # the input must be persistently exciting of order 2i: the leading
+  # 2im block of the factor is that of the stacked input Hankel matrix
+  d <- svd(Rm[seq_len(2L * nu), seq_len(2L * nu), drop = FALSE], 0, 0)$d
+  ur <- sum(d > 1e-7 * max(d, 0))
+  if (ur < 2L * nu) {
+    ctrl_abort("The input is not persistently exciting of order ", 2L * i,
+               " (rank ", ur, " of ", 2L * nu, "); the system cannot be ",
+               "identified from these data. Use a richer input or a shorter horizon.")
+  }
+  L <- t(Rm)
   iy <- nu + nz + seq_len(i * p)
   L32 <- L[iy, nu + seq_len(nz), drop = FALSE]
   sv <- svd(L32, nv = 0)
@@ -324,15 +328,19 @@ ss_input_ls <- function(A, C, U, Y, feedthrough) {
   nb <- n * m
   nd <- if (feedthrough) p * m else 0L
   Phi <- matrix(0, Tn * p, n + nb + nd)
-  Ok <- diag(n)
-  Sk <- matrix(0, n, nb)
+  # [O_k, S_k] = [A^k, sum_j A^(k-1-j) (u_j' kron I_n)] advanced together;
+  # the Kronecker terms only touch the diagonals of the n x n blocks of S_k
+  # (and of the p x p blocks of the feedthrough columns), so they are added
+  # through precomputed indices instead of being formed
+  OS <- cbind(diag(n), matrix(0, n, nb))
+  sdiag <- n * n + rep((seq_len(m) - 1L) * n * n, each = n) + rep((seq_len(n) - 1L) * (n + 1L) + 1L, m)
+  ddiag <- if (feedthrough) cbind(rep(seq_len(p), m), n + nb + seq_len(nd))
   for (k in seq_len(Tn)) {
     rows <- (k - 1L) * p + seq_len(p)
-    Phi[rows, seq_len(n)] <- C %*% Ok
-    Phi[rows, n + seq_len(nb)] <- C %*% Sk
-    if (feedthrough) Phi[rows, n + nb + seq_len(nd)] <- kronecker(t(U[k, ]), diag(p))
-    Sk <- A %*% Sk + kronecker(t(U[k, ]), diag(n))
-    Ok <- A %*% Ok
+    Phi[rows, seq_len(n + nb)] <- C %*% OS
+    if (feedthrough) Phi[cbind(rows[ddiag[, 1L]], ddiag[, 2L])] <- rep(U[k, ], each = p)
+    OS <- A %*% OS
+    OS[sdiag] <- OS[sdiag] + rep(U[k, ], each = n)
   }
   yv <- as.vector(t(Y))
   th <- qr.coef(qr(Phi), yv)

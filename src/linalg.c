@@ -139,3 +139,32 @@ SEXP cc_trsyl(SEXP a_, SEXP b_, SEXP c_, SEXP trana_, SEXP tranb_, SEXP isgn_)
     UNPROTECT(2);
     return out;
 }
+
+/* Upper triangular factor R of the unpivoted QR factorization of a real
+ * matrix X (m x n), by the blocked LAPACK routine dgeqrf. Returns the
+ * min(m, n) x n matrix R; the orthogonal factor is not formed. */
+SEXP cc_qr_r(SEXP x_)
+{
+    if (!isReal(x_) || !isMatrix(x_)) error("`X` must be a double matrix");
+    int m = nrows(x_), n = ncols(x_), info = 0, k = m < n ? m : n;
+    int lda = m > 0 ? m : 1, lwork = -1;
+    SEXP R = PROTECT(allocMatrix(REALSXP, k, n));
+    double *r = REAL(R);
+    if (k == 0) {
+        UNPROTECT(1);
+        return R;
+    }
+    double *a = (double *) R_alloc((size_t) lda * n, sizeof(double));
+    memcpy(a, REAL(x_), (size_t) m * n * sizeof(double));
+    double *tau = (double *) R_alloc((size_t) k, sizeof(double)), wq = 0;
+    F77_CALL(dgeqrf)(&m, &n, a, &lda, tau, &wq, &lwork, &info);
+    lwork = cc_lwork(wq, info, "dgeqrf");
+    double *work = (double *) R_alloc((size_t) lwork, sizeof(double));
+    F77_CALL(dgeqrf)(&m, &n, a, &lda, tau, work, &lwork, &info);
+    if (info < 0) error("LAPACK dgeqrf: argument %d is invalid", -info);
+    for (int j = 0; j < n; j++)
+        for (int i = 0; i < k; i++)
+            r[i + (R_xlen_t) k * j] = i <= j ? a[i + (R_xlen_t) lda * j] : 0.0;
+    UNPROTECT(1);
+    return R;
+}
