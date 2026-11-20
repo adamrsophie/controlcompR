@@ -53,6 +53,18 @@ gen_eigenvalues <- function(A, B, tol = NULL) {
   sc <- max(norm(B, "1"), norm(A, "1"))
   tol <- tol %||% (1e3 * nrow(A) * .Machine$double.eps * (if (sc > 0) sc else 1))
   finite <- abs(q$beta) > tol
+  # beta above pure rounding but inside the band: the eigenvalue may be a
+  # large finite one or an infinite one; say so instead of dropping it
+  # silently
+  unsure <- !finite & abs(q$beta) > 10 * nrow(A) * .Machine$double.eps * sc &
+    abs(q$alpha) > 0
+  if (any(unsure)) {
+    ctrl_warn(sum(unsure), " generalized eigenvalue(s) of size about ",
+              paste(signif(Mod(q$alpha[unsure] / q$beta[unsure]), 3),
+                    collapse = ", "),
+              " cannot be distinguished from infinity at this precision ",
+              "and were treated as infinite.")
+  }
   q$alpha[finite] / q$beta[finite]
 }
 

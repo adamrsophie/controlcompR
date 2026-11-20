@@ -274,7 +274,16 @@ ctrl_dcgain <- function(sys) {
 #' generalized eigenvalues of the Rosenbrock system pencil
 #' \deqn{\begin{pmatrix} A & B \\ C & D \end{pmatrix} - \lambda
 #' \begin{pmatrix} I & 0 \\ 0 & 0 \end{pmatrix},}
-#' computed with the QZ algorithm. A SISO transfer function returns its
+#' computed with the QZ algorithm. When `D` is well-conditioned relative to
+#' its own size (reciprocal condition number above \eqn{\sqrt\epsilon}),
+#' the pencil has exactly `m` infinite eigenvalues and the zeros are
+#' computed as the eigenvalues of \eqn{A - B D^{-1} C}, so a very large
+#' finite zero (from a tiny feedthrough) is kept. Otherwise a generalized
+#' eigenvalue that cannot be told apart from infinity at working precision
+#' is treated as infinite with a warning. Zeros need a regular pencil (full
+#' normal rank); this is checked by evaluating the transfer matrix at
+#' points away from every computed eigenvalue and pole, and a singular
+#' pencil raises an error. A SISO transfer function returns its
 #' numerator roots. MIMO transfer functions are converted to state space,
 #' so they must be square as well; nonsquare models are not supported in
 #' this version.
@@ -301,21 +310,46 @@ ctrl_zeros <- function(sys) {
                "(equal numbers of inputs and outputs).")
   }
   if (!n) return(complex())
+  # with a well-conditioned feedthrough (relative to its own size, whatever
+  # its units) the pencil has exactly m infinite eigenvalues and the zeros
+  # are the eigenvalues of A - B D^-1 C, however large they are
+  if (rcond(sys$D) > sqrt(.Machine$double.eps)) {
+    z <- eigen(sys$A - sys$B %*% solve(sys$D, sys$C), only.values = TRUE)$values
+    return(sort_poles(as.complex(z), sys$dt))
+  }
   M <- rbind(cbind(sys$A, sys$B), cbind(sys$C, sys$D))
   N <- blkdiag(diag(n), matrix(0, m, m))
   # A diagonal similarity leaves N unchanged, so balancing M equilibrates
   # the pencil without changing its generalized eigenvalues. This makes the
   # result independent of the state coordinates' units.
   M <- expm::balance(M, job = "S")$z
+  # scale N to the size of M so that finite and infinite eigenvalues are
+  # separated on a common scale, then restore the units
+  c <- max(norm(M, "1"), .Machine$double.xmin)
+  z <- gen_eigenvalues(M, c * N) * c
   # Zeros are only defined when the pencil is regular, i.e. the transfer
-  # matrix has full normal rank. Test the rank of G(s) itself at two
-  # generic points on the scale of the poles (the rank of the pencil
-  # M - s N is badly conditioned for fast or slow models).
-  pm <- Mod(eigen(sys$A, only.values = TRUE)$values)
+  # matrix has full normal rank. If the pencil is regular, G(s) has full
+  # rank at every point that is neither a zero nor a pole, and every zero
+  # is among the computed eigenvalues z; if it is singular, G(s) is rank
+  # deficient everywhere. So one full-rank evaluation at a point away from
+  # all computed eigenvalues and poles proves regularity, and rank
+  # deficiency at several such points shows a singular pencil. Ranks are
+  # tested on G(s) itself on the scale of the poles (the rank of the
+  # pencil M - s N is badly conditioned for fast or slow models).
+  pe <- eigen(sys$A, only.values = TRUE)$values
+  pm <- Mod(pe)
   pm <- pm[pm > 0]
   sc <- if (length(pm)) exp(mean(log(range(pm)))) else 1
-  s0 <- complex(real = c(0.37, -1.3), imaginary = c(1.1, 0.71)) * sc
-  if (sys$dt > 0) s0 <- exp(s0 / sc)
+  avoid <- c(z[is.finite(z)], pe)
+  # candidate points spread on circles around the origin (golden angle),
+  # in the s plane scaled by sc, mapped to the z plane in discrete time
+  k <- 0:63
+  cand <- sc * (0.5 + (k %% 8) / 4) * exp(1i * (0.3 + 2.39996323 * k))
+  if (sys$dt > 0) cand <- exp(cand / sc)
+  far <- vapply(cand, function(s) {
+    !length(avoid) || min(Mod(avoid - s)) > 1e-2 * max(Mod(s), 1e-300)
+  }, logical(1))
+  s0 <- cand[far][seq_len(min(4L, sum(far)))]
   full <- vapply(s0, function(s) {
     G0 <- eval_system(sys, s)[, , 1]
     all(is.finite(G0)) && numerical_rank(as.matrix(G0))$rank == m
@@ -326,9 +360,5 @@ ctrl_zeros <- function(sys) {
                "defined. This happens, for example, when an input or output ",
                "is disconnected.")
   }
-  # scale N to the size of M so that finite and infinite eigenvalues are
-  # separated on a common scale, then restore the units
-  c <- max(norm(M, "1"), .Machine$double.xmin)
-  z <- gen_eigenvalues(M, c * N) * c
   sort_poles(z, sys$dt)
 }

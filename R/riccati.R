@@ -105,21 +105,31 @@ riccati_solve <- function(A, B, Q, R, S, discrete, check_weights) {
   n <- w$n
   if (n == 0L) return(riccati_core(w$A, w$B, w$Q, w$R, w$S, discrete))
   # Equilibrate before solving; the gain and the closed loop do not change.
-  # 1. symplectic diagonal state scaling x = T xb from balancing the
+  # 1. a common weight factor, which scales P only. It is applied first:
+  #    dividing Q and R by rho multiplies G = B R^-1 B' by rho and divides Q
+  #    by rho, which the state balancing below then evens out (applied
+  #    last it would undo that balancing, for example after a change of
+  #    input units)
+  rho <- max(norm(w$Q, "1"), norm(w$R, "1"), norm(w$S, "1"))
+  rho <- if (is.finite(rho) && rho > 0) 2^round(log2(rho)) else 1
+  Q <- w$Q / rho
+  R <- w$R / rho
+  S <- w$S / rho
+  # 2. symplectic diagonal state scaling x = T xb from balancing the
   #    Hamiltonian matrix, so that states in very different units carry
-  #    comparable weight (Ab = T^-1 A T, Bb = T^-1 B, Qb = T Q T, Sb = T S)
-  G <- w$B %*% solve(w$R, t(w$B))
-  H <- rbind(cbind(w$A, -G), cbind(-w$Q, -t(w$A)))
+  #    comparable weight and G and Q have comparable size
+  #    (Ab = T^-1 A T, Bb = T^-1 B, Qb = T Q T, Sb = T S)
+  G <- w$B %*% solve(R, t(w$B))
+  H <- rbind(cbind(w$A, -G), cbind(-Q, -t(w$A)))
   bs <- tryCatch(expm::balance(H, job = "S")$scale, error = function(e) rep(1, 2 * n))
   e <- round(log2(sqrt(bs[seq_len(n)] / bs[n + seq_len(n)])))
   e[!is.finite(e)] <- 0
   t <- 2^pmin(pmax(e, -100), 100)
   A <- w$A * outer(1 / t, t)
   B <- w$B / t
-  Q <- w$Q * outer(t, t)
-  S <- w$S * t
-  R <- w$R
-  # 2. continuous time: a common time scale (A, B and the weights divided
+  Q <- Q * outer(t, t)
+  S <- S * t
+  # 3. continuous time: a common time scale (A, B and the weights divided
   #    by alpha leave P and K unchanged)
   alpha <- 1
   if (!discrete) {
@@ -131,12 +141,22 @@ riccati_solve <- function(A, B, Q, R, S, discrete, check_weights) {
     R <- R / alpha
     S <- S / alpha
   }
-  # 3. a common weight factor, which scales P only
-  rho <- max(norm(Q, "1"), norm(R, "1"), norm(S, "1"))
-  rho <- if (is.finite(rho) && rho > 0) 2^round(log2(rho)) else 1
-  out <- riccati_core(A, B, Q / rho, R / rho, S / rho, discrete)
+  # 4. input units u = Du ub (B Du, Du R Du, S Du; P unchanged, K = Du Kb):
+  #    R grows quadratically and B, S linearly, so du_j = |[B; S]_j| / R_jj
+  #    balances each input column [B; -S; R] of the extended pencil. It
+  #    comes last because it leaves G = B R^-1 B' and P unchanged, while
+  #    the steps above rescale R and B differently.
+  bsn <- sqrt(colSums(B^2) + colSums(S^2))
+  rd <- diag(R)
+  du <- ifelse(bsn > 0, bsn / rd, 1 / sqrt(rd))
+  du <- 2^pmin(pmax(round(log2(du)), -200), 200)
+  du[!is.finite(du)] <- 1
+  B <- sweep(B, 2L, du, `*`)
+  S <- sweep(S, 2L, du, `*`)
+  R <- R * outer(du, du)
+  out <- riccati_core(A, B, Q, R, S, discrete)
   out$P <- rho * out$P / outer(t, t)
-  out$K <- out$K * rep(1 / t, each = nrow(out$K))
+  out$K <- du * out$K * rep(1 / t, each = nrow(out$K))
   out$poles <- out$poles * alpha
   out
 }

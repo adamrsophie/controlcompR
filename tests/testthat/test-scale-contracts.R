@@ -158,3 +158,50 @@ test_that("PID simulation obeys its own plant feedthrough equation", {
   expect_equal(sim$u/1e16,rep(2/3,2),tolerance=1e-12)
   expect_equal(sim$y_true/1e16,.5*sim$u/1e16,tolerance=1e-12)
 })
+
+test_that("Riccati solutions are invariant to input, cost, time and state units", {
+  cp <- sqrt(2) - 1
+  dp <- (1 + sqrt(5)) / 2
+  for (k in 10^seq(-14, 14, 4)) {
+    expect_equal(as.numeric(ctrl_care(-1, k, 1, k^2)$P), cp, tolerance = 1e-10)
+    expect_equal(as.numeric(ctrl_dare(1, k, 1, k^2)$P), dp, tolerance = 1e-10)
+    expect_equal(as.numeric(ctrl_care(-1, 1, k, k)$P), k * cp, tolerance = 1e-10)
+    expect_equal(as.numeric(ctrl_care(-k, k, k, k)$P), cp, tolerance = 1e-10)
+  }
+  A <- matrix(c(-1, 1, -0.5, -2), 2, byrow = TRUE)
+  B <- matrix(c(1, 0, 0.5, 1), 2, byrow = TRUE)
+  Q <- matrix(c(2, 0.3, 0.3, 1), 2)
+  R <- matrix(c(1, 0.2, 0.2, 2), 2)
+  S <- matrix(c(0.1, 0.05, -0.05, 0.1), 2)
+  base <- ctrl_care(A, B, Q, R, S)
+  for (k in c(1e-12, 1e12)) {
+    T <- diag(c(k, 1 / k))
+    Ti <- diag(c(1 / k, k))
+    x <- ctrl_care(Ti %*% A %*% T, Ti %*% B, T %*% Q %*% T, R, T %*% S)
+    expect_equal(x$K, base$K %*% T, tolerance = 1e-10)
+  }
+})
+
+test_that("Lyapunov factors match the dense solution", {
+  set.seed(11)
+  for (d in c(FALSE, TRUE)) {
+    A <- matrix(rnorm(25), 5)
+    A <- if (d) A / (1.2 * max(Mod(eigen(A)$values))) else
+      A - (max(Re(eigen(A)$values)) + 0.5) * diag(5)
+    B <- matrix(rnorm(10), 5)
+    L <- controlcompR:::lyap_factor(A, B, d)
+    X <- ctrl_lyap(A, B %*% t(B), discrete = d)
+    expect_lt(max(abs(L %*% t(L) - X)) / max(abs(X)), 1e-12)
+  }
+})
+
+test_that("well-conditioned poles of a stiff model are classified", {
+  S <- ctrl_ss(diag(c(-1e-3, -1e11)), c(1e-3, 1e11), c(1, 1))
+  expect_true(ctrl_is_stable(S))
+  expect_equal(as.numeric(ctrl_norm(S, "inf")), 2, tolerance = 1e-8)
+})
+
+test_that("a tiny feedthrough gives a large finite zero", {
+  expect_equal(Re(ctrl_zeros(ctrl_ss(-1, 1, 1, D = 1e-14))), -1e14 - 1,
+               tolerance = 1e-10)
+})
