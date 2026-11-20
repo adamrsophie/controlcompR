@@ -48,23 +48,33 @@ eval_system <- function(sys, z) {
   n <- nrow(s$A)
   p <- nrow(s$C)
   m <- ncol(s$B)
-  out <- array(0 + 0i, c(p, m, length(z)))
   if (!n) {
+    out <- array(0 + 0i, c(p, m, length(z)))
     for (k in seq_along(z)) out[, , k] <- s$D
     return(out)
   }
-  # Hessenberg form would be faster for many frequencies; a dense solve per
-  # frequency is O(n^3) each.
-  I <- diag(n)
-  for (k in seq_along(z)) {
-    M <- z[k] * I - s$A
-    # no rcond threshold: a badly scaled but nonsingular resolvent (a pole
-    # at 1e100 next to poles at the origin) is solved accurately by LU;
+  if (length(z) < 16L) {
+    # a few points (norm iterations, single evaluations): one dense LU per
+    # point is cheaper than a Schur factorization. No rcond threshold: a
+    # badly scaled but nonsingular resolvent is solved accurately by LU;
     # only an exactly singular or overflowing solve gives NA
-    X <- tryCatch(solve(M, s$B, tol = 0), error = function(e) NULL)
-    Y <- if (is.null(X)) NULL else s$C %*% X + s$D
-    out[, , k] <- if (is.null(Y) || any(!is.finite(Y))) NA_complex_ else Y
+    out <- array(0 + 0i, c(p, m, length(z)))
+    I <- diag(n)
+    for (k in seq_along(z)) {
+      X <- tryCatch(solve(z[k] * I - s$A, s$B, tol = 0), error = function(e) NULL)
+      Y <- if (is.null(X)) NULL else s$C %*% X + s$D
+      out[, , k] <- if (is.null(Y) || any(!is.finite(Y))) NA_complex_ else Y
+    }
+    return(out)
   }
+  # many points: one complex Schur factorization A = Z T Z^H, then a
+  # triangular solve per point: C (zI - A)^-1 B = (C Z) (zI - T)^-1 (Z^H B).
+  # Points where zI - T is exactly singular or the result overflows give NA
+  sch <- schur_complex(s$A)
+  Bt <- Conj(t(sch$Z)) %*% s$B
+  Ct <- s$C %*% sch$Z
+  out <- .Call(cc_resolvent, sch$T, Bt + 0i, Ct + 0i, as.complex(z))
+  for (k in seq_along(z)) out[, , k] <- out[, , k] + s$D
   out
 }
 

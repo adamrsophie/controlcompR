@@ -5,7 +5,17 @@
 \alias{ctrl_kalman_smoother}
 \title{Time-varying discrete Kalman filter and smoother}
 \usage{
-ctrl_kalman_filter(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, G = NULL)
+ctrl_kalman_filter(
+  sys,
+  y,
+  u = NULL,
+  Qn,
+  Rn,
+  x0 = NULL,
+  P0 = NULL,
+  G = NULL,
+  covariances = c("all", "variances")
+)
 
 ctrl_kalman_smoother(filter)
 }
@@ -23,15 +33,23 @@ zero and the identity).}
 
 \item{G}{Process noise input matrix (default identity).}
 
+\item{covariances}{\code{"all"} (default) stores the covariance, innovation
+covariance and gain of every sample; \code{"variances"} stores only the
+filtered variances, so memory grows with \eqn{T n} instead of
+\eqn{T n^2} (the smoother then cannot be run).}
+
 \item{filter}{A \code{ctrl_kalman_filter} result.}
 }
 \value{
 \code{ctrl_kalman_filter()} returns an object of class
 \code{ctrl_kalman_filter} with \code{filtered} (\verb{T x n}), \code{predicted} (\verb{T x n},
-row \code{k} is \eqn{\hat x_{k|k-1}}), \code{P_filtered} and \code{P_predicted}
-(\verb{n x n x T} arrays), \code{innovations}, \code{innovation_cov} (\verb{p x p x T}),
-\code{gain} (\verb{n x p x T}), \code{nis} (normalized innovation squared) and
-\code{loglik} (Gaussian log-likelihood of the measurements).
+row \code{k} is \eqn{\hat x_{k|k-1}}), \code{variances} (\verb{T x n}, the diagonal of
+\eqn{P_{k|k}}), \code{P_filtered} and \code{P_predicted} (\verb{n x n x T} arrays,
+\code{NULL} with \code{covariances = "variances"}), \code{innovations},
+\code{innovation_cov} (\verb{p x p x T}), \code{gain} (\verb{n x p x T}), \code{nis}
+(normalized innovation squared), \code{loglik} (Gaussian log-likelihood of
+the measurements) and \code{next_prediction}, \code{next_covariance} (the
+prediction for the sample after the data).
 \code{ctrl_kalman_smoother()} returns a list with \code{smoothed} and
 \code{P_smoothed}.
 }

@@ -406,3 +406,12 @@ psd_pinv <- function(P, tol = 10 * nrow(as.matrix(P)) * .Machine$double.eps) {
   }
   list(inv = inv, factor = fac, null = nul)
 }
+
+# OSQP settings for a named accuracy profile; explicit solver_settings
+# override them. "high" is the default (tight tolerances and polishing);
+# "standard" and "fast" trade accuracy of the solution for solver time.
+osqp_profile <- function(accuracy, base_eps) {
+  eps <- switch(accuracy, high = base_eps, standard = 1e-6, fast = 1e-4)
+  list(eps_abs = eps, eps_rel = eps, max_iter = 50000L,
+       polishing = accuracy != "fast", verbose = FALSE)
+}

@@ -90,8 +90,10 @@ x_{\min} - x_k)\|^2}
 over the box \eqn{u_{\min} \le u_k \le u_{\max}} is computed with the
 bounded quasi-Newton method L-BFGS-B (\code{stats::optim}). The gradient is
 computed by a backward (adjoint) pass through the prediction, with the
-stage Jacobians of the model approximated by central differences, so it
-costs \eqn{O(N (n + m))} model evaluations. Input bounds are hard; state bounds are enforced only
+stage Jacobians of the model approximated by central differences (or
+taken from the model's analytic \code{jacobian}), so it costs
+\eqn{O(N (n + m))} model evaluations; the prediction is computed once
+per optimizer point and shared by the cost and the gradient. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \eqn{\rho} and can be violated.
 }
 \details{

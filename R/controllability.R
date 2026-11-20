@@ -75,10 +75,14 @@ staircase <- function(A, B, tol = NULL) {
     s <- svd(M, nu = nrow(M), nv = 0)
     r <- sum(s$d > (if (k == 0L) tol_b else tol_a))
     if (r == 0L) break
-    T <- blkdiag(diag(k), s$u)
-    A <- t(T) %*% A %*% T
-    B <- t(T) %*% B
-    U <- U %*% T
+    # apply the orthogonal block only to the trailing rows and columns it
+    # changes (the leading k states are already in staircase form)
+    tr <- (k + 1L):n
+    u <- s$u
+    A[tr, ] <- crossprod(u, A[tr, , drop = FALSE])
+    A[, tr] <- A[, tr, drop = FALSE] %*% u
+    B[tr, ] <- crossprod(u, B[tr, , drop = FALSE])
+    U[, tr] <- U[, tr, drop = FALSE] %*% u
     prev <- (k + 1L):(k + r)
     k <- k + r
     if (k >= n) break

@@ -15,6 +15,12 @@
 #' @param dt `NULL` for continuous time or a positive sample interval.
 #' @param params List of parameters passed to `update` and `output`.
 #' @param state_names,input_names,output_names Optional names.
+#' @param jacobian Optional function `function(t, x, u, params)` returning
+#'   analytic Jacobians as `list(A = , B = )` (\eqn{\partial f/\partial x},
+#'   \eqn{\partial f/\partial u}) and optionally `C`, `D` for the output.
+#'   When given, linearization, the EKF and NMPC gradients use it instead of
+#'   central finite differences; missing entries are still approximated.
+#'   [ctrl_nl_discretize()] does not carry it to the discretized model.
 #' @return An object of class `ctrl_nlsys`.
 #' @seealso [ctrl_nl_simulate()], [ctrl_linearize()], [ctrl_equilibrium()]
 #' @examples
@@ -27,7 +33,7 @@
 #' @export
 ctrl_nlsys <- function(update, output = NULL, nstates, ninputs, noutputs = NULL,
                        dt = NULL, params = list(), state_names = NULL,
-                       input_names = NULL, output_names = NULL) {
+                       input_names = NULL, output_names = NULL, jacobian = NULL) {
   if (!is.function(update)) ctrl_abort("`update` must be a function.")
   if (!is.null(output) && !is.function(output)) ctrl_abort("`output` must be a function.")
   n <- as_count(nstates, "nstates")
@@ -43,8 +49,22 @@ ctrl_nlsys <- function(update, output = NULL, nstates, ninputs, noutputs = NULL,
   if (!is.numeric(fx) || length(fx) != n) {
     ctrl_abort("`update` must return a numeric vector of length ", n, ".")
   }
+  if (!is.null(jacobian)) {
+    if (!is.function(jacobian)) ctrl_abort("`jacobian` must be a function.")
+    j0 <- jacobian(0, rep(0, n), rep(0, m), params)
+    want <- list(A = c(n, n), B = c(n, m), C = c(p, n), D = c(p, m))
+    if (!is.list(j0) || !length(j0) || !all(names(j0) %in% names(want))) {
+      ctrl_abort("`jacobian` must return a named list with entries among A, B, C and D.")
+    }
+    for (nm in names(j0)) {
+      if (!identical(dim(as.matrix(j0[[nm]])), as.integer(want[[nm]]))) {
+        ctrl_abort("`jacobian()$", nm, "` must be a ", want[[nm]][1], " x ",
+                   want[[nm]][2], " matrix.")
+      }
+    }
+  }
   structure(list(update = update, output = output, n = n, m = m, p = p, dt = dt,
-                 params = params,
+                 params = params, jacobian = jacobian,
                  state_names = state_names %||% default_names("x", n),
                  input_names = input_names %||% default_names("u", m),
                  output_names = output_names %||% default_names("y", p)),
@@ -180,6 +200,23 @@ plot.ctrl_nl_response <- function(x, ...) {
     ggplot2::theme_bw()
 }
 
+# Jacobian `which` ("A", "B", "C" or "D") of a nonlinear model at (t, x, u):
+# the model's analytic Jacobian when it provides that entry, otherwise
+# central finite differences.
+nl_jac <- function(sys, t, x, u, which, method = "central") {
+  if (!is.null(sys$jacobian)) {
+    J <- sys$jacobian(t, x, u, sys$params)[[which]]
+    if (!is.null(J)) return(as.matrix(J))
+  }
+  switch(which,
+    A = num_jacobian(function(xx) nl_f(sys, t, xx, u), x, method),
+    B = if (sys$m) num_jacobian(function(uu) nl_f(sys, t, x, uu), u, method) else
+      matrix(0, sys$n, 0),
+    C = num_jacobian(function(xx) nl_h(sys, t, xx, u), x, method),
+    D = if (sys$m) num_jacobian(function(uu) nl_h(sys, t, x, uu), u, method) else
+      matrix(0, sys$p, 0))
+}
+
 num_jacobian <- function(fun, x, method = "central") {
   f0 <- fun(x)
   J <- matrix(0, length(f0), length(x))
@@ -237,13 +274,12 @@ ctrl_linearize <- function(sys, x0, u0 = numeric(sys$m), t = 0,
   if (length(x0) != sys$n || length(u0) != sys$m) {
     ctrl_abort("The operating point must have ", sys$n, " states and ", sys$m, " inputs.")
   }
-  jac <- if (!is.null(jacobian)) jacobian(t, x0, u0, sys$params) else list()
-  A <- jac$A %||% num_jacobian(function(x) nl_f(sys, t, x, u0), x0, method)
-  B <- jac$B %||% if (sys$m) num_jacobian(function(u) nl_f(sys, t, x0, u), u0, method) else
-    matrix(0, sys$n, 0)
-  C <- jac$C %||% num_jacobian(function(x) nl_h(sys, t, x, u0), x0, method)
-  D <- jac$D %||% if (sys$m) num_jacobian(function(u) nl_h(sys, t, x0, u), u0, method) else
-    matrix(0, sys$p, 0)
+  # an explicit `jacobian` argument overrides the model's own Jacobian
+  if (!is.null(jacobian)) sys$jacobian <- jacobian
+  A <- nl_jac(sys, t, x0, u0, "A", method)
+  B <- nl_jac(sys, t, x0, u0, "B", method)
+  C <- nl_jac(sys, t, x0, u0, "C", method)
+  D <- nl_jac(sys, t, x0, u0, "D", method)
   out <- ctrl_ss(as.matrix(A), as.matrix(B), as.matrix(C), as.matrix(D),
                  dt = if (sys$dt > 0) sys$dt else NULL,
                  state_names = sys$state_names, input_names = sys$input_names,
@@ -251,7 +287,7 @@ ctrl_linearize <- function(sys, x0, u0 = numeric(sys$m), t = 0,
   drift <- nl_f(sys, t, x0, u0) - if (sys$dt > 0) x0 else 0
   attr(out, "operating_point") <- list(x = x0, u = u0, t = t)
   attr(out, "drift") <- drift
-  attr(out, "method") <- if (is.null(jacobian)) paste(method, "finite differences") else
+  attr(out, "method") <- if (is.null(sys$jacobian)) paste(method, "finite differences") else
     "analytic (user supplied)"
   out
 }
@@ -417,7 +453,8 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
 #' [ctrl_nl_simulate()].
 #'
 #' * `ctrl_ekf()` linearizes `f` and `h` at the current estimate with
-#'   central finite differences and uses the Joseph-form covariance update.
+#'   central finite differences (or the model's analytic `jacobian`) and
+#'   uses the Joseph-form covariance update.
 #' * `ctrl_ukf()` propagates \eqn{2n + 1} sigma points (scaled unscented
 #'   transform with parameters `alpha`, `beta`, `kappa`); it needs no
 #'   Jacobians and is exact for linear models.
@@ -432,9 +469,12 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
 #' @param u Inputs (`T x m`) or `NULL`.
 #' @param Qn,Rn Process and measurement noise covariances.
 #' @param x0,P0 Prior mean and covariance.
+#' @param covariances `"all"` (default) or `"variances"`; see
+#'   [ctrl_kalman_filter()].
 #' @param alpha,beta,kappa Unscented transform parameters.
 #' @return A list of class `c("ctrl_nl_filter", "ctrl_kalman_filter")` with
-#'   `filtered`, `P_filtered`, `innovations`, `nis` and `loglik`. It has no
+#'   `filtered`, `variances`, `P_filtered` (`NULL` with
+#'   `covariances = "variances"`), `innovations`, `nis` and `loglik`. It has no
 #'   predicted covariances, so [ctrl_kalman_smoother()] does not accept it.
 #' @examples
 #' f <- function(k, x, u, p) c(x[1] + 0.1 * x[2], x[2] - 0.1 * sin(x[1]))
@@ -451,7 +491,9 @@ nl_filter_inputs <- function(sys, y, u, Qn, Rn, x0, P0) {
 #' ukf <- ctrl_ukf(sys, y, Qn = 1e-6, Rn = 0.0025, x0 = c(0.8, 0))
 #' tail(cbind(ekf$filtered, ukf$filtered), 2)
 #' @export
-ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL) {
+ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
+                     covariances = c("all", "variances")) {
+  keep <- match.arg(covariances) == "all"
   z <- nl_filter_inputs(sys, y, u, Qn, Rn, x0, P0)
   n <- sys$n
   p <- sys$p
@@ -460,7 +502,8 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL) {
   # histories are written in place in this loop (no per-sample copies)
   Tn <- z$Tn
   xf <- matrix(0, Tn, n)
-  Pf <- array(0, c(n, n, Tn))
+  Pf <- if (keep) array(0, c(n, n, Tn))
+  vars <- matrix(0, Tn, n)
   innov <- matrix(NA_real_, Tn, p)
   nis <- rep(NA_real_, Tn)
   loglik <- 0
@@ -469,7 +512,7 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL) {
     uk <- z$U[k, ]
     yk <- z$Y[k, ]
     if (all(is.finite(yk))) {
-      H <- num_jacobian(function(xx) nl_h(sys, tk, xx, uk), x)
+      H <- nl_jac(sys, tk, x, uk, "C")
       e <- yk - nl_h(sys, tk, x, uk)
       S <- symmetrize(H %*% P %*% t(H) + z$Rn)
       K <- P %*% t(H) %*% solve(S)
@@ -482,19 +525,22 @@ ctrl_ekf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL) {
       loglik <- loglik + st[["ll"]]
     }
     xf[k, ] <- x
-    Pf[, , k] <- P
-    Fj <- num_jacobian(function(xx) nl_f(sys, tk, xx, uk), x)
+    vars[k, ] <- diag(P)
+    if (keep) Pf[, , k] <- P
+    Fj <- nl_jac(sys, tk, x, uk, "A")
     x <- nl_f(sys, tk, x, uk)
     P <- symmetrize(Fj %*% P %*% t(Fj) + z$Qn)
   }
-  nl_filter_finish(list(filtered = xf, P_filtered = Pf, innovations = innov,
+  nl_filter_finish(list(filtered = xf, variances = vars, P_filtered = Pf,
+                        innovations = innov,
                         nis = nis, loglik = loglik), sys)
 }
 
 #' @rdname ctrl_ekf
 #' @export
 ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
-                     beta = 2, kappa = 0) {
+                     beta = 2, kappa = 0, covariances = c("all", "variances")) {
+  keep <- match.arg(covariances) == "all"
   z <- nl_filter_inputs(sys, y, u, Qn, Rn, x0, P0)
   n <- sys$n
   p <- sys$p
@@ -515,7 +561,8 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
   P <- z$P
   Tn <- z$Tn
   xf <- matrix(0, Tn, n)
-  Pf <- array(0, c(n, n, Tn))
+  Pf <- if (keep) array(0, c(n, n, Tn))
+  vars <- matrix(0, Tn, n)
   innov <- matrix(NA_real_, Tn, p)
   nis <- rep(NA_real_, Tn)
   loglik <- 0
@@ -550,14 +597,16 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
       loglik <- loglik + st[["ll"]]
     }
     xf[k, ] <- x
-    Pf[, , k] <- P
+    vars[k, ] <- diag(P)
+    if (keep) Pf[, , k] <- P
     Xs <- sigma(x, P)
     Fs <- matrix(apply(Xs, 2, function(xx) nl_f(sys, tk, xx, uk)), nrow = n)
     x <- drop(Fs %*% wm)
     dF <- Fs - x
     P <- symmetrize(dF %*% (wc * t(dF)) + z$Qn)
   }
-  nl_filter_finish(list(filtered = xf, P_filtered = Pf, innovations = innov,
+  nl_filter_finish(list(filtered = xf, variances = vars, P_filtered = Pf,
+                        innovations = innov,
                         nis = nis, loglik = loglik), sys)
 }
 
@@ -577,7 +626,7 @@ nl_innovation_stats <- function(e, S) {
 }
 
 nl_filter_finish <- function(out, sys) {
-  colnames(out$filtered) <- sys$state_names
+  colnames(out$filtered) <- colnames(out$variances) <- sys$state_names
   out$plant <- sys
   class(out) <- c("ctrl_nl_filter", "ctrl_kalman_filter")
   out
@@ -593,8 +642,10 @@ nl_filter_finish <- function(out, sys) {
 #' over the box \eqn{u_{\min} \le u_k \le u_{\max}} is computed with the
 #' bounded quasi-Newton method L-BFGS-B (`stats::optim`). The gradient is
 #' computed by a backward (adjoint) pass through the prediction, with the
-#' stage Jacobians of the model approximated by central differences, so it
-#' costs \eqn{O(N (n + m))} model evaluations. Input bounds are hard; state bounds are enforced only
+#' stage Jacobians of the model approximated by central differences (or
+#' taken from the model's analytic `jacobian`), so it costs
+#' \eqn{O(N (n + m))} model evaluations; the prediction is computed once
+#' per optimizer point and shared by the cost and the gradient. Input bounds are hard; state bounds are enforced only
 #' through the quadratic penalty \eqn{\rho} and can be violated.
 #'
 #' **Limitations.** The problem is nonconvex: the solver returns a local
@@ -664,12 +715,18 @@ ctrl_nmpc_step <- function(nmpc, x, x_ref = NULL, u_ref = NULL, u_init = NULL,
     t(pmin(pmax(t(Ur), nmpc$u_min), nmpc$u_max))
   } else as.matrix(u_init)
   if (!identical(dim(u0), c(N, m))) ctrl_abort("`u_init` must be a ", N, " x ", m, " matrix.")
+  # optim() evaluates the cost and the gradient at the same point, so the
+  # last prediction is cached and shared between them
+  last <- new.env(parent = emptyenv())
   rollout <- function(uv) {
+    if (identical(uv, last$uv)) return(last$r)
     U <- matrix(uv, N, m)
     X <- matrix(0, N + 1L, n)
     X[1, ] <- x
     for (j in seq_len(N)) X[j + 1L, ] <- nl_f(s, k + j - 1L, X[j, ], U[j, ])
-    list(X = X, U = U)
+    last$uv <- uv
+    last$r <- list(X = X, U = U)
+    last$r
   }
   cost <- function(uv) {
     r <- rollout(uv)
@@ -686,7 +743,8 @@ ctrl_nmpc_step <- function(nmpc, x, x_ref = NULL, u_ref = NULL, u_init = NULL,
     J + nmpc$penalty * sum(v^2)
   }
   # exact gradient of the single-shooting cost by a backward (adjoint)
-  # pass; only the stage Jacobians are approximated, by central differences
+  # pass; only the stage Jacobians are approximated (central differences)
+  # unless the model supplies them
   grad <- function(uv) {
     r <- rollout(uv)
     G <- matrix(0, N, m)
@@ -698,8 +756,8 @@ ctrl_nmpc_step <- function(nmpc, x, x_ref = NULL, u_ref = NULL, u_init = NULL,
       xj <- r$X[j, ]
       uj <- r$U[j, ]
       tj <- k + j - 1L
-      Fx <- num_jacobian(function(xx) nl_f(s, tj, xx, uj), xj)
-      Fu <- num_jacobian(function(uu) nl_f(s, tj, xj, uu), uj)
+      Fx <- nl_jac(s, tj, xj, uj, "A")
+      Fu <- nl_jac(s, tj, xj, uj, "B")
       G[j, ] <- 2 * drop(nmpc$R %*% (uj - Ur[j, ])) + drop(t(Fu) %*% lam)
       lam <- 2 * drop(nmpc$Q %*% (xj - Xr[j, ])) + drop(t(Fx) %*% lam) +
         if (j > 1L) pen_grad(xj) else 0

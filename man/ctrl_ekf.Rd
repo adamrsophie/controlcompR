@@ -5,7 +5,16 @@
 \alias{ctrl_ukf}
 \title{Extended and unscented Kalman filters}
 \usage{
-ctrl_ekf(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL)
+ctrl_ekf(
+  sys,
+  y,
+  u = NULL,
+  Qn,
+  Rn,
+  x0 = NULL,
+  P0 = NULL,
+  covariances = c("all", "variances")
+)
 
 ctrl_ukf(
   sys,
@@ -17,7 +26,8 @@ ctrl_ukf(
   P0 = NULL,
   alpha = 1,
   beta = 2,
-  kappa = 0
+  kappa = 0,
+  covariances = c("all", "variances")
 )
 }
 \arguments{
@@ -31,11 +41,15 @@ ctrl_ukf(
 
 \item{x0, P0}{Prior mean and covariance.}
 
+\item{covariances}{\code{"all"} (default) or \code{"variances"}; see
+\code{\link[=ctrl_kalman_filter]{ctrl_kalman_filter()}}.}
+
 \item{alpha, beta, kappa}{Unscented transform parameters.}
 }
 \value{
 A list of class \code{c("ctrl_nl_filter", "ctrl_kalman_filter")} with
-\code{filtered}, \code{P_filtered}, \code{innovations}, \code{nis} and \code{loglik}. It has no
+\code{filtered}, \code{variances}, \code{P_filtered} (\code{NULL} with
+\code{covariances = "variances"}), \code{innovations}, \code{nis} and \code{loglik}. It has no
 predicted covariances, so \code{\link[=ctrl_kalman_smoother]{ctrl_kalman_smoother()}} does not accept it.
 }
 \description{
@@ -51,7 +65,8 @@ entirely \code{NA} skip the update). Row \code{k} of the data is passed to \code
 \details{
 \itemize{
 \item \code{ctrl_ekf()} linearizes \code{f} and \code{h} at the current estimate with
-central finite differences and uses the Joseph-form covariance update.
+central finite differences (or the model's analytic \code{jacobian}) and
+uses the Joseph-form covariance update.
 \item \code{ctrl_ukf()} propagates \eqn{2n + 1} sigma points (scaled unscented
 transform with parameters \code{alpha}, \code{beta}, \code{kappa}); it needs no
 Jacobians and is exact for linear models.

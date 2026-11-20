@@ -45,16 +45,24 @@ static int gsel_dt(double *ar, double *ai, double *b)
     return hypot(*ar, *ai) < (1.0 - cc_sel_tol) * fabs(*b);
 }
 
-SEXP cc_qz(SEXP a_, SEXP b_, SEXP mode_, SEXP tol_)
+/* want_ = c(Q, Z): which Schur vector matrices to compute; a matrix that
+ * is not wanted is returned as NULL and LAPACK does not form it. */
+SEXP cc_qz(SEXP a_, SEXP b_, SEXP mode_, SEXP tol_, SEXP want_)
 {
+    if (!isLogical(want_) || length(want_) != 2 ||
+        LOGICAL(want_)[0] == NA_LOGICAL || LOGICAL(want_)[1] == NA_LOGICAL)
+        error("`want` must be two non-missing logical values");
+    int wq_ = LOGICAL(want_)[0], wz_ = LOGICAL(want_)[1];
     int n = cc_square_real(a_, "A"), mode = cc_mode(mode_), info = 0,
         sdim = 0, lwork = -1, ld = n > 0 ? n : 1;
     if (cc_square_real(b_, "B") != n) error("`A` and `B` must have the same size");
     cc_sel_tol = cc_tol(tol_);
     SEXP AA = PROTECT(duplicate(a_));
     SEXP BB = PROTECT(duplicate(b_));
-    SEXP Q = PROTECT(allocMatrix(REALSXP, n, n));
-    SEXP Z = PROTECT(allocMatrix(REALSXP, n, n));
+    SEXP Q = PROTECT(wq_ ? allocMatrix(REALSXP, n, n) : allocVector(REALSXP, 1));
+    SEXP Z = PROTECT(wz_ ? allocMatrix(REALSXP, n, n) : allocVector(REALSXP, 1));
+    const char *jl = wq_ ? "V" : "N", *jr = wz_ ? "V" : "N";
+    int ldq = wq_ ? ld : 1, ldz = wz_ ? ld : 1;
     SEXP ar = PROTECT(allocVector(REALSXP, n));
     SEXP ai = PROTECT(allocVector(REALSXP, n));
     SEXP be = PROTECT(allocVector(REALSXP, n));
@@ -62,21 +70,21 @@ SEXP cc_qz(SEXP a_, SEXP b_, SEXP mode_, SEXP tol_)
     const char *sort = mode == 0 ? "N" : "S";
     int (*sel)(double *, double *, double *) = mode == 2 ? gsel_dt : gsel_ct;
     double wq = 0.0;
-    F77_CALL(dgges)("V", "V", sort, sel, &n, REAL(AA), &ld, REAL(BB), &ld, &sdim,
-                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &ld, REAL(Z), &ld,
+    F77_CALL(dgges)(jl, jr, sort, sel, &n, REAL(AA), &ld, REAL(BB), &ld, &sdim,
+                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &ldq, REAL(Z), &ldz,
                     &wq, &lwork, bwork, &info CC_FCONE CC_FCONE CC_FCONE);
     lwork = cc_lwork(wq, info, "dgges");
     double *work = (double *) R_alloc(lwork, sizeof(double));
-    F77_CALL(dgges)("V", "V", sort, sel, &n, REAL(AA), &ld, REAL(BB), &ld, &sdim,
-                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &ld, REAL(Z), &ld,
+    F77_CALL(dgges)(jl, jr, sort, sel, &n, REAL(AA), &ld, REAL(BB), &ld, &sdim,
+                    REAL(ar), REAL(ai), REAL(be), REAL(Q), &ldq, REAL(Z), &ldz,
                     work, &lwork, bwork, &info CC_FCONE CC_FCONE CC_FCONE);
     if (info < 0) error("LAPACK dgges: argument %d is invalid", -info);
     const char *nms[] = {"AA", "BB", "Q", "Z", "alphar", "alphai", "beta", "sdim", "info"};
     SEXP out = PROTECT(cc_named_list(9, nms));
     SET_VECTOR_ELT(out, 0, AA);
     SET_VECTOR_ELT(out, 1, BB);
-    SET_VECTOR_ELT(out, 2, Q);
-    SET_VECTOR_ELT(out, 3, Z);
+    SET_VECTOR_ELT(out, 2, wq_ ? Q : R_NilValue);
+    SET_VECTOR_ELT(out, 3, wz_ ? Z : R_NilValue);
     SET_VECTOR_ELT(out, 4, ar);
     SET_VECTOR_ELT(out, 5, ai);
     SET_VECTOR_ELT(out, 6, be);

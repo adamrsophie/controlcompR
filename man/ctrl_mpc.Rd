@@ -26,7 +26,8 @@ ctrl_mpc(
   terminal = c("none", "equality"),
   terminal_set = NULL,
   solver_settings = list(),
-  accept_inaccurate = FALSE
+  accept_inaccurate = FALSE,
+  accuracy = c("high", "standard", "fast")
 )
 }
 \arguments{
@@ -65,9 +66,16 @@ are recycled; \code{-Inf}/\code{Inf} for none).}
 terminal constraint \eqn{H (x_N - x^r_N) \le h}.}
 
 \item{solver_settings}{List of OSQP settings (see \code{\link[osqp:osqpSettings]{osqp::osqpSettings()}});
-defaults are tight tolerances with polishing.}
+they override the \code{accuracy} profile.}
 
 \item{accept_inaccurate}{Accept the OSQP status \code{"solved inaccurate"}.}
+
+\item{accuracy}{Solver accuracy profile: \code{"high"} (default; tolerances
+1e-9 with solution polishing), \code{"standard"} (1e-6 with polishing) or
+\code{"fast"} (1e-4, no polishing). Lower accuracy shortens solves; the
+applied input then differs from the exact optimum by roughly the
+tolerance times the problem scale, and bounds can be violated by about
+the tolerance. The MPC article measures the trade-off.}
 }
 \value{
 An object of class \code{c("ctrl_mpc", "ctrl_controller")}.

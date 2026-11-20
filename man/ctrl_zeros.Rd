@@ -19,9 +19,9 @@ generalized eigenvalues of the Rosenbrock system pencil
 \begin{pmatrix} I & 0 \\ 0 & 0 \end{pmatrix},}
 computed with the QZ algorithm. When \code{D} is well-conditioned relative to
 its own size (reciprocal condition number above \eqn{\sqrt\epsilon}),
-the pencil has exactly \code{m} infinite eigenvalues and the zeros are
-computed as the eigenvalues of \eqn{A - B D^{-1} C}, so a very large
-finite zero (from a tiny feedthrough) is kept. Otherwise a generalized
+there are exactly \code{n} finite zeros; zeros too large for the pencil to
+separate from infinity (from a tiny feedthrough) are then taken as the
+largest eigenvalues of \eqn{A - B D^{-1} C}, so they are kept. Otherwise a generalized
 eigenvalue that cannot be told apart from infinity at working precision
 is treated as infinite with a warning. Zeros need a regular pencil (full
 normal rank); this is checked by evaluating the transfer matrix at

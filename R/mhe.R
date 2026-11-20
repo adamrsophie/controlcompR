@@ -20,7 +20,9 @@
 #' horizon. MHE is worth it when states or noises have hard physical bounds
 #' (concentrations, saturations) that the Kalman filter would violate.
 #'
-#' Each window QP is assembled from scratch and solved by OSQP.
+#' Each window QP is solved by OSQP. Once the window is full, the solver
+#' workspace is reused from sample to sample while the sparsity pattern of
+#' the QP does not change; only its numbers are updated.
 #'
 #' @param sys Discrete time `ctrl_ss` model.
 #' @param horizon Window length `N` (number of measurements in the window).
@@ -30,7 +32,10 @@
 #' @param x0,P0 Prior mean and covariance at the first sample.
 #' @param x_min,x_max Bounds on the states.
 #' @param w_min,w_max Bounds on the process noise.
-#' @param solver_settings OSQP settings.
+#' @param solver_settings OSQP settings; they override the `accuracy`
+#'   profile.
+#' @param accuracy Solver accuracy profile, as in [ctrl_mpc()] (`"high"`
+#'   uses tolerances 1e-10).
 #' @return An object of class `ctrl_mhe`; run it with `ctrl_mhe_run()`.
 #' @examples
 #' sys <- ctrl_ss(0.9, 1, 1, dt = 1)
@@ -40,7 +45,9 @@
 #' @export
 ctrl_mhe <- function(sys, horizon, Qn, Rn, G = NULL, x0 = NULL, P0 = NULL,
                      x_min = -Inf, x_max = Inf, w_min = -Inf, w_max = Inf,
-                     solver_settings = list()) {
+                     solver_settings = list(),
+                     accuracy = c("high", "standard", "fast")) {
+  accuracy <- match.arg(accuracy)
   s <- as_ss(sys)
   if (s$dt == 0) ctrl_abort("MHE needs a discrete time model.")
   n <- nrow(s$A)
@@ -57,9 +64,8 @@ ctrl_mhe <- function(sys, horizon, Qn, Rn, G = NULL, x0 = NULL, P0 = NULL,
                  x_max = expand_bound(x_max, n, "x_max"),
                  w_min = expand_bound(w_min, q, "w_min"),
                  w_max = expand_bound(w_max, q, "w_max"),
-                 settings = utils::modifyList(
-                   list(eps_abs = 1e-10, eps_rel = 1e-10, max_iter = 50000L,
-                        polishing = TRUE, verbose = FALSE), solver_settings)),
+                 settings = utils::modifyList(osqp_profile(accuracy, 1e-10),
+                                              solver_settings)),
             class = "ctrl_mhe")
 }
 
@@ -97,20 +103,24 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
   iters <- integer(Tn)
   zprev <- NULL
   st_prev <- 0L
-  # prior (mean, covariance) at each sample: Kalman prediction recursion
-  prior_x <- matrix(0, Tn, n)
-  prior_P <- array(0, c(n, n, Tn))
+  model <- Pprev <- Aprev <- NULL
+  # prior covariance at the window start: the Kalman prediction recursion,
+  # advanced lazily (the window start never moves back), so only the
+  # current covariance is kept instead of one n x n matrix per sample
   P <- mhe$P0
-  prior_x[1, ] <- mhe$x0
-  for (Tk in seq_len(Tn)) {
-    prior_P[, , Tk] <- P
-    if (all(is.finite(Y[Tk, ]))) {
-      S <- s$C %*% P %*% t(s$C) + mhe$Rn
-      K <- P %*% t(s$C) %*% solve(S)
-      IKC <- diag(n) - K %*% s$C
-      P <- symmetrize(IKC %*% P %*% t(IKC) + K %*% mhe$Rn %*% t(K))
+  p_at <- 1L
+  advance_prior <- function(to) {
+    while (p_at < to) {
+      if (all(is.finite(Y[p_at, ]))) {
+        S <- s$C %*% P %*% t(s$C) + mhe$Rn
+        K <- P %*% t(s$C) %*% solve(S)
+        IKC <- diag(n) - K %*% s$C
+        P <<- symmetrize(IKC %*% P %*% t(IKC) + K %*% mhe$Rn %*% t(K))
+      }
+      P <<- symmetrize(s$A %*% P %*% t(s$A) + Qx)
+      p_at <<- p_at + 1L
     }
-    P <- symmetrize(s$A %*% P %*% t(s$A) + Qx)
+    P
   }
   for (Tk in seq_len(Tn)) {
     st <- max(1L, Tk - mhe$horizon + 1L)
@@ -121,7 +131,7 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     # zero prior variance are fixed to the prior mean. The support is
     # decided on the equilibrated covariance, so a small positive variance
     # stays a (strong) prior and is not turned into an equality.
-    sp <- psd_pinv(prior_P[, , st])
+    sp <- psd_pinv(advance_prior(st))
     Pinv <- sp$inv
     Nul <- sp$null
     const <- sum(xbar * (Pinv %*% xbar))
@@ -143,7 +153,7 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
       if (j < L) trip_add(Hm, wi(j), wi(j), 2 * Qi)
     }
     Ac <- trip_new()
-    lo <- hi <- numeric()
+    lo <- hi <- list()
     r <- 0L
     if (L > 1L) {
       for (j in seq_len(L - 1L)) {
@@ -152,8 +162,8 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
         trip_add(Ac, rows, xi(j), -s$A)
         trip_add(Ac, rows, wi(j), -mhe$G)
         bu <- drop(s$B %*% U[st + j - 1L, ])
-        lo <- c(lo, bu)
-        hi <- c(hi, bu)
+        lo[[length(lo) + 1L]] <- bu
+        hi[[length(hi) + 1L]] <- bu
         r <- r + n
       }
     }
@@ -161,16 +171,16 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
       rows <- r + seq_len(ncol(Nul))
       trip_add(Ac, rows, xi(1), t(Nul))
       nb <- drop(t(Nul) %*% xbar)
-      lo <- c(lo, nb)
-      hi <- c(hi, nb)
+      lo[[length(lo) + 1L]] <- nb
+      hi[[length(hi) + 1L]] <- nb
       r <- r + ncol(Nul)
     }
     if (any(is.finite(c(mhe$x_min, mhe$x_max)))) {
       for (j in seq_len(L)) {
         rows <- r + seq_len(n)
         trip_add(Ac, rows, xi(j), diag(n))
-        lo <- c(lo, mhe$x_min)
-        hi <- c(hi, mhe$x_max)
+        lo[[length(lo) + 1L]] <- rep_len(mhe$x_min, n)
+        hi[[length(hi) + 1L]] <- rep_len(mhe$x_max, n)
         r <- r + n
       }
     }
@@ -178,20 +188,22 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
       for (j in seq_len(L - 1L)) {
         rows <- r + seq_len(q)
         trip_add(Ac, rows, wi(j), diag(q))
-        lo <- c(lo, mhe$w_min)
-        hi <- c(hi, mhe$w_max)
+        lo[[length(lo) + 1L]] <- rep_len(mhe$w_min, q)
+        hi[[length(hi) + 1L]] <- rep_len(mhe$w_max, q)
         r <- r + q
       }
     }
     if (r == 0L) {
       # OSQP needs at least one constraint row; add a free one
       trip_add(Ac, 1L, 1L, matrix(1))
-      lo <- -Inf
-      hi <- Inf
+      lo <- list(-Inf)
+      hi <- list(Inf)
       r <- 1L
     }
-    H <- Matrix::sparseMatrix(i = Hm$i, j = Hm$j, x = Hm$x, dims = c(nz, nz))
-    A <- Matrix::sparseMatrix(i = Ac$i, j = Ac$j, x = Ac$x, dims = c(r, nz))
+    lo <- unlist(lo, use.names = FALSE)
+    hi <- unlist(hi, use.names = FALSE)
+    H <- trip_sparse(Hm, c(nz, nz))
+    A <- trip_sparse(Ac, c(r, nz))
     # change of variables z = M zs before calling the solver, so that
     # solver tolerances do not depend on the units or the orientation of
     # the prior: the first state of the window is written in the prior's
@@ -211,10 +223,21 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     Hs <- (Hs + Matrix::t(Hs)) / 2
     osc <- max(abs(Matrix::diag(Hs)))
     if (!is.finite(osc) || osc <= 0) osc <- 1
-    model <- osqp::osqp(P = methods::as(Matrix::triu(Hs / osc), "CsparseMatrix"),
-                        q = as.numeric(Matrix::t(Mv) %*% qv) / osc,
-                        A = methods::as(A %*% Mv, "CsparseMatrix"), l = lo,
-                        u = hi, pars = do.call(osqp::osqpSettings, mhe$settings))
+    Pm <- methods::as(Matrix::triu(Hs / osc), "CsparseMatrix")
+    Am <- methods::as(A %*% Mv, "CsparseMatrix")
+    qs <- as.numeric(Matrix::t(Mv) %*% qv) / osc
+    # once the window is full the QP keeps its sparsity pattern from sample
+    # to sample (unless missing data or a change of support alters it), so
+    # the solver workspace is reused and only the numbers are updated
+    if (!is.null(model) && same_pattern(Pm, Pprev) && same_pattern(Am, Aprev)) {
+      model@Update(q = qs, l = lo, u = hi, Px = Pm@x, Ax = Am@x)
+      if (!isTRUE(warm_start)) model@ColdStart()
+    } else {
+      model <- osqp::osqp(P = Pm, q = qs, A = Am, l = lo, u = hi,
+                          pars = do.call(osqp::osqpSettings, mhe$settings))
+    }
+    Pprev <- Pm
+    Aprev <- Am
     to_scaled <- function(z) {
       z[seq_len(n)] <- solve(T1, z[seq_len(n)])
       z / dv
@@ -283,3 +306,9 @@ shift_blocks <- function(v, size, prev, new, shift) {
 
 # Drop the first k entries; v[-seq_len(0)] would drop everything.
 drop_head <- function(v, k) if (k > 0) v[-seq_len(k)] else v
+
+# TRUE when two sparse (CSC) matrices have the same dimensions and pattern.
+same_pattern <- function(X, Y) {
+  !is.null(Y) && identical(X@Dim, Y@Dim) && identical(X@p, Y@p) &&
+    identical(X@i, Y@i)
+}

@@ -70,7 +70,13 @@
 #' @param terminal_set Optional list `list(H = , h = )` for the polyhedral
 #'   terminal constraint \eqn{H (x_N - x^r_N) \le h}.
 #' @param solver_settings List of OSQP settings (see [osqp::osqpSettings()]);
-#'   defaults are tight tolerances with polishing.
+#'   they override the `accuracy` profile.
+#' @param accuracy Solver accuracy profile: `"high"` (default; tolerances
+#'   1e-9 with solution polishing), `"standard"` (1e-6 with polishing) or
+#'   `"fast"` (1e-4, no polishing). Lower accuracy shortens solves; the
+#'   applied input then differs from the exact optimum by roughly the
+#'   tolerance times the problem scale, and bounds can be violated by about
+#'   the tolerance. The MPC article measures the trade-off.
 #' @param accept_inaccurate Accept the OSQP status `"solved inaccurate"`.
 #' @return An object of class `c("ctrl_mpc", "ctrl_controller")`.
 #' @seealso [ctrl_mpc_step()], [ctrl_simulate_mpc()],
@@ -91,8 +97,10 @@ ctrl_mpc <- function(plant, horizon, Q, R, P = "Q", control_horizon = horizon,
                      y_min = -Inf, y_max = Inf, soft = character(),
                      soft_weight = c(1e3, 1e4), terminal = c("none", "equality"),
                      terminal_set = NULL, solver_settings = list(),
-                     accept_inaccurate = FALSE) {
+                     accept_inaccurate = FALSE,
+                     accuracy = c("high", "standard", "fast")) {
   terminal <- match.arg(terminal)
+  accuracy <- match.arg(accuracy)
   s <- as_ss(plant)
   if (s$dt == 0) {
     ctrl_abort("MPC needs a discrete time model; use ctrl_c2d(plant, dt) first.")
@@ -151,9 +159,8 @@ ctrl_mpc <- function(plant, horizon, Q, R, P = "Q", control_horizon = horizon,
     }
     terminal_set <- list(H = H, h = h)
   }
-  settings <- utils::modifyList(list(eps_abs = 1e-9, eps_rel = 1e-9,
-                                     max_iter = 50000L, polishing = TRUE,
-                                     verbose = FALSE, warm_starting = TRUE),
+  settings <- utils::modifyList(c(osqp_profile(accuracy, 1e-9),
+                                  list(warm_starting = TRUE)),
                                 solver_settings)
   mpc <- structure(
     list(plant = s, horizon = N, control_horizon = Nc, Q = Q, R = R, P = P,
@@ -184,13 +191,26 @@ expand_bound <- function(b, k, name) {
   as.numeric(b)
 }
 
-# Triplet accumulator for sparse matrices.
+# Triplet accumulator for sparse matrices. Blocks are stored as list
+# chunks and concatenated once in trip_sparse(), so building a QP is linear
+# in its number of nonzeros (repeated c() growth was quadratic in the
+# horizon). Duplicate entries are summed by sparseMatrix().
 trip_new <- function() {
   e <- new.env(parent = emptyenv())
-  e$i <- integer()
-  e$j <- integer()
-  e$x <- numeric()
+  e$i <- list()
+  e$j <- list()
+  e$x <- list()
+  e$k <- 0L
   e
+}
+
+trip_push <- function(tr, i, j, x) {
+  k <- tr$k + 1L
+  tr$i[[k]] <- i
+  tr$j[[k]] <- j
+  tr$x[[k]] <- x
+  tr$k <- k
+  invisible()
 }
 
 # M is a matrix block, or a vector holding the diagonal of a square block
@@ -198,17 +218,20 @@ trip_new <- function() {
 trip_add <- function(tr, rows, cols, M) {
   if (is.null(dim(M))) {
     keep <- M != 0
-    tr$i <- c(tr$i, rows[keep])
-    tr$j <- c(tr$j, cols[keep])
-    tr$x <- c(tr$x, rep_len(M, length(rows))[keep])
+    if (any(keep)) {
+      trip_push(tr, rows[keep], cols[keep], rep_len(M, length(rows))[keep])
+    }
     return(invisible())
   }
   nz <- which(M != 0, arr.ind = TRUE)
   if (!nrow(nz)) return(invisible())
-  tr$i <- c(tr$i, rows[nz[, 1]])
-  tr$j <- c(tr$j, cols[nz[, 2]])
-  tr$x <- c(tr$x, M[nz])
-  invisible()
+  trip_push(tr, rows[nz[, 1]], cols[nz[, 2]], M[nz])
+}
+
+trip_sparse <- function(tr, dims) {
+  Matrix::sparseMatrix(i = unlist(tr$i, use.names = FALSE),
+                       j = unlist(tr$j, use.names = FALSE),
+                       x = unlist(tr$x, use.names = FALSE), dims = dims)
 }
 
 mpc_build_qp <- function(mpc) {
@@ -241,17 +264,17 @@ mpc_build_qp <- function(mpc) {
   nz <- nx + nu + ns
   Hm <- trip_new()
   Ac <- trip_new()
-  lo <- numeric()
-  hi <- numeric()
-  row_tag <- character()
+  lo <- list()
+  hi <- list()
+  row_tag <- list()
   nrow_c <- 0L
   add_rows <- function(blocks, l, u, tag) {
     k <- length(l)
     rows <- nrow_c + seq_len(k)
     for (bl in blocks) trip_add(Ac, rows, bl$cols, bl$M)
-    lo <<- c(lo, l)
-    hi <<- c(hi, u)
-    row_tag <<- c(row_tag, rep(tag, k))
+    lo[[length(lo) + 1L]] <<- l
+    hi[[length(hi) + 1L]] <<- u
+    row_tag[[length(row_tag) + 1L]] <<- rep(tag, k)
     nrow_c <<- nrow_c + k
     rows
   }
@@ -281,14 +304,14 @@ mpc_build_qp <- function(mpc) {
   rows_init <- add_rows(list(list(cols = xi(0), M = diag(n))), rep(0, n),
                         rep(0, n), "init")
   # dynamics x_{k+1} - A x_k - B u_k = d_k
-  rows_dyn <- integer()
+  rows_dyn <- vector("list", N)
   for (k in 0:(N - 1L)) {
-    r <- add_rows(list(list(cols = xi(k + 1L), M = diag(n)),
-                       list(cols = xi(k), M = -A),
-                       list(cols = ui(k), M = -B)),
-                  rep(0, n), rep(0, n), "dyn")
-    rows_dyn <- c(rows_dyn, r)
+    rows_dyn[[k + 1L]] <- add_rows(list(list(cols = xi(k + 1L), M = diag(n)),
+                                        list(cols = xi(k), M = -A),
+                                        list(cols = ui(k), M = -B)),
+                                   rep(0, n), rep(0, n), "dyn")
   }
+  rows_dyn <- unlist(rows_dyn, use.names = FALSE)
   # control horizon: u_k = u_{Nc-1}
   if (Nc < N) {
     for (k in Nc:(N - 1L)) {
@@ -374,8 +397,11 @@ mpc_build_qp <- function(mpc) {
     rows_tset <- add_rows(list(list(cols = xi(N), M = H)), rep(-Inf, nrow(H)),
                           mpc$terminal_set$h, "terminal_set")
   }
-  Hs <- Matrix::sparseMatrix(i = Hm$i, j = Hm$j, x = Hm$x, dims = c(nz, nz))
-  Acs <- Matrix::sparseMatrix(i = Ac$i, j = Ac$j, x = Ac$x, dims = c(nrow_c, nz))
+  Hs <- trip_sparse(Hm, c(nz, nz))
+  Acs <- trip_sparse(Ac, c(nrow_c, nz))
+  lo <- unlist(lo, use.names = FALSE)
+  hi <- unlist(hi, use.names = FALSE)
+  row_tag <- unlist(row_tag, use.names = FALSE)
   # convexity of the assembled Hessian: each stage block must be PSD
   stage <- rbind(cbind(mpc$Q + Qy_x, Qy_xu), cbind(t(Qy_xu), mpc$R + Qy_u))
   if (min_eig_sym(stage) < -1e-10 * norm(stage, "2")) {

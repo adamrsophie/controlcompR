@@ -3,13 +3,17 @@
 #include <R_ext/Rdynload.h>
 
 SEXP cc_schur(SEXP, SEXP, SEXP);
-SEXP cc_qz(SEXP, SEXP, SEXP, SEXP);
+SEXP cc_qz(SEXP, SEXP, SEXP, SEXP, SEXP);
 SEXP cc_trsyl(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+SEXP cc_stein(SEXP, SEXP, SEXP, SEXP);
+SEXP cc_resolvent(SEXP, SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"cc_schur", (DL_FUNC) &cc_schur, 3},
-    {"cc_qz", (DL_FUNC) &cc_qz, 4},
+    {"cc_qz", (DL_FUNC) &cc_qz, 5},
     {"cc_trsyl", (DL_FUNC) &cc_trsyl, 6},
+    {"cc_stein", (DL_FUNC) &cc_stein, 4},
+    {"cc_resolvent", (DL_FUNC) &cc_resolvent, 4},
     {NULL, NULL, 0}
 };
 

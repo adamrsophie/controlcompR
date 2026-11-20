@@ -75,8 +75,21 @@ ctrl_lyap <- function(A, Q, discrete = FALSE, tol = 1e-12) {
   X
 }
 
-# Solve T X T' - X + Q = 0 for quasi upper triangular T (real Schur form).
+# Solve T X T' - X + Q = 0 for quasi upper triangular T (real Schur form),
+# in native code (src/stein.c); stein_schur_r() is the reference R version
+# of the same block recursion, kept for testing.
 stein_schur <- function(T, Q) {
+  n <- nrow(T)
+  if (!n) return(matrix(0, 0, 0))
+  blocks <- schur_blocks(T)
+  T <- as.matrix(T)
+  Q <- as.matrix(Q)
+  storage.mode(T) <- "double"
+  storage.mode(Q) <- "double"
+  .Call(cc_stein, T, Q, vapply(blocks, min, 0L) - 1L, lengths(blocks))
+}
+
+stein_schur_r <- function(T, Q) {
   n <- nrow(T)
   X <- matrix(0, n, n)
   blocks <- schur_blocks(T)

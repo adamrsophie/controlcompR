@@ -24,14 +24,18 @@ schur_real <- function(A, order = c("none", "continuous", "discrete"), tol = 0) 
 }
 
 # Generalized real Schur (QZ) decomposition Q' A Z = AA, Q' B Z = BB.
-qz_real <- function(A, B, order = c("none", "continuous", "discrete"), tol = 0) {
+# `vectors` selects which of Q and Z are computed (the others are NULL).
+qz_real <- function(A, B, order = c("none", "continuous", "discrete"), tol = 0,
+                    vectors = c("both", "none", "Q", "Z")) {
+  vectors <- match.arg(vectors)
+  want <- c(vectors %in% c("both", "Q"), vectors %in% c("both", "Z"))
   order <- match.arg(order)
   mode <- match(order, c("none", "continuous", "discrete")) - 1L
   A <- as.matrix(A)
   B <- as.matrix(B)
   storage.mode(A) <- "double"
   storage.mode(B) <- "double"
-  out <- .Call(cc_qz, A, B, mode, as.double(tol))
+  out <- .Call(cc_qz, A, B, mode, as.double(tol), want)
   n <- nrow(A)
   if (out$info > 0L && out$info <= n) {
     ctrl_abort("QZ iteration did not converge (LAPACK dgges info ", out$info, ").")
@@ -49,7 +53,7 @@ qz_real <- function(A, B, order = c("none", "continuous", "discrete"), tol = 0) 
 # Finite generalized eigenvalues of the pencil (A, B).
 gen_eigenvalues <- function(A, B, tol = NULL, warn = TRUE) {
   if (!length(A)) return(complex())
-  q <- qz_real(A, B)
+  q <- qz_real(A, B, vectors = "none")
   # beta is computed from an orthogonally equivalent copy of B, so its scale
   # is that of B; tiny beta means an infinite eigenvalue.
   sc <- max(norm(B, "1"), norm(A, "1"))

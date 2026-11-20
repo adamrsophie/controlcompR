@@ -177,12 +177,19 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
 #' @param x0,P0 Prior mean and covariance at the first sample (defaults:
 #'   zero and the identity).
 #' @param G Process noise input matrix (default identity).
+#' @param covariances `"all"` (default) stores the covariance, innovation
+#'   covariance and gain of every sample; `"variances"` stores only the
+#'   filtered variances, so memory grows with \eqn{T n} instead of
+#'   \eqn{T n^2} (the smoother then cannot be run).
 #' @return `ctrl_kalman_filter()` returns an object of class
 #'   `ctrl_kalman_filter` with `filtered` (`T x n`), `predicted` (`T x n`,
-#'   row `k` is \eqn{\hat x_{k|k-1}}), `P_filtered` and `P_predicted`
-#'   (`n x n x T` arrays), `innovations`, `innovation_cov` (`p x p x T`),
-#'   `gain` (`n x p x T`), `nis` (normalized innovation squared) and
-#'   `loglik` (Gaussian log-likelihood of the measurements).
+#'   row `k` is \eqn{\hat x_{k|k-1}}), `variances` (`T x n`, the diagonal of
+#'   \eqn{P_{k|k}}), `P_filtered` and `P_predicted` (`n x n x T` arrays,
+#'   `NULL` with `covariances = "variances"`), `innovations`,
+#'   `innovation_cov` (`p x p x T`), `gain` (`n x p x T`), `nis`
+#'   (normalized innovation squared), `loglik` (Gaussian log-likelihood of
+#'   the measurements) and `next_prediction`, `next_covariance` (the
+#'   prediction for the sample after the data).
 #'   `ctrl_kalman_smoother()` returns a list with `smoothed` and
 #'   `P_smoothed`.
 #' @examples
@@ -200,7 +207,8 @@ ctrl_kalman <- function(sys, Qn, Rn, Nn = NULL, G = NULL) {
 #' sm <- ctrl_kalman_smoother(kf)
 #' @export
 ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
-                               G = NULL) {
+                               G = NULL, covariances = c("all", "variances")) {
+  keep <- match.arg(covariances) == "all"
   s <- as_ss(sys)
   if (s$dt == 0) {
     ctrl_abort("The time-varying Kalman filter needs a discrete time model; ",
@@ -223,17 +231,18 @@ ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
   Qx <- G %*% Qn %*% t(G)
   filt <- matrix(0, Tn, n)
   pred <- matrix(0, Tn, n)
-  Pf <- array(0, c(n, n, Tn))
-  Pp <- array(0, c(n, n, Tn))
+  Pf <- if (keep) array(0, c(n, n, Tn))
+  Pp <- if (keep) array(0, c(n, n, Tn))
+  Sarr <- if (keep) array(NA_real_, c(p, p, Tn))
+  Karr <- if (keep) array(0, c(n, p, Tn))
+  vars <- matrix(0, Tn, n)
   innov <- matrix(NA_real_, Tn, p)
-  Sarr <- array(NA_real_, c(p, p, Tn))
-  Karr <- array(0, c(n, p, Tn))
   nis <- rep(NA_real_, Tn)
   loglik <- 0
   In <- diag(n)
   for (k in seq_len(Tn)) {
     pred[k, ] <- x
-    Pp[, , k] <- P
+    if (keep) Pp[, , k] <- P
     yk <- Y[k, ]
     if (all(is.finite(yk))) {
       e <- yk - drop(s$C %*% x + s$D %*% U[k, ])
@@ -247,19 +256,23 @@ ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
       nis[k] <- sum(z^2)
       loglik <- loglik - 0.5 * (p * log(2 * pi) + 2 * sum(log(diag(cS))) + nis[k])
       innov[k, ] <- e
-      Sarr[, , k] <- S
-      Karr[, , k] <- K
+      if (keep) {
+        Sarr[, , k] <- S
+        Karr[, , k] <- K
+      }
     } else if (any(is.finite(yk))) {
       ctrl_abort("Partially missing measurement rows are not supported (row ",
                  k, ").")
     }
     filt[k, ] <- x
-    Pf[, , k] <- P
+    vars[k, ] <- diag(P)
+    if (keep) Pf[, , k] <- P
     x <- drop(s$A %*% x + s$B %*% U[k, ])
     P <- symmetrize(s$A %*% P %*% t(s$A) + Qx)
   }
-  colnames(filt) <- colnames(pred) <- s$state_names
-  structure(list(filtered = filt, predicted = pred, P_filtered = Pf,
+  colnames(filt) <- colnames(pred) <- colnames(vars) <- s$state_names
+  structure(list(filtered = filt, predicted = pred, variances = vars,
+                 P_filtered = Pf,
                  P_predicted = Pp, innovations = innov, innovation_cov = Sarr,
                  gain = Karr, nis = nis, loglik = loglik, plant = s,
                  next_prediction = x, next_covariance = P, y = Y, u = U),
@@ -286,6 +299,10 @@ ctrl_kalman_smoother <- function(filter) {
   if (inherits(filter, "ctrl_nl_filter")) {
     ctrl_abort("Smoothing is only implemented for the linear Kalman filter; ",
                "EKF and UKF results cannot be smoothed with ctrl_kalman_smoother().")
+  }
+  if (is.null(filter$P_filtered)) {
+    ctrl_abort("The smoother needs the covariance history; run ",
+               "ctrl_kalman_filter() with `covariances = \"all\"`.")
   }
   A <- filter$plant$A
   Tn <- nrow(filter$filtered)
@@ -316,7 +333,8 @@ plot.ctrl_kalman_filter <- function(x, truth = NULL, ...) {
   Tn <- nrow(x$filtered)
   rows <- list()
   for (j in seq_len(ncol(x$filtered))) {
-    sd <- sqrt(pmax(x$P_filtered[j, j, ], 0))
+    v <- if (!is.null(x$variances)) x$variances[, j] else x$P_filtered[j, j, ]
+    sd <- sqrt(pmax(v, 0))
     rows[[j]] <- data.frame(k = seq_len(Tn), state = colnames(x$filtered)[j],
                             estimate = x$filtered[, j],
                             lower = x$filtered[, j] - 2 * sd,
@@ -530,6 +548,14 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
   Nw <- lqg$lqr$N %||% matrix(0, n, m)
   summ <- data.frame(replication = seq_len(replications), rms_estimation_error = 0,
                      average_cost = 0)
+  # u depends on y through Dc; with plant D the loop is algebraic. The loop
+  # matrix is constant, so it is factored once (QR) for all steps
+  Eq <- qr(diag(p) - s$D %*% ctrl$D)
+  if (Eq$rank < p) {
+    ctrl_abort("The loop through the plant and controller feedthrough is ",
+               "not well posed (I - D Dc is singular).")
+  }
+  DCc <- s$D %*% ctrl$C
   for (r in seq_len(replications)) {
     x <- as.numeric(x0)
     xc <- rep(0, nc)
@@ -539,9 +565,7 @@ ctrl_simulate_lqg <- function(plant, lqg, steps, x0, Qn = NULL, Rn = NULL,
       wv <- if (ncol(Fj)) drop(Fj %*% rnorm(ncol(Fj))) else rep(0, q + p)
       w <- wv[seq_len(q)]
       v <- wv[q + seq_len(p)]
-      # u depends on y through Dc; with plant D the loop is algebraic
-      E <- diag(p) - s$D %*% ctrl$D
-      y <- drop(solve(E, s$C %*% x + s$D %*% (ctrl$C %*% xc) + v))
+      y <- drop(qr.coef(Eq, s$C %*% x + DCc %*% xc + v))
       u <- drop(ctrl$C %*% xc + ctrl$D %*% y)
       xhat <- if (lqg$form == "current") {
         Mk <- kf$M

@@ -204,7 +204,7 @@ riccati_core <- function(A, B, Q, R, S, discrete) {
   tol_sel <- 100 * .Machine$double.eps * (2 * n)
   qz <- qz_real(Mr / sc, Nr / sc,
                 order = if (discrete) "discrete" else "continuous",
-                tol = tol_sel)
+                tol = tol_sel, vectors = "Z")
   if (qz$sdim != n) {
     ctrl_abort("No stabilizing solution: the ", if (discrete) "symplectic"
                else "Hamiltonian", " pencil has ", qz$sdim, " stable ",

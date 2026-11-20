@@ -1,0 +1,51 @@
+name: sanitizers
+
+# Builds the package's C code with AddressSanitizer and
+# UndefinedBehaviorSanitizer and runs the test suite against it. R and the
+# dependencies are not instrumented; the sanitizer runtime is preloaded.
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  asan-ubsan:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          extra-packages: any::testthat
+          needs: check
+      - name: Install with sanitizers
+        run: |
+          mkdir -p ~/.R "$RUNNER_TEMP/sanlib"
+          cat > ~/.R/Makevars <<'MV'
+          CFLAGS=-g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=undefined
+          LDFLAGS=-fsanitize=address,undefined
+          MV
+          R CMD INSTALL -l "$RUNNER_TEMP/sanlib" .
+      - name: Tests under the sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          export LD_PRELOAD="$(gcc -print-file-name=libasan.so):$(gcc -print-file-name=libubsan.so)"
+          Rscript -e '
+            .libPaths(c(file.path(Sys.getenv("RUNNER_TEMP"), "sanlib"), .libPaths()))
+            library(controlcompR)
+            dll <- getLoadedDLLs()[["controlcompR"]][["path"]]
+            stopifnot(startsWith(dll, Sys.getenv("RUNNER_TEMP")))
+            res <- as.data.frame(testthat::test_dir("tests/testthat", package = "controlcompR",
+              load_package = "installed", reporter = "summary", stop_on_failure = FALSE))
+            if (sum(res$failed) || any(res$error)) stop("Test failures under the sanitizers.")
+          '

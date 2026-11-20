@@ -138,20 +138,39 @@ ctrl_arx <- function(data, na, nb, nk = 1, start = NULL) {
   }
   rows <- k0:Tn
   if (length(rows) <= na + m * nb) ctrl_abort("Too few samples for the requested orders.")
-  X <- cbind(
-    if (na) vapply(seq_len(na), function(i) -y[rows - i], numeric(length(rows))),
-    do.call(cbind, lapply(seq_len(m), function(i) {
-      vapply(seq_len(nb), function(j) U[rows - nk - j + 1L, i], numeric(length(rows)))
-    }))
-  )
-  X <- matrix(X, nrow = length(rows))
+  arx_fit(data, arx_bank(y, U, rows, na, nb, nk), na, nb, nk)
+}
+
+# Lagged regressors for ARX fits on the responses `rows`: -y lags 1..na_max
+# and, for each delay in `nk`, input lags 1..nb_max. Order selection builds
+# this bank once and every candidate takes its columns from it.
+arx_bank <- function(y, U, rows, na_max, nb_max, nk) {
+  len <- length(rows)
+  Yl <- matrix(vapply(seq_len(na_max), function(i) -y[rows - i], numeric(len)),
+               len, na_max)
+  Ul <- lapply(nk, function(d) lapply(seq_len(ncol(U)), function(i) {
+    matrix(vapply(seq_len(nb_max), function(j) U[rows - d - j + 1L, i],
+                  numeric(len)), len, nb_max)
+  }))
+  names(Ul) <- as.character(nk)
+  list(y = y[rows], Y = Yl, U = Ul, rows = rows)
+}
+
+arx_fit <- function(data, bank, na, nb, nk) {
+  m <- ncol(data$u)
+  rows <- bank$rows
+  Ub <- bank$U[[as.character(nk)]]
+  X <- matrix(cbind(bank$Y[, seq_len(na), drop = FALSE],
+                    do.call(cbind, lapply(Ub, function(M) M[, seq_len(nb), drop = FALSE]))),
+              nrow = length(rows))
+  yr <- bank$y
   q <- qr(X)
   if (q$rank < ncol(X)) {
     ctrl_abort("The ARX regression is rank deficient; the input is not ",
                "persistently exciting for these orders.")
   }
-  theta <- qr.coef(q, y[rows])
-  res <- y[rows] - drop(X %*% theta)
+  theta <- qr.coef(q, yr)
+  res <- yr - drop(X %*% theta)
   npar <- length(theta)
   N <- length(rows)
   sigma2 <- sum(res^2) / (N - npar)
@@ -265,7 +284,7 @@ ctrl_n4sid <- function(data, order = NULL, horizon = NULL, feedthrough = FALSE) 
   nz <- i * (m + p)
   iy <- nu + nz + seq_len(i * p)
   L32 <- L[iy, nu + seq_len(nz), drop = FALSE]
-  sv <- svd(L32)
+  sv <- svd(L32, nv = 0)
   sval <- sv$d
   if (is.null(order)) {
     # largest gap in log singular values after an admissible order 1..nmax;
@@ -379,26 +398,27 @@ idmodel_outputs <- function(model, data) {
       Ak <- model$sys$A %*% Ak
     }
     x0 <- qr.solve(O, as.numeric(t(data$y - s0)))
-    sim <- ctrl_simulate(model$sys, input = data$u, times = times, x0 = x0)$y[, , 1]
-    return(list(simulated = matrix(sim, Tn), predicted = NULL))
+    # by linearity the response from x0 is the zero-state response plus
+    # the free response O x0, so the model is not simulated a second time
+    sim <- s0 + matrix(O %*% x0, Tn, byrow = TRUE)
+    return(list(simulated = sim, predicted = NULL))
   }
   sys <- if (inherits(model, "ctrl_idmodel")) model$sys else as_system(model)
   sim <- ctrl_simulate(sys, input = data$u, times = times)$y[, , 1]
   pred <- NULL
   if (inherits(model, "ctrl_arx")) {
-    y <- data$y[, 1]
-    U <- data$u
-    pred <- rep(NA_real_, Tn)
-    for (k in seq_len(Tn)) {
-      v <- 0
-      for (i in seq_len(model$na)) v <- v - model$a[i] * if (k - i >= 1) y[k - i] else 0
-      for (j in seq_len(ncol(U))) for (l in seq_len(model$nb)) {
-        kk <- k - model$nk - l + 1L
-        if (kk >= 1) v <- v + model$b[l, j] * U[kk, j]
-      }
-      pred[k] <- v
-    }
-    pred <- matrix(pred, Tn)
+    # one-step prediction with zero values before the first sample:
+    # regressors from zero-padded data, then one matrix product
+    na <- model$na
+    nb <- model$nb
+    nk <- model$nk
+    pad <- max(na, nk + nb - 1L)
+    yp <- c(rep(0, pad), data$y[, 1])
+    Up <- rbind(matrix(0, pad, ncol(data$u)), data$u)
+    bank <- arx_bank(yp, Up, pad + seq_len(Tn), na, nb, nk)
+    X <- cbind(bank$Y[, seq_len(na), drop = FALSE],
+               do.call(cbind, bank$U[[1]]))
+    pred <- matrix(drop(X %*% c(model$a, as.vector(model$b))), Tn)
   }
   list(simulated = matrix(sim, Tn), predicted = pred)
 }
@@ -609,10 +629,23 @@ ctrl_arx_order <- function(data, na = 1:4, nb = 1:4, nk = 1, validation = NULL) 
   # information criteria are only comparable on the same responses: fit
   # every candidate from the latest start that all of them need
   start <- max(pmax(grid$na, grid$nk + grid$nb - 1L)) + 1L
+  # the lagged regressors are built once and shared by all candidates;
+  # invalid orders go through ctrl_arx(), which reports why they fail
+  check_iddata(data)
+  bank <- NULL
+  if (ncol(data$y) == 1L && all(c(na, nb, nk) >= 0) &&
+      all(c(na, nb, nk) == round(c(na, nb, nk))) && start <= nrow(data$y)) {
+    bank <- arx_bank(data$y[, 1], data$u, start:nrow(data$y),
+                     max(grid$na), max(grid$nb), unique(grid$nk))
+  }
   rows <- lapply(seq_len(nrow(grid)), function(r) {
     g <- grid[r, ]
-    m <- tryCatch(ctrl_arx(data, g$na, g$nb, g$nk, start = start),
-                  error = function(e) NULL)
+    m <- tryCatch({
+      if (is.null(bank) || g$nb < 1L ||
+          length(bank$rows) <= g$na + ncol(data$u) * g$nb) {
+        ctrl_arx(data, g$na, g$nb, g$nk, start = start)
+      } else arx_fit(data, bank, g$na, g$nb, g$nk)
+    }, error = function(e) NULL)
     if (is.null(m)) return(NULL)
     vf <- if (is.null(validation)) NA_real_ else
       ctrl_compare(validation, m)$simulation_fit[1]

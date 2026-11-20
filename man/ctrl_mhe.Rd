@@ -17,7 +17,8 @@ ctrl_mhe(
   x_max = Inf,
   w_min = -Inf,
   w_max = Inf,
-  solver_settings = list()
+  solver_settings = list(),
+  accuracy = c("high", "standard", "fast")
 )
 
 ctrl_mhe_run(mhe, y, u = NULL, warm_start = TRUE)
@@ -38,7 +39,11 @@ definite).}
 
 \item{w_min, w_max}{Bounds on the process noise.}
 
-\item{solver_settings}{OSQP settings.}
+\item{solver_settings}{OSQP settings; they override the \code{accuracy}
+profile.}
+
+\item{accuracy}{Solver accuracy profile, as in \code{\link[=ctrl_mpc]{ctrl_mpc()}} (\code{"high"}
+uses tolerances 1e-10).}
 
 \item{mhe}{A \code{ctrl_mhe} object.}
 
@@ -80,7 +85,9 @@ filter, at the price of one QP per sample, so its cost grows with the
 horizon. MHE is worth it when states or noises have hard physical bounds
 (concentrations, saturations) that the Kalman filter would violate.
 
-Each window QP is assembled from scratch and solved by OSQP.
+Each window QP is solved by OSQP. Once the window is full, the solver
+workspace is reused from sample to sample while the sparsity pattern of
+the QP does not change; only its numbers are updated.
 }
 \examples{
 sys <- ctrl_ss(0.9, 1, 1, dt = 1)

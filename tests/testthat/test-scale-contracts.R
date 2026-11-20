@@ -282,5 +282,8 @@ test_that("frequency response of a badly scaled realization is evaluated", {
     r <- drop(ctrl_freqresp(s, c(1, 0))$response)
     expect_equal(r[1], 1 / (1 - a * 1i), tolerance = 1e-12)
     expect_true(is.na(r[2]))  # w = 0 is a pole
+    w <- 10^seq(-3, 3, length.out = 30)  # many points: Schur path
+    r <- drop(ctrl_freqresp(s, w)$response)
+    expect_equal(r, 1 / ((1i * w)^4 + a * (1i * w)^3), tolerance = 1e-12)
   }
 })

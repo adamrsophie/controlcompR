@@ -14,7 +14,8 @@ ctrl_nlsys(
   params = list(),
   state_names = NULL,
   input_names = NULL,
-  output_names = NULL
+  output_names = NULL,
+  jacobian = NULL
 )
 }
 \arguments{
@@ -34,6 +35,13 @@ derivative (continuous) or the next state (discrete).}
 \item{params}{List of parameters passed to \code{update} and \code{output}.}
 
 \item{state_names, input_names, output_names}{Optional names.}
+
+\item{jacobian}{Optional function \verb{function(t, x, u, params)} returning
+analytic Jacobians as \code{list(A = , B = )} (\eqn{\partial f/\partial x},
+\eqn{\partial f/\partial u}) and optionally \code{C}, \code{D} for the output.
+When given, linearization, the EKF and NMPC gradients use it instead of
+central finite differences; missing entries are still approximated.
+\code{\link[=ctrl_nl_discretize]{ctrl_nl_discretize()}} does not carry it to the discretized model.}
 }
 \value{
 An object of class \code{ctrl_nlsys}.

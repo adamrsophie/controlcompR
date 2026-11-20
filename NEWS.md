@@ -71,7 +71,32 @@
     and tolerances at entry, check workspace queries before using their
     sizes, stop on invalid-argument codes and accept empty matrices. The
     test suite runs clean under AddressSanitizer and
-    UndefinedBehaviorSanitizer.
+    UndefinedBehaviorSanitizer, and a CI workflow repeats that on every
+    push.
+* Performance:
+  * Discrete Lyapunov equations solve the triangular Stein equation in
+    native code (about five times faster at 120 states).
+  * Frequency responses on many points use one complex Schur
+    factorization and triangular solves (about six times faster at 120
+    states); short point lists keep the dense solve.
+  * The controllability staircase transforms only the trailing blocks;
+    QZ computes only the Schur vectors the caller needs.
+  * MPC and MHE assemble their QPs from chunked triplets in linear time;
+    MHE reuses the OSQP workspace while the QP sparsity is unchanged and
+    advances the prior covariance lazily instead of storing one per
+    sample.
+  * ARX order selection builds the lagged regressors once (about five
+    times faster); ARX prediction is vectorized and N4SID validation does
+    not simulate twice.
+  * The LQG simulation factors its constant algebraic loop once.
+  * NMPC shares each prediction between the cost and the gradient, and
+    `ctrl_nlsys()` accepts analytic Jacobians (`jacobian`), used by
+    linearization, the EKF and NMPC instead of finite differences.
+  * `ctrl_kalman_filter()`, `ctrl_ekf()` and `ctrl_ukf()` accept
+    `covariances = "variances"` to store only the filtered variances.
+  * `ctrl_mpc()` and `ctrl_mhe()` accept `accuracy = "high"`
+    (default), `"standard"` or `"fast"` solver profiles; the MPC article
+    measures the trade-off.
   * Robust stability decisions and H-infinity synthesis certification use
     the upper bound of the norm computation (`upper_bound`); an attained
     zero H-infinity optimum is returned with `gamma = 0`.
