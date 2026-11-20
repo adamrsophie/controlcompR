@@ -118,12 +118,12 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     xbar <- if (st == 1L) mhe$x0 else
       drop(s$A %*% est[st - 1L, ] + s$B %*% U[st - 1L, ])
     # arrival cost on the support of the prior covariance; components with
-    # zero prior variance are fixed to the prior mean
-    ep <- eigen(symmetrize(prior_P[, , st]), symmetric = TRUE)
-    pk <- ep$values > 1e-12 * max(ep$values)
-    Pinv <- ep$vectors[, pk, drop = FALSE] %*%
-      diag(1 / ep$values[pk], sum(pk)) %*% t(ep$vectors[, pk, drop = FALSE])
-    Nul <- ep$vectors[, !pk, drop = FALSE]
+    # zero prior variance are fixed to the prior mean. The support is
+    # decided on the equilibrated covariance, so a small positive variance
+    # stays a (strong) prior and is not turned into an equality.
+    sp <- psd_pinv(prior_P[, , st])
+    Pinv <- sp$inv
+    Nul <- sp$null
     const <- sum(xbar * (Pinv %*% xbar))
     xi <- function(j) (j - 1L) * n + seq_len(n)
     wi <- function(j) L * n + (j - 1L) * q + seq_len(q)
@@ -192,12 +192,20 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
     }
     H <- Matrix::sparseMatrix(i = Hm$i, j = Hm$j, x = Hm$x, dims = c(nz, nz))
     A <- Matrix::sparseMatrix(i = Ac$i, j = Ac$j, x = Ac$x, dims = c(r, nz))
-    # normalize the objective so the solver tolerances do not depend on the
-    # units of the covariances; objective and duals are rescaled afterwards
-    osc <- max(abs(Matrix::diag(H)))
+    # solve in scaled variables z = dv * zs with dv = 1 / sqrt(diag(H)), so
+    # every variable has unit curvature whatever the units of the states and
+    # covariances, then normalize the objective; the solution, objective and
+    # duals are mapped back afterwards (constraint rows are not rescaled, so
+    # the duals keep their meaning)
+    hd <- Matrix::diag(H)
+    dv <- ifelse(is.finite(hd) & hd > 0, 1 / sqrt(hd), 1)
+    Dv <- Matrix::Diagonal(x = dv)
+    Hs <- Dv %*% H %*% Dv
+    osc <- max(abs(Matrix::diag(Hs)))
     if (!is.finite(osc) || osc <= 0) osc <- 1
-    model <- osqp::osqp(P = methods::as(Matrix::triu(H / osc), "CsparseMatrix"),
-                        q = qv / osc, A = methods::as(A, "CsparseMatrix"), l = lo,
+    model <- osqp::osqp(P = methods::as(Matrix::triu(Hs / osc), "CsparseMatrix"),
+                        q = dv * qv / osc,
+                        A = methods::as(A %*% Dv, "CsparseMatrix"), l = lo,
                         u = hi, pars = do.call(osqp::osqpSettings, mhe$settings))
     lay <- c(dyn = L - 1L, nul = ncol(Nul),
              xb = if (any(is.finite(c(mhe$x_min, mhe$x_max)))) L else 0L,
@@ -214,7 +222,7 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
                                        lay_prev[["nul"]]),
                            q, lay_prev[["wb"]], lay[["wb"]], sh),
               rep(0, lay[["free"]]))
-      model@WarmStart(x = mhe_shift(zprev, sh, L, n, q, s, U[Tk - 1L, ]),
+      model@WarmStart(x = mhe_shift(zprev, sh, L, n, q, s, U[Tk - 1L, ]) / dv,
                       y = if (length(yw) == r) yw / osc else NULL)
     }
     res <- osqp_solve(model)
@@ -223,11 +231,12 @@ ctrl_mhe_run <- function(mhe, y, u = NULL, warm_start = TRUE) {
       ctrl_abort("MHE QP failed at sample ", Tk, " with status \"",
                  res$info$status, "\".")
     }
-    est[Tk, ] <- res$x[xi(L)]
+    zsol <- dv * res$x
+    est[Tk, ] <- zsol[xi(L)]
     obj[Tk] <- osc * res$info$obj_val + const
     stime[Tk] <- res$info$solve_time
     iters[Tk] <- as.integer(res$info$iter %||% NA_integer_)
-    zprev <- res$x
+    zprev <- zsol
     yprev <- osc * res$y
     lay_prev <- lay
     st_prev <- st

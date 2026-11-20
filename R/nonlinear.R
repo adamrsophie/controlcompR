@@ -538,7 +538,9 @@ ctrl_ukf <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, alpha = 1,
       # H = Pxy' P^+, plus the part of Pyy it does not explain (zero for
       # linear models). This equals P - K S K' algebraically but avoids its
       # cancellation when the posterior is much smaller than the prior.
-      Hs <- t(Pxy) %*% MASS_ginv(P)
+      # P^+ is taken on the equilibrated covariance so that a small but
+      # positive variance is not deleted.
+      Hs <- t(Pxy) %*% psd_pinv(P)$inv
       IKH <- diag(n) - K %*% Hs
       Rx <- z$Rn + (Pyy - Hs %*% P %*% t(Hs))
       P <- symmetrize(IKH %*% P %*% t(IKH) + K %*% Rx %*% t(K))
@@ -628,6 +630,8 @@ ctrl_nmpc <- function(sys, horizon, Q, R, P = NULL, u_min = -Inf, u_max = Inf,
   Q <- check_psd(expand_weight(Q, n, "Q"), "Q")
   R <- check_pd(expand_weight(R, m, "R"), "R")
   P <- if (is.null(P)) Q else check_psd(expand_weight(P, n, "P"), "P")
+  check_scalar_number(penalty, "penalty")
+  if (penalty < 0) ctrl_abort("`penalty` must be nonnegative.")
   structure(list(plant = sys, horizon = as_count(horizon, "horizon"), Q = Q, R = R,
                  P = P, u_min = expand_bound(u_min, m, "u_min"),
                  u_max = expand_bound(u_max, m, "u_max"),

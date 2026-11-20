@@ -71,12 +71,18 @@ synthesis_checks <- function(pp, what) {
   if (pp$dt > 0) {
     ctrl_abort(what, " synthesis is implemented for continuous time plants only.")
   }
-  tol <- 1e-10 * max(1, norm(pp$D12, "2"), norm(pp$D21, "2"))
-  if (qr(pp$D12, tol = tol)$rank < ncol(pp$D12)) {
+  # dimensionless rank of each block: singular values relative to the
+  # block's own largest one (independent of the units of z, u, w and y)
+  rel_rank <- function(M) {
+    d <- svd(M, 0, 0)$d
+    if (!length(d) || d[1] == 0) return(0L)
+    sum(d > 1e-10 * d[1])
+  }
+  if (rel_rank(pp$D12) < ncol(pp$D12)) {
     ctrl_abort("D12 must have full column rank (every control must be ",
                "penalized directly in z); this singular problem is not supported.")
   }
-  if (qr(t(pp$D21), tol = tol)$rank < nrow(pp$D21)) {
+  if (rel_rank(pp$D21) < nrow(pp$D21)) {
     ctrl_abort("D21 must have full row rank (every measurement must be ",
                "corrupted by noise in w); this singular problem is not supported.")
   }
@@ -209,6 +215,9 @@ ctrl_h2syn <- function(P, nmeas, ncon) {
 #' stops at relative tolerance `tol` and returns the controller for the
 #' smallest feasible \eqn{\gamma} found, which is slightly suboptimal by
 #' design: the central controller becomes ill-conditioned at the optimum.
+#' When the H2 optimal controller already gives a zero closed-loop norm,
+#' the optimum zero is attained and that controller is returned with
+#' `gamma = 0`.
 #'
 #' @inheritParams ctrl_h2syn
 #' @param gamma Target level; `NULL` searches for the optimum.
@@ -257,7 +266,17 @@ ctrl_hinfsyn <- function(P, nmeas, ncon, gamma = NULL, tol = 1e-3,
   } else {
     if (is.null(gamma_range)) {
       h2 <- ctrl_h2syn(P, nmeas, ncon)
-      hi <- 1.01 * as.numeric(ctrl_norm(h2$closed_loop, "inf"))
+      h2inf <- as.numeric(ctrl_norm(h2$closed_loop, "inf"))
+      if (h2inf == 0) {
+        # the H2 controller already attains the optimum zero: no positive
+        # gamma bracket exists, so return it (certified by the norm above)
+        return(structure(list(K = h2$K, closed_loop = h2$closed_loop,
+                              gamma = 0, norm = 0, X = h2$X, Y = h2$Y,
+                              history = history, method = "hinf",
+                              nmeas = nmeas, ncon = ncon),
+                         class = c("ctrl_synthesis", "ctrl_controller")))
+      }
+      hi <- 1.01 * h2inf
       lo <- 0
     } else {
       if (!is.numeric(gamma_range) || length(gamma_range) != 2L ||
@@ -625,6 +644,24 @@ ctrl_robust_performance <- function(G, K, Wp, Wu, n = 2000L) {
   }
   Wp <- as_weight(Wp, "Wp")
   Wu <- as_weight(Wu, "Wu")
+  # one effective clock for the loop and both weights: static parts adopt
+  # the time domain of the dynamic ones (a static loop with a discrete
+  # weight is evaluated on the unit circle)
+  parts <- list(G, K, Wp, Wu)
+  dyn <- unique(vapply(Filter(Negate(is_static_model), parts),
+                       function(x) x$dt, 0))
+  if (length(dyn) > 1L) {
+    ctrl_abort("`G`, `K`, `Wp` and `Wu` must share one time domain.")
+  }
+  clock <- if (length(dyn)) dyn else G$dt
+  parts <- lapply(parts, function(x) {
+    if (is_static_model(x)) x$dt <- clock
+    x
+  })
+  G <- parts[[1]]
+  K <- parts[[2]]
+  Wp <- parts[[3]]
+  Wu <- parts[[4]]
   nominal <- loop_internally_stable(G, K)
   L <- ctrl_series(K, G)
   S <- ctrl_feedback(ctrl_gain(diag(ny), dt = L$dt), L)

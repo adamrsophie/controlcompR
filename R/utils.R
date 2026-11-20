@@ -359,3 +359,32 @@ measurement_matrix <- function(y, p) {
   }
   Y
 }
+
+# Inverse on the support of a symmetric positive semidefinite matrix,
+# computed on the equilibrated matrix D^-1 P D^-1 (D = sqrt(diag(P))) so
+# that the rank decision does not depend on the units of the coordinates:
+# a small but positive variance is kept, and only directions that are
+# negligible relative to their own scale count as deterministic. Returns
+# the generalized inverse `inv` (equal to solve(P) for positive definite
+# P) and an orthonormal basis `null` of the deterministic directions.
+psd_pinv <- function(P, tol = 1e-12) {
+  P <- as.matrix(P)
+  n <- nrow(P)
+  d <- sqrt(pmax(diag(P), 0))
+  pos <- d > 0
+  inv <- matrix(0, n, n)
+  nul <- diag(n)[, !pos, drop = FALSE]
+  if (any(pos)) {
+    e <- eigen(symmetrize(P[pos, pos, drop = FALSE] / outer(d[pos], d[pos])),
+               symmetric = TRUE)
+    keep <- e$values > tol * max(e$values)
+    V <- e$vectors[, keep, drop = FALSE] / d[pos]
+    inv[pos, pos] <- V %*% (t(V) / e$values[keep])
+    if (any(!keep)) {
+      N <- matrix(0, n, sum(!keep))
+      N[pos, ] <- e$vectors[, !keep, drop = FALSE] / d[pos]
+      nul <- cbind(nul, qr.Q(qr(N)))
+    }
+  }
+  list(inv = inv, null = nul)
+}

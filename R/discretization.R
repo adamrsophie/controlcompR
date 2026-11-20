@@ -121,20 +121,25 @@ c2d_matched <- function(sys, dt) {
                "models.")
   }
   zpk <- ctrl_tf2zpk(sys)
-  pz <- exp(zpk$poles * dt)
-  zz <- exp(zpk$zeros * dt)
-  reldeg <- length(zpk$poles) - length(zpk$zeros)
-  if (reldeg > 1L) zz <- c(zz, rep(-1 + 0i, reldeg - 1L))
   # match the low-frequency gain after removing s^k and (z - 1)^k factors:
   # near s = 0, z - 1 ~ s dt
-  # origin roots are classified once, relative to the root scale, and the
-  # same classification is used on both sides; 1 - exp(p dt) is computed
-  # with expm1 to avoid cancellation for slow roots
+  # origin roots are classified once and the same classification is used
+  # for the mapped roots and for the gain. A root counts as an origin root
+  # only when it is negligible both against the root scale (root-finding
+  # noise) and against the sample rate (|p dt| tiny); a slow root with a
+  # large p dt keeps its exact image exp(p dt). 1 - exp(p dt) is computed
+  # with expm1 to avoid cancellation for slow roots.
   rs <- Mod(c(zpk$zeros, zpk$poles))
   rsc <- if (length(rs) && max(rs) > 0) max(rs) else 1
-  at0 <- function(v) Mod(v) <= 1e-12 * rsc
+  at0 <- function(v) Mod(v) <= 1e-12 * rsc & Mod(v * dt) <= 1e-8
   oz <- at0(zpk$zeros)
   op <- at0(zpk$poles)
+  pz <- exp(zpk$poles * dt)
+  pz[op] <- 1
+  zz <- exp(zpk$zeros * dt)
+  zz[oz] <- 1
+  reldeg <- length(zpk$poles) - length(zpk$zeros)
+  if (reldeg > 1L) zz <- c(zz, rep(-1 + 0i, reldeg - 1L))
   kz <- sum(oz)
   kp <- sum(op)
   gc <- zpk$gain * prod(-zpk$zeros[!oz]) / prod(-zpk$poles[!op])

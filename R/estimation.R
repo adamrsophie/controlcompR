@@ -216,7 +216,9 @@ ctrl_kalman_filter <- function(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL,
   Qn <- check_psd(expand_weight(Qn, ncol(G), "Qn"), "Qn")
   Rn <- check_pd(expand_weight(Rn, p, "Rn"), "Rn")
   x <- if (is.null(x0)) rep(0, n) else as.numeric(x0)
-  if (length(x) != n) ctrl_abort("`x0` must have length ", n, ".")
+  if (length(x) != n || any(!is.finite(x))) {
+    ctrl_abort("`x0` must be a finite vector of length ", n, ".")
+  }
   P <- if (is.null(P0)) diag(n) else check_psd(expand_weight(P0, n, "P0"), "P0")
   Qx <- G %*% Qn %*% t(G)
   filt <- matrix(0, Tn, n)
@@ -294,9 +296,11 @@ ctrl_kalman_smoother <- function(filter) {
     for (k in (Tn - 1L):1) {
       Pf <- filter$P_filtered[, , k]
       Ppn <- filter$P_predicted[, , k + 1L]
-      # pseudo-inverse: a singular predicted covariance (deterministic state
-      # components) is valid and leaves those components unchanged
-      J <- Pf %*% t(A) %*% MASS_ginv(Ppn, tol = 1e-12)
+      # generalized inverse on the support: a singular predicted covariance
+      # (deterministic state components) is valid and leaves those
+      # components unchanged; the support is decided on the equilibrated
+      # covariance, so the units of other states do not matter
+      J <- Pf %*% t(A) %*% psd_pinv(Ppn)$inv
       xs[k, ] <- filter$filtered[k, ] + drop(J %*% (xs[k + 1L, ] -
                                                      filter$predicted[k + 1L, ]))
       Ps[, , k] <- symmetrize(Pf + J %*% (Ps[, , k + 1L] - Ppn) %*% t(J))

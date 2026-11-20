@@ -353,12 +353,31 @@ siso_tf2ss <- function(num, den, dt) {
   # scaling exact
   w0 <- if (!is.finite(w0) || w0 <= 0 || (w0 >= 1 / 16 && w0 <= 16)) 1 else
     2^round(log2(w0))
-  sk <- w0^(-k)
+  # scaled coefficients c_k w0^-k; zero coefficients stay zero and the
+  # scaling is dropped when it would overflow, or underflow a nonzero
+  # coefficient to zero (the unscaled form is then used as is)
+  scale_coef <- function(cf, w) {
+    out <- cf * w^(-k)
+    out[cf == 0] <- 0
+    out
+  }
+  a1 <- scale_coef(den[-1], w0)
+  c1 <- scale_coef(rem[-1], w0)
+  if (w0 != 1 && (!all(is.finite(c(a1, c1, w0))) ||
+                  any(a1 == 0 & den[-1] != 0) || any(c1 == 0 & rem[-1] != 0))) {
+    w0 <- 1
+    a1 <- den[-1]
+    c1 <- rem[-1]
+  }
+  if (!all(is.finite(c(a1, c1)))) {
+    ctrl_abort("The transfer function coefficients are outside the range ",
+               "that a companion realization can represent.")
+  }
   A <- matrix(0, n, n)
-  A[1, ] <- -den[-1] * sk
+  A[1, ] <- -a1
   if (n > 1L) A[cbind(2:n, 1:(n - 1L))] <- 1
   B <- matrix(c(1, rep(0, n - 1L)), n, 1)
-  C <- matrix(rem[-1] * sk, 1, n)
+  C <- matrix(c1, 1, n)
   list(A = w0 * A, B = w0 * B, C = C, D = matrix(d, 1, 1))
 }
 

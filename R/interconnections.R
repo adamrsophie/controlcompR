@@ -292,11 +292,17 @@ negate_system <- function(s) scale_system(s, -1)
 scale_system <- function(s, k) {
   if (is_ctrl_tf(s)) {
     s$num <- matrix(lapply(s$num, function(p) k * p), nrow(s$num), ncol(s$num))
+    if (!all(is.finite(unlist(s$num)))) {
+      ctrl_abort("Scaling by ", k, " overflows the numerator coefficients.")
+    }
     return(s)
   }
   s <- as_ss(s)
   s$C <- k * s$C
   s$D <- k * s$D
+  if (!all(is.finite(s$C)) || !all(is.finite(s$D))) {
+    ctrl_abort("Scaling by ", k, " overflows the output matrices C and D.")
+  }
   s
 }
 

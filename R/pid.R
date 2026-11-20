@@ -264,12 +264,18 @@ ctrl_pid_update <- function(pid, state = NULL, r, y, manual = NULL,
 }
 
 # Solve u = sat(alpha - beta * (y0 + Dp * u)) for one sample. The PID
-# update is affine in the measurement before saturation, so alpha and beta
-# come from two evaluations.
+# update is affine in the measurement before saturation; beta is its exact
+# slope -dv/dy (proportional, filtered derivative and the integral increment
+# of the current sample), so no difference of large values is formed.
 pid_loop_solve <- function(pid, st, r, y0, Dp) {
   v0 <- ctrl_pid_update(pid, st, r, y0)$u_unsat
-  v1 <- ctrl_pid_update(pid, st, r, y0 + 1)$u_unsat
-  beta <- v0 - v1
+  # a NULL state is the held start: the derivative sees no change and the
+  # Tustin integrator uses the full first error
+  first <- is.null(st)
+  beta <- pid$kp +
+    (if (pid$kd != 0 && !first) pid$kd / (pid$Tf + pid$dt) else 0) +
+    switch(pid$integral_method, forward = 0, backward = pid$ki * pid$dt,
+           tustin = pid$ki * pid$dt / if (first) 1 else 2)
   kk <- beta * Dp
   # without saturation the affine equation has a unique solution whenever
   # 1 + kk is nonzero; with an active bound uniqueness needs 1 + kk > 0
