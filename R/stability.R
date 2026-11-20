@@ -54,16 +54,20 @@ sort_poles <- function(p, dt) {
 #'
 #' @param sys A model.
 #' @param tol Boundary tolerance. Defaults to a multiple of machine precision
-#'   scaled by the norm of the balanced `A`. For a model whose time scales
-#'   differ by about 1e13 or more, the slowest stable poles can fall inside
-#'   this band and are classified as marginal; pass a smaller `tol` when
-#'   such poles are known to be accurate.
+#'   times the norm of the balanced `A` (the state coordinates are first
+#'   scaled to balance \eqn{[A\ B; C\ 0]}, so the result does not depend on
+#'   state units, and a uniformly slow continuous model keeps its relative
+#'   accuracy; in discrete time the scale is at least one). For a model
+#'   whose time scales differ by about 1e13 or more, the slowest stable
+#'   poles can fall inside this band and are classified as marginal; pass a
+#'   smaller `tol` when such poles are known to be accurate.
 #' @param cluster_tol Tolerance for grouping eigenvalues into clusters.
 #' @return An object of class `ctrl_stability` with `classification`
 #'   (`"asymptotically stable"`, `"marginally stable"` or `"unstable"`),
 #'   `stable` (asymptotic stability), `poles`, `boundary_poles`,
 #'   `unstable_poles`, `stability_margin` (distance of the slowest pole to
-#'   the boundary; negative when unstable) and the tolerances used.
+#'   the boundary; negative when unstable), the uniform band `tol`, the
+#'   per-pole bands `pole_tol` actually used and `cluster_tol`.
 #' @examples
 #' ctrl_stability(ctrl_ss(-1, 1, 1))
 #' # A double integrator is not marginally stable (Jordan block at 0)
@@ -74,14 +78,53 @@ sort_poles <- function(p, dt) {
 ctrl_stability <- function(sys, tol = NULL, cluster_tol = NULL) {
   assert_system(sys)
   discrete <- sys$dt > 0
-  poles <- ctrl_poles(sys)
-  A <- if (is_ctrl_ss(sys)) sys$A else NULL
-  scale <- if (!is.null(A)) max(1, norm(A, "1")) else max(1, Mod(poles))
+  A <- NULL
+  if (is_ctrl_ss(sys)) {
+    # a diagonal similarity that balances [A B; C 0] removes state-unit
+    # effects (also for triangular A, which LAPACK balancing of A alone
+    # cannot scale); the eigenvalues are computed from the balanced A
+    A <- prescale_ss(sys)$A
+    if (nrow(A)) {
+      A <- A * outer(1 / (s <- expm::balance(A, job = "S")$scale), s)
+    }
+    poles <- complex()
+    kappa <- numeric()
+    if (nrow(A)) {
+      ev <- eigen(A)
+      V <- ev$vectors
+      W <- tryCatch(solve(V), error = function(e) NULL)
+      # eigenvalue condition numbers ||w_i|| ||v_i|| / |w_i v_i| (W V = I);
+      # a defective (or nearly defective) matrix gets Inf
+      kappa <- if (is.null(W)) rep(Inf, nrow(A)) else
+        sqrt(colSums(Mod(V)^2)) * sqrt(rowSums(Mod(W)^2))
+      p <- as.complex(ev$values)
+      key <- if (sys$dt > 0) Mod(p) else Re(p)
+      ord <- order(-key, -Im(p))
+      poles <- p[ord]
+      kappa <- kappa[ord]
+    }
+  } else {
+    poles <- ctrl_poles(sys)
+    kappa <- rep(Inf, length(poles))
+  }
+  # rounding errors in the poles scale with the balanced matrix norm (or
+  # the pole size), with no fixed unit floor in continuous time: a uniformly
+  # slow model keeps its relative accuracy. The unit circle sets an absolute
+  # scale in discrete time.
+  scale <- if (!is.null(A)) norm(A, "1") else max(0, Mod(poles))
+  if (discrete) scale <- max(1, scale)
+  user_tol <- !is.null(tol)
   tol <- tol %||% (1e3 * max(1, length(poles)) * .Machine$double.eps * scale)
   cluster_tol <- cluster_tol %||% max(sqrt(.Machine$double.eps) * scale, tol)
+  # per-pole band: the first-order error bound of a backward stable
+  # eigensolver, eps ||A|| kappa_i, when it is tighter than the uniform
+  # band (well-conditioned poles of a stiff model are then classified)
+  pole_tol <- if (user_tol || is.null(A)) rep(tol, length(poles)) else
+    pmin(tol, 10 * max(1, length(poles)) * .Machine$double.eps *
+           norm(A, "1") * kappa)
   dist <- if (discrete) 1 - Mod(poles) else -Re(poles)
-  boundary <- abs(dist) <= tol
-  outside <- dist < -tol
+  boundary <- abs(dist) <= pole_tol
+  outside <- dist < -pole_tol
   classification <- "asymptotically stable"
   defective <- FALSE
   if (any(outside)) {
@@ -100,6 +143,7 @@ ctrl_stability <- function(sys, tol = NULL, cluster_tol = NULL) {
     stability_margin = if (length(dist)) min(dist) else Inf,
     discrete = discrete,
     tol = tol,
+    pole_tol = pole_tol,
     cluster_tol = cluster_tol
   )
   class(out) <- "ctrl_stability"

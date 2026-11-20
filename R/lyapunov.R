@@ -186,3 +186,95 @@ sum_separation <- function(a, b) {
   if (any(s <= 10 * length(d) * .Machine$double.eps * scale)) return(0)
   min(s / d)
 }
+
+# Factor L (real, n x k) with L L' = X for the stable Lyapunov equation
+# A X + X A' + B B' = 0 (continuous) or A X A' - X + B B' = 0 (discrete),
+# computed with Hammarling's method on the complex Schur form, without
+# forming B B' or X. Squaring is avoided, so a Gramian whose eigenvalues
+# span more than 1/eps keeps its small directions (the error in L is of
+# order eps ||L||, not eps ||L||^2).
+lyap_factor <- function(A, B, discrete = FALSE) {
+  n <- nrow(A)
+  if (!n) return(matrix(0, 0, 0))
+  sch <- schur_complex(A)
+  T <- sch$T
+  Bt <- Conj(t(sch$Z)) %*% (B + 0i)
+  U <- matrix(0i, n, n)
+  for (k in n:1) {
+    lam <- T[k, k]
+    b <- Bt[k, ]
+    den <- if (discrete) 1 - Mod(lam)^2 else -2 * Re(lam)
+    if (!(den > 0)) {
+      ctrl_abort("The Lyapunov factor needs an asymptotically stable A.")
+    }
+    mu <- sqrt(sum(Mod(b)^2) / den)
+    U[k, k] <- mu
+    if (k == 1L) break
+    i <- seq_len(k - 1L)
+    B1 <- Bt[i, , drop = FALSE]
+    if (mu == 0) {
+      Bt <- B1
+      next
+    }
+    w <- Conj(b) / mu
+    t12 <- T[i, k]
+    T11 <- T[i, i, drop = FALSE]
+    if (discrete) {
+      M <- Conj(lam) * T11
+      diag(M) <- diag(M) - 1
+      u <- -cbacksolve(M, Conj(lam) * t12 * mu + drop(B1 %*% w))
+      v <- drop(T11 %*% u) + t12 * mu
+      a <- sum(Mod(w)^2)
+      g <- if (Mod(lam) > 0) -Conj(lam) / Mod(lam) else 1
+      beta <- (1 - Mod(lam)) / a
+      Bt <- B1 + outer(g * v - beta * drop(B1 %*% w), Conj(w))
+    } else {
+      M <- T11
+      diag(M) <- diag(M) + Conj(lam)
+      u <- -cbacksolve(M, t12 * mu + drop(B1 %*% w))
+      Bt <- B1 - outer(u, b / mu)
+    }
+    U[i, k] <- u
+  }
+  L <- sch$Z %*% U
+  out <- cbind(Re(L), Im(L))
+  out[, colSums(abs(out)) > 0, drop = FALSE]
+}
+
+# Back substitution for a complex upper triangular system.
+cbacksolve <- function(R, b) {
+  k <- length(b)
+  x <- complex(k)
+  for (i in k:1) {
+    s <- b[i]
+    if (i < k) s <- s - sum(R[i, (i + 1L):k] * x[(i + 1L):k])
+    x[i] <- s / R[i, i]
+  }
+  x
+}
+
+# Complex Schur form A = Z T Z^H (T upper triangular) from the real Schur
+# form, by a unitary rotation of each 2 x 2 block (as in rsf2csf).
+schur_complex <- function(A) {
+  sch <- schur_real(A)
+  T <- sch$T + 0i
+  Z <- sch$Z + 0i
+  n <- nrow(T)
+  if (n > 1L) {
+    for (m in n:2) {
+      if (T[m, m - 1L] != 0) {
+        k <- c(m - 1L, m)
+        mu <- eigen(T[k, k], only.values = TRUE)$values - T[m, m]
+        r <- sqrt(Mod(mu[1])^2 + Mod(T[m, m - 1L])^2)
+        cc <- mu[1] / r
+        ss <- T[m, m - 1L] / r
+        G <- matrix(c(Conj(cc), -ss, ss, cc), 2)
+        T[k, (m - 1L):n] <- G %*% T[k, (m - 1L):n, drop = FALSE]
+        T[seq_len(m), k] <- T[seq_len(m), k, drop = FALSE] %*% Conj(t(G))
+        Z[, k] <- Z[, k, drop = FALSE] %*% Conj(t(G))
+        T[m, m - 1L] <- 0
+      }
+    }
+  }
+  list(T = T, Z = Z)
+}

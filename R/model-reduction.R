@@ -117,8 +117,11 @@ ctrl_stabsep <- function(sys, tol = NULL) {
                "unstable decomposition is not defined.")
   }
   if (!n) return(list(stable = s, unstable = ctrl_gain(0 * s$D, dt = s$dt)))
+  # any band below the smallest distance to the boundary separates the
+  # poles exactly as the classification did
+  dist <- if (s$dt > 0) 1 - Mod(st$poles) else -Re(st$poles)
   sch <- schur_real(s$A, order = if (s$dt > 0) "discrete" else "continuous",
-                    tol = st$tol)
+                    tol = min(st$tol, min(abs(dist)) / 2))
   ns <- sch$sdim
   T <- sch$T
   Z <- sch$Z
@@ -157,8 +160,10 @@ ctrl_stabsep <- function(sys, tol = NULL) {
 #' Hankel singular values
 #'
 #' The square roots of the eigenvalues of \eqn{W_c W_o} for an
-#' asymptotically stable model, computed from Gramian factors as the
-#' singular values of \eqn{L_o^\top L_c}.
+#' asymptotically stable model, computed as the singular values of
+#' \eqn{L_o^\top L_c}, where the Gramian factors \eqn{L_c L_c^\top = W_c}
+#' and \eqn{L_o L_o^\top = W_o} come directly from Hammarling's method
+#' without forming the Gramians.
 #'
 #' @param sys An asymptotically stable model.
 #' @return A decreasing numeric vector.
@@ -174,10 +179,18 @@ ctrl_hsvd <- function(sys) {
   c(hs, rep(0, nrow(s$A) - length(hs)))
 }
 
+# Gramian factors Lc Lc' = Wc and Lo Lo' = Wo, computed directly from
+# (A, B) and (A', C') with Hammarling's method: the Gramians are never
+# formed, so directions that are weakly controllable but strongly
+# observable (or the reverse) survive any orthogonal change of state
+# coordinates.
 gramian_factors <- function(s) {
-  Wc <- ctrl_gram(s, "c")
-  Wo <- ctrl_gram(s, "o")
-  list(Wc = Wc, Wo = Wo, Lc = psd_sqrt_factor(Wc), Lo = psd_sqrt_factor(Wo))
+  if (!ctrl_is_stable(s)) {
+    ctrl_abort("Gramians are only defined here for asymptotically stable ",
+               "models; separate the unstable part first with ctrl_stabsep().")
+  }
+  d <- s$dt > 0
+  list(Lc = lyap_factor(s$A, s$B, d), Lo = lyap_factor(t(s$A), t(s$C), d))
 }
 
 #' Balanced realization and balanced truncation

@@ -419,10 +419,15 @@ test_that("norms do not depend on state units", {
   expect_equal(as.numeric(ctrl_norm(G(1e13), "inf")), 1, tolerance = 1e-8)
 })
 
-test_that("balanced truncation refuses bounds its own samples contradict", {
+test_that("balanced truncation keeps Hankel values of canceling directions", {
+  # C B = 2e I, so G = 2e I / (s + 1): HSV e, e and H2 norm 2e
   e <- 1e-9
   G <- ctrl_ss(-diag(2), matrix(c(1, 1, e, -e), 2), matrix(c(e, 1, e, -1), 2))
-  expect_error(ctrl_balred(G, 0), "certify")
+  expect_equal(ctrl_hsvd(G), c(e, e), tolerance = 1e-6)
+  expect_equal(as.numeric(ctrl_norm(G, "2")), 2e-9, tolerance = 1e-6)
+  Gr <- ctrl_balred(G, 0)
+  expect_gte(attr(Gr, "error_bound"), 2e-9 * (1 - 1e-6))
+  expect_lte(attr(Gr, "error_bound"), 4e-9 * (1 + 1e-6))
 })
 
 test_that("Nyquist counts windings between samples", {

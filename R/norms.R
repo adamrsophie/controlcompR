@@ -3,10 +3,11 @@
 #' * `"2"`: the H2 norm. For an asymptotically stable continuous model it is
 #'   \eqn{\sqrt{\mathrm{tr}(C W_c C^\top)}} when `D = 0` and infinite
 #'   otherwise; for a discrete model it is
-#'   \eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. The Gramian is
-#'   computed after diagonal balancing; a realization whose Gramian is
-#'   ill-conditioned for other reasons (nearly canceling input or output
-#'   directions) loses relative accuracy, and [ctrl_minreal()] first helps.
+#'   \eqn{\sqrt{\mathrm{tr}(C W_c C^\top + D D^\top)}}. It is computed as
+#'   \eqn{\|C L_c\|_F} (plus the feedthrough term), with the Gramian factor
+#'   \eqn{L_c L_c^\top = W_c} obtained directly by Hammarling's method after
+#'   diagonal balancing, so the Gramian is never formed and its condition
+#'   number is not squared.
 #' * `"inf"`: the H-infinity norm \eqn{\sup_\omega \sigma_{\max}(G(j\omega))}
 #'   of an asymptotically stable model, computed with the
 #'   Bruinsma-Steinbuch two-step algorithm. The lower bound comes from
@@ -46,12 +47,12 @@ ctrl_norm <- function(sys, type = c("2", "inf"), tol = 1e-10) {
     if (!nrow(s$A)) {
       return(if (s$dt > 0) sqrt(sum(s$D^2)) else if (all(s$D == 0)) 0 else Inf)
     }
-    Wc <- ctrl_gram(s, "c")
-    if (s$dt > 0) {
-      return(sqrt(max(0, sum(diag(s$C %*% Wc %*% t(s$C) + s$D %*% t(s$D))))))
-    }
+    # ||C Lc||_F with the controllability Gramian factor Lc Lc' = Wc from
+    # Hammarling's method (the Gramian itself is not formed)
+    Lc <- lyap_factor(s$A, s$B, s$dt > 0)
+    if (s$dt > 0) return(sqrt(sum((s$C %*% Lc)^2) + sum(s$D^2)))
     if (any(s$D != 0)) return(Inf)
-    return(sqrt(max(0, sum(diag(s$C %*% Wc %*% t(s$C))))))
+    return(sqrt(sum((s$C %*% Lc)^2)))
   }
   hinf_norm(s, tol)
 }
