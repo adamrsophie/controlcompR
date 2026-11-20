@@ -273,58 +273,6 @@ closed-loop norm, that attained optimum is returned with
 <code>gamma = 0</code> (no positive bracket exists).</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">hinf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_hinfsyn.html">ctrl_hinfsyn</a></span><span class="op">(</span><span class="va">P</span>, nmeas <span class="op">=</span> <span class="fl">1</span>, ncon <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
 <span><span class="va">hinf</span></span>
 <span><span class="co">#&gt; H-infinity controller (experimental): gamma = 2.89653, certified closed-loop H-infinity norm 2.89652</span></span>
 <span><span class="co">#&gt; controller order 2, 1 measurement(s), 1 control(s)</span></span>
@@ -369,45 +317,6 @@ proper:</p>
 <span><span class="va">W1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span>   <span class="co"># integral-like: demands small S at low frequency</span></span>
 <span><span class="va">P_ms</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_augw.html">ctrl_augw</a></span><span class="op">(</span><span class="va">G</span>, W1 <span class="op">=</span> <span class="va">W1</span>, W2 <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
 <span><span class="va">syn</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_hinfsyn.html">ctrl_hinfsyn</a></span><span class="op">(</span><span class="va">P_ms</span>, nmeas <span class="op">=</span> <span class="fl">1</span>, ncon <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in sqrt(rd): NaNs produced</span></span>
-<span><span class="co">#&gt; Warning in pmax(round(log2(du)), -200): NaNs produced</span></span>
 <span><span class="va">syn</span><span class="op">$</span><span class="va">gamma</span></span>
 <span><span class="co">#&gt; [1] 0.6896671</span></span>
 <span><span class="va">K</span> <span class="op">&lt;-</span> <span class="va">syn</span><span class="op">$</span><span class="va">K</span></span>

@@ -160,10 +160,13 @@ for a stiff model with time constants 1e3 and 1e-11:</p>
 <span><span class="co">#&gt; Poles: -1+2i, -1-2i</span></span>
 <span><span class="co">#&gt; Zeros: -2+0i</span></span></code></pre></div>
 <p>Invariant zeros of a square multivariable model are the finite
-generalized eigenvalues of the system pencil. A well-conditioned
-feedthrough gives them as the eigenvalues of <span class="math inline">A
-- B D^{-1} C</span>, so a very large zero from a tiny <code>D</code> is
-kept; a pencil without full normal rank raises an error:</p>
+generalized eigenvalues of the system pencil. With a well-conditioned
+feedthrough there are exactly <span class="math inline">n</span> of
+them; any that the pencil cannot separate from infinity are taken as the
+largest eigenvalues of <span class="math inline">A - B D^{-1} C</span>,
+so a very large zero from a tiny <code>D</code> is kept while the
+moderate zeros keep the accuracy of the pencil. A pencil without full
+normal rank raises an error:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/ctrl_zeros.html">ctrl_zeros</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_ss.html">ctrl_ss</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span>, D <span class="op">=</span> <span class="fl">1e-6</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] -1000001+0i</span></span>

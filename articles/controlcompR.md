@@ -151,7 +151,7 @@ sim <- ctrl_simulate_mpc(mpc, x0 = c(1, 0), steps = 100)
 summary(sim)
 #> MPC simulation: 100 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 100
-#>   solve time: mean 7.42e-05 s, max 0.000299 s; mean iterations 44
+#>   solve time: mean 1e-04 s, max 0.000399 s; mean iterations 44
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0
 #>   max slack: 0
@@ -190,7 +190,10 @@ plot(ctrl_bode(L))
 - A model that predicts the data well is not automatically adequate for
   feedback design.
 - H-infinity synthesis is experimental: continuous time, D\_{11} = 0,
-  and every controller is certified by an independent norm computation.
+  and every controller is checked by an independent norm computation
+  (its upper bound must lie below \gamma).
+- Built-in checks (residuals, sampled errors, norm bounds) detect
+  failures; they are not proofs of accuracy for every input.
 
 The article *Numerical validation and scope* lists the conventions, the
 tolerances, the reference comparisons and the capability matrix with the

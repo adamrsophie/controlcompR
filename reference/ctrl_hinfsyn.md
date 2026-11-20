@@ -93,58 +93,6 @@ P <- ctrl_ss(A, cbind(diag(2), 0, c(0, 1)),
              rbind(c(1, 0), c(0, 0), c(1, 0)),
              rbind(c(0, 0, 0, 0), c(0, 0, 0, 1), c(0, 0, 1, 0)))
 hinf <- ctrl_hinfsyn(P, nmeas = 1, ncon = 1)
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
-#> Warning: NaNs produced
 c(gamma = hinf$gamma, certified_norm = hinf$norm)
 #>          gamma certified_norm 
 #>       2.896528       2.896523 

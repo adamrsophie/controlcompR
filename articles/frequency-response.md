@@ -170,9 +170,9 @@ L_c L_c^\top = W_c is computed directly by Hammarling’s method (the
 Gramian itself is never formed, so a realization with nearly canceling
 directions keeps its accuracy); the H-infinity norm from the
 Bruinsma-Steinbuch iteration on the eigenvalues of a Hamiltonian matrix,
-which converges quadratically and returns certified lower and upper
-bounds (attribute `bounds`) and the peak frequency. For the oscillator
-above the peak is close to the resonance \omega = 2:
+which converges quadratically and returns lower and upper bounds
+(attribute `bounds`) and the peak frequency. For the oscillator above
+the peak is close to the resonance \omega = 2:
 
 ``` r
 

@@ -47,7 +47,7 @@ sim_s <- ctrl_simulate_mpc(soft, c(0, 1), steps = 60)
 summary(sim_s)
 #> MPC simulation: 60 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 60
-#>   solve time: mean 2.24e-05 s, max 3.12e-05 s; mean iterations 49.58
+#>   solve time: mean 3.17e-05 s, max 4.49e-05 s; mean iterations 49.58
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0.94
 #>   max slack: 0.94
@@ -103,9 +103,9 @@ recursion. With no active constraints MHE then equals the Kalman filter
 exactly, which the tests verify. Directions with zero prior variance
 become equality constraints; the zero decision is made on the covariance
 scaled to unit diagonal, so a small positive variance remains a (strong)
-prior instead of an equality. The QP is solved in variables scaled to
-unit curvature, so solver tolerances do not depend on the units of
-states or covariances.
+prior instead of an equality. The QP is solved in the prior’s own
+coordinates, scaled to unit curvature, so solver tolerances do not
+depend on the units or the orientation of the states and covariances.
 
 MHE is not a Kalman filter: when states have physical bounds (a
 concentration cannot be negative), the bounds enter the estimate. The

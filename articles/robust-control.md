@@ -166,58 +166,6 @@ is returned with `gamma = 0` (no positive bracket exists).
 ``` r
 
 hinf <- ctrl_hinfsyn(P, nmeas = 1, ncon = 1)
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
 hinf
 #> H-infinity controller (experimental): gamma = 2.89653, certified closed-loop H-infinity norm 2.89652
 #> controller order 2, 1 measurement(s), 1 control(s)
@@ -268,45 +216,6 @@ G <- ctrl_tf(1, c(1, 3, 2))
 W1 <- ctrl_tf(1, c(1, 0.01))   # integral-like: demands small S at low frequency
 P_ms <- ctrl_augw(G, W1 = W1, W2 = 0.1)
 syn <- ctrl_hinfsyn(P_ms, nmeas = 1, ncon = 1)
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
-#> Warning in sqrt(rd): NaNs produced
-#> Warning in pmax(round(log2(du)), -200): NaNs produced
 syn$gamma
 #> [1] 0.6896671
 K <- syn$K

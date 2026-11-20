@@ -78,10 +78,12 @@ ctrl_pzmap(ctrl_tf(c(1, 2), c(1, 2, 5)))
 ```
 
 Invariant zeros of a square multivariable model are the finite
-generalized eigenvalues of the system pencil. A well-conditioned
-feedthrough gives them as the eigenvalues of A - B D^{-1} C, so a very
-large zero from a tiny `D` is kept; a pencil without full normal rank
-raises an error:
+generalized eigenvalues of the system pencil. With a well-conditioned
+feedthrough there are exactly n of them; any that the pencil cannot
+separate from infinity are taken as the largest eigenvalues of A - B
+D^{-1} C, so a very large zero from a tiny `D` is kept while the
+moderate zeros keep the accuracy of the pencil. A pencil without full
+normal rank raises an error:
 
 ``` r
 

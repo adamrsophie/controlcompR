@@ -244,8 +244,8 @@ L_c^\top = W_c</span> is computed directly by Hammarling’s method (the
 Gramian itself is never formed, so a realization with nearly canceling
 directions keeps its accuracy); the H-infinity norm from the
 Bruinsma-Steinbuch iteration on the eigenvalues of a Hamiltonian matrix,
-which converges quadratically and returns certified lower and upper
-bounds (attribute <code>bounds</code>) and the peak frequency. For the
+which converges quadratically and returns lower and upper bounds
+(attribute <code>bounds</code>) and the peak frequency. For the
 oscillator above the peak is close to the resonance <span class="math inline">\omega = 2</span>:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/attributes.html" class="external-link">attributes</a></span><span class="op">(</span><span class="fu"><a href="../reference/ctrl_norm.html">ctrl_norm</a></span><span class="op">(</span><span class="va">sys</span>, <span class="st">"inf"</span><span class="op">)</span><span class="op">)</span></span>
