@@ -15,6 +15,18 @@ test_that("native entry points reject malformed direct calls", {
   expect_error(.Call(ct, A, A, A, "X", "N", 1L), "\"N\" or \"T\"")
   expect_error(.Call(ct, A, A, A, 1, "N", 1L), "single strings")
   expect_error(.Call(ct, A, A, A, "N", "N", 3L), "isgn")
+  cst <- get("cc_stein", ns)
+  cr <- get("cc_resolvent", ns)
+  expect_error(.Call(cst, A, diag(3), 0:1, c(1L, 1L)), "same size")
+  expect_error(.Call(cst, A, A, 0L, 1L), "block structure")
+  expect_error(.Call(cst, A, A, c(0L, 1L), c(2L, 1L)), "block structure")
+  expect_error(.Call(cst, A, A, c(0, 1), c(1, 1)), "integer")
+  Ac <- A + 0i
+  expect_error(.Call(cr, A, Ac, Ac, 1i, 0), "complex")
+  expect_error(.Call(cr, Ac, matrix(0i, 3, 1), Ac, 1i, 0), "2 x 1")
+  expect_error(.Call(cr, Ac, Ac, matrix(0i, 1, 3), 1i, 0), "1 x 2")
+  expect_error(.Call(cr, Ac, Ac, Ac, 1, 0), "complex vector")
+  expect_error(.Call(cr, Ac, Ac, Ac, 1i, -1), "nonnegative")
 })
 
 test_that("native wrappers handle empty and integer inputs", {

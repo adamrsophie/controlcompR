@@ -33,7 +33,8 @@ jobs:
           CFLAGS=-g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=undefined
           LDFLAGS=-fsanitize=address,undefined
           MV
-          R CMD INSTALL -l "$RUNNER_TEMP/sanlib" .
+          # the load test would run without the preloaded runtime
+          R CMD INSTALL --no-test-load -l "$RUNNER_TEMP/sanlib" .
       - name: Tests under the sanitizers
         env:
           ASAN_OPTIONS: detect_leaks=0:abort_on_error=1

@@ -69,11 +69,14 @@ eval_system <- function(sys, z) {
   }
   # many points: one complex Schur factorization A = Z T Z^H, then a
   # triangular solve per point: C (zI - A)^-1 B = (C Z) (zI - T)^-1 (Z^H B).
-  # Points where zI - T is exactly singular or the result overflows give NA
+  # Points at a pole or where the result overflows give NA
   sch <- schur_complex(s$A)
   Bt <- Conj(t(sch$Z)) %*% s$B
   Ct <- s$C %*% sch$Z
-  out <- .Call(cc_resolvent, sch$T, Bt + 0i, Ct + 0i, as.complex(z))
+  # a point within rounding distance of an eigenvalue, relative to that
+  # eigenvalue's own size, is a pole to working accuracy
+  tol <- 4 * .Machine$double.eps
+  out <- .Call(cc_resolvent, sch$T, Bt + 0i, Ct + 0i, as.complex(z), tol)
   for (k in seq_along(z)) out[, , k] <- out[, , k] + s$D
   out
 }

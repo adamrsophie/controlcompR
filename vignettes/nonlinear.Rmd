@@ -68,6 +68,28 @@ attr(lin, "method")
 ctrl_poles(lin)
 ```
 
+Analytic Jacobians can be attached to the model with `jacobian`. They
+are checked for size when the model is created and are then used by
+`ctrl_linearize()`, the EKF and the NMPC gradient instead of finite
+differences (entries left out are still approximated):
+
+```{r}
+pendulum_j <- ctrl_nlsys(
+  update = pendulum$update, output = pendulum$output,
+  nstates = 2, ninputs = 1, params = pendulum$params,
+  jacobian = function(t, x, u, p) {
+    list(A = matrix(c(0, -p$g / p$l * cos(x[1]), 1, -p$c), 2),
+         B = matrix(c(0, 1), 2))
+  }
+)
+lin_j <- ctrl_linearize(pendulum_j, x0 = c(pi, 0), u0 = 0)
+attr(lin_j, "method")
+max(abs(lin_j$A - lin$A))
+```
+
+`ctrl_nl_discretize()` does not carry analytic Jacobians over, because
+they describe the continuous model, not the discretized step.
+
 The linearization is a first-order statement about a neighborhood of the
 operating point; its stability verdict is local. An equilibrium whose
 linearization has poles on the stability boundary is reported as
@@ -129,7 +151,18 @@ plot(ukf, truth = X)
 ```
 
 The EKF linearizes at the current estimate; the UKF propagates sigma
-points and needs no Jacobians. Both are approximations whose covariances
+points and needs no Jacobians. For long runs of large models,
+`covariances = "variances"` keeps only the filtered variances instead of
+one covariance matrix per sample:
+
+```{r}
+lean <- ctrl_ekf(pd, y, u = rep(0, Tn), Qn = diag(c(1e-6, 2.5e-5)), Rn = 0.0025,
+                 x0 = c(0.5, 0), P0 = diag(c(0.5, 0.5)), covariances = "variances")
+c(identical_estimates = identical(lean$filtered, ekf$filtered),
+  stored_values = length(lean$variances), full_storage = length(ekf$P_filtered))
+```
+
+Both filters are approximations whose covariances
 are not guaranteed to be consistent; the mean normalized innovation
 squared should be near the number of outputs (here 1).
 

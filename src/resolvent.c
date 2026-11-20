@@ -1,7 +1,8 @@
 /* Frequency response from a complex Schur form: for each point z,
  * Y = Ct (z I - T)^-1 Bt with T upper triangular, by back substitution
- * (O(n^2 m) per point after one O(n^3) factorization). A point where
- * z I - T is singular or the result is not finite gives NA. */
+ * (O(n^2 m) per point after one O(n^3) factorization). A point within the
+ * relative distance `tol` of an eigenvalue (a pole to rounding accuracy)
+ * or where the result is not finite gives NA. */
 #include <R.h>
 #include <Rinternals.h>
 #include <complex.h>
@@ -14,8 +15,11 @@ static void check_cplx(SEXP x, int nr, int nc, const char *name)
         error("`%s` must be a %d x %d complex matrix", name, nr, nc);
 }
 
-SEXP cc_resolvent(SEXP t_, SEXP b_, SEXP c_, SEXP z_)
+SEXP cc_resolvent(SEXP t_, SEXP b_, SEXP c_, SEXP z_, SEXP tol_)
 {
+    if (!isReal(tol_) || length(tol_) != 1 || !R_FINITE(REAL(tol_)[0]) || REAL(tol_)[0] < 0)
+        error("`tol` must be a nonnegative finite number");
+    double tol = REAL(tol_)[0];
     if (!isComplex(t_) || !isMatrix(t_) || nrows(t_) != ncols(t_))
         error("`T` must be a square complex matrix");
     int n = nrows(t_);
@@ -46,7 +50,9 @@ SEXP cc_resolvent(SEXP t_, SEXP b_, SEXP c_, SEXP z_)
                 double complex s = B[i + (R_xlen_t) n * j];
                 for (int l = i + 1; l < n; l++) s += T[i + (R_xlen_t) n * l] * X[l];
                 double complex d = z - T[i + (R_xlen_t) n * i];
-                if (d == 0) { bad = 1; break; }
+                if (cabs(d) <= tol * fmax(cabs(z), cabs(T[i + (R_xlen_t) n * i]))) {
+                    bad = 1; break;
+                }
                 X[i] = s / d;
             }
             if (bad) break;

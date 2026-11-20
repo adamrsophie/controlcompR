@@ -136,6 +136,18 @@ c(max_difference = max(abs(cold$estimates - est$estimates)),
   iterations_cold = sum(cold$iterations), iterations_warm = sum(est$iterations))
 ```
 
+Once the window is full, the solver workspace is reused while the QP
+keeps its sparsity pattern. The default `accuracy = "high"` solves each
+window to 1e-10; `"standard"` and `"fast"` trade accuracy for time, as
+for MPC:
+
+```{r}
+fast <- ctrl_mhe_run(ctrl_mhe(sys, horizon = 10, Qn = 4e-4, Rn = 0.09, x0 = 0,
+                              P0 = 1, x_min = 0, accuracy = "fast"), y)
+c(max_difference = max(abs(fast$estimates - est$estimates)),
+  time_high_ms = 1e3 * sum(est$solve_time), time_fast_ms = 1e3 * sum(fast$solve_time))
+```
+
 ```{r}
 df <- data.frame(k = rep(1:Tn, 3),
                  value = c(xs, kf$filtered[, 1], est$estimates[, 1]),
