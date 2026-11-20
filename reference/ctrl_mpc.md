@@ -39,7 +39,8 @@ ctrl_mpc(
   terminal = c("none", "equality"),
   terminal_set = NULL,
   solver_settings = list(),
-  accept_inaccurate = FALSE
+  accept_inaccurate = FALSE,
+  accuracy = c("high", "standard", "fast")
 )
 ```
 
@@ -109,11 +110,20 @@ ctrl_mpc(
 
   List of OSQP settings (see
   [`osqp::osqpSettings()`](https://rdrr.io/pkg/osqp/man/osqpSettings.html));
-  defaults are tight tolerances with polishing.
+  they override the `accuracy` profile.
 
 - accept_inaccurate:
 
   Accept the OSQP status `"solved inaccurate"`.
+
+- accuracy:
+
+  Solver accuracy profile: `"high"` (default; tolerances 1e-9 with
+  solution polishing), `"standard"` (1e-6 with polishing) or `"fast"`
+  (1e-4, no polishing). Lower accuracy shortens solves; the applied
+  input then differs from the exact optimum by roughly the tolerance
+  times the problem scale, and bounds can be violated by about the
+  tolerance. The MPC article measures the trade-off.
 
 ## Value
 

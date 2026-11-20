@@ -189,7 +189,7 @@ equations. These diagnostics make solver tolerance problems visible.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sim</span><span class="op">)</span></span>
 <span><span class="co">#&gt; MPC simulation: 80 samples, 0 failed solves (0%)</span></span>
 <span><span class="co">#&gt;   solver statuses: solved = 80</span></span>
-<span><span class="co">#&gt;   solve time: mean 0.000506 s, max 0.00152 s; mean iterations 392.2</span></span>
+<span><span class="co">#&gt;   solve time: mean 0.000505 s, max 0.00152 s; mean iterations 392.2</span></span>
 <span><span class="co">#&gt;   max input bound violation: 3.26e-11</span></span>
 <span><span class="co">#&gt;   max state bound violation (true plant): 0</span></span>
 <span><span class="co">#&gt;   max slack: 0</span></span>
@@ -333,6 +333,39 @@ limit of 0.6, which MPC respects:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>saturated_lqr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu">sat_lqr</span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">v</span><span class="op">)</span><span class="op">)</span>, mpc <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">x</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; saturated_lqr           mpc </span></span>
 <span><span class="co">#&gt;           1.5           0.6</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="solver-accuracy-and-speed">Solver accuracy and speed<a class="anchor" aria-label="anchor" href="#solver-accuracy-and-speed"></a>
+</h2>
+<p>The default <code>accuracy = "high"</code> solves every QP to
+tolerances of 1e-9 and polishes the solution. <code>"standard"</code>
+(1e-6) and <code>"fast"</code> (1e-4, no polishing) shorten solves at
+the price of a less exact input and of bound violations of the order of
+the tolerance. The table measures the trade-off on this example: total
+solver time, the largest difference of the applied inputs from the
+high-accuracy run, and the largest velocity limit violation.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">profiles</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"high"</span>, <span class="st">"standard"</span>, <span class="st">"fast"</span><span class="op">)</span></span>
+<span><span class="va">runs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">profiles</span>, <span class="kw">function</span><span class="op">(</span><span class="va">a</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">ctl</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_mpc.html">ctrl_mpc</a></span><span class="op">(</span><span class="va">plant</span>, horizon <span class="op">=</span> <span class="fl">20</span>, Q <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, R <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>                  u_min <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>, u_max <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                  x_min <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="cn">Inf</span>, <span class="op">-</span><span class="fl">0.6</span><span class="op">)</span>, x_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">Inf</span>, <span class="fl">0.6</span><span class="op">)</span>, accuracy <span class="op">=</span> <span class="va">a</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="../reference/ctrl_simulate_mpc.html">ctrl_simulate_mpc</a></span><span class="op">(</span><span class="va">ctl</span>, x0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span>, steps <span class="op">=</span> <span class="fl">80</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  accuracy <span class="op">=</span> <span class="va">profiles</span>,</span>
+<span>  solve_time_ms <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">runs</span>, <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="fl">1e3</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">log</span><span class="op">$</span><span class="va">solve_time</span><span class="op">)</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  input_difference <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">runs</span>, <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">u</span> <span class="op">-</span> <span class="va">runs</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">u</span><span class="op">)</span><span class="op">)</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  velocity_violation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">runs</span>, <span class="kw">function</span><span class="op">(</span><span class="va">r</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">r</span><span class="op">$</span><span class="va">x</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span><span class="op">)</span> <span class="op">-</span> <span class="fl">0.6</span><span class="op">)</span>, <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt;   accuracy solve_time_ms input_difference velocity_violation</span></span>
+<span><span class="co">#&gt; 1     high      41.82495     0.000000e+00       0.000000e+00</span></span>
+<span><span class="co">#&gt; 2 standard      22.16643     1.164292e-07       1.164004e-08</span></span>
+<span><span class="co">#&gt; 3     fast      10.54916     3.245784e-03       1.405307e-04</span></span></code></pre></div>
+<p>Solver time is measured, so it varies between machines and runs; the
+input differences and violations are deterministic. Choose a lower
+accuracy only when the controller must run faster than the high accuracy
+solves allow and the plant tolerates small bound violations.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

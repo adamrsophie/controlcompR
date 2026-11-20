@@ -77,7 +77,17 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">ctrl_kalman_filter</span><span class="op">(</span><span class="va">sys</span>, <span class="va">y</span>, u <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">Qn</span>, <span class="va">Rn</span>, x0 <span class="op">=</span> <span class="cn">NULL</span>, P0 <span class="op">=</span> <span class="cn">NULL</span>, G <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">ctrl_kalman_filter</span><span class="op">(</span></span>
+<span>  <span class="va">sys</span>,</span>
+<span>  <span class="va">y</span>,</span>
+<span>  u <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">Qn</span>,</span>
+<span>  <span class="va">Rn</span>,</span>
+<span>  x0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  P0 <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  G <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  covariances <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"all"</span>, <span class="st">"variances"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">ctrl_kalman_smoother</span><span class="op">(</span><span class="va">filter</span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -111,6 +121,13 @@ zero and the identity).</p></dd>
 <dd><p>Process noise input matrix (default identity).</p></dd>
 
 
+<dt id="arg-covariances">covariances<a class="anchor" aria-label="anchor" href="#arg-covariances"></a></dt>
+<dd><p><code>"all"</code> (default) stores the covariance, innovation
+covariance and gain of every sample; <code>"variances"</code> stores only the
+filtered variances, so memory grows with \(T n\) instead of
+\(T n^2\) (the smoother then cannot be run).</p></dd>
+
+
 <dt id="arg-filter">filter<a class="anchor" aria-label="anchor" href="#arg-filter"></a></dt>
 <dd><p>A <code>ctrl_kalman_filter</code> result.</p></dd>
 
@@ -119,10 +136,13 @@ zero and the identity).</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>ctrl_kalman_filter()</code> returns an object of class
 <code>ctrl_kalman_filter</code> with <code>filtered</code> (<code>T x n</code>), <code>predicted</code> (<code>T x n</code>,
-row <code>k</code> is \(\hat x_{k|k-1}\)), <code>P_filtered</code> and <code>P_predicted</code>
-(<code>n x n x T</code> arrays), <code>innovations</code>, <code>innovation_cov</code> (<code>p x p x T</code>),
-<code>gain</code> (<code>n x p x T</code>), <code>nis</code> (normalized innovation squared) and
-<code>loglik</code> (Gaussian log-likelihood of the measurements).
+row <code>k</code> is \(\hat x_{k|k-1}\)), <code>variances</code> (<code>T x n</code>, the diagonal of
+\(P_{k|k}\)), <code>P_filtered</code> and <code>P_predicted</code> (<code>n x n x T</code> arrays,
+<code>NULL</code> with <code>covariances = "variances"</code>), <code>innovations</code>,
+<code>innovation_cov</code> (<code>p x p x T</code>), <code>gain</code> (<code>n x p x T</code>), <code>nis</code>
+(normalized innovation squared), <code>loglik</code> (Gaussian log-likelihood of
+the measurements) and <code>next_prediction</code>, <code>next_covariance</code> (the
+prediction for the sample after the data).
 <code>ctrl_kalman_smoother()</code> returns a list with <code>smoothed</code> and
 <code>P_smoothed</code>.</p>
     </div>

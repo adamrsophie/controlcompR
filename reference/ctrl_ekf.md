@@ -13,7 +13,16 @@ index `k - 1`, the 0-based convention of
 ## Usage
 
 ``` r
-ctrl_ekf(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL)
+ctrl_ekf(
+  sys,
+  y,
+  u = NULL,
+  Qn,
+  Rn,
+  x0 = NULL,
+  P0 = NULL,
+  covariances = c("all", "variances")
+)
 
 ctrl_ukf(
   sys,
@@ -25,7 +34,8 @@ ctrl_ukf(
   P0 = NULL,
   alpha = 1,
   beta = 2,
-  kappa = 0
+  kappa = 0,
+  covariances = c("all", "variances")
 )
 ```
 
@@ -51,6 +61,11 @@ ctrl_ukf(
 
   Prior mean and covariance.
 
+- covariances:
+
+  `"all"` (default) or `"variances"`; see
+  [`ctrl_kalman_filter()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md).
+
 - alpha, beta, kappa:
 
   Unscented transform parameters.
@@ -58,15 +73,17 @@ ctrl_ukf(
 ## Value
 
 A list of class `c("ctrl_nl_filter", "ctrl_kalman_filter")` with
-`filtered`, `P_filtered`, `innovations`, `nis` and `loglik`. It has no
-predicted covariances, so
+`filtered`, `variances`, `P_filtered` (`NULL` with
+`covariances = "variances"`), `innovations`, `nis` and `loglik`. It has
+no predicted covariances, so
 [`ctrl_kalman_smoother()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_kalman_filter.md)
 does not accept it.
 
 ## Details
 
 - `ctrl_ekf()` linearizes `f` and `h` at the current estimate with
-  central finite differences and uses the Joseph-form covariance update.
+  central finite differences (or the model's analytic `jacobian`) and
+  uses the Joseph-form covariance update.
 
 - `ctrl_ukf()` propagates \\2n + 1\\ sigma points (scaled unscented
   transform with parameters `alpha`, `beta`, `kappa`); it needs no

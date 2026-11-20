@@ -86,7 +86,7 @@ sim <- ctrl_simulate_mpc(mpc, x0 = c(2, 0), steps = 80)
 summary(sim)
 #> MPC simulation: 80 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 80
-#>   solve time: mean 0.000506 s, max 0.00152 s; mean iterations 392.2
+#>   solve time: mean 0.000505 s, max 0.00152 s; mean iterations 392.2
 #>   max input bound violation: 3.26e-11
 #>   max state bound violation (true plant): 0
 #>   max slack: 0
@@ -248,3 +248,39 @@ c(saturated_lqr = max(abs(sat_lqr()$v)), mpc = max(abs(sim$x[, 2])))
 #> saturated_lqr           mpc 
 #>           1.5           0.6
 ```
+
+## Solver accuracy and speed
+
+The default `accuracy = "high"` solves every QP to tolerances of 1e-9
+and polishes the solution. `"standard"` (1e-6) and `"fast"` (1e-4, no
+polishing) shorten solves at the price of a less exact input and of
+bound violations of the order of the tolerance. The table measures the
+trade-off on this example: total solver time, the largest difference of
+the applied inputs from the high-accuracy run, and the largest velocity
+limit violation.
+
+``` r
+
+profiles <- c("high", "standard", "fast")
+runs <- lapply(profiles, function(a) {
+  ctl <- ctrl_mpc(plant, horizon = 20, Q = diag(c(10, 1)), R = 0.1,
+                  u_min = -1, u_max = 1,
+                  x_min = c(-Inf, -0.6), x_max = c(Inf, 0.6), accuracy = a)
+  ctrl_simulate_mpc(ctl, x0 = c(2, 0), steps = 80)
+})
+data.frame(
+  accuracy = profiles,
+  solve_time_ms = vapply(runs, function(r) 1e3 * sum(r$log$solve_time), 0),
+  input_difference = vapply(runs, function(r) max(abs(r$u - runs[[1]]$u)), 0),
+  velocity_violation = vapply(runs, function(r) max(0, abs(r$x[, 2]) - 0.6), 0)
+)
+#>   accuracy solve_time_ms input_difference velocity_violation
+#> 1     high      41.82495     0.000000e+00       0.000000e+00
+#> 2 standard      22.16643     1.164292e-07       1.164004e-08
+#> 3     fast      10.54916     3.245784e-03       1.405307e-04
+```
+
+Solver time is measured, so it varies between machines and runs; the
+input differences and violations are deterministic. Choose a lower
+accuracy only when the controller must run faster than the high accuracy
+solves allow and the plant tolerates small bound violations.

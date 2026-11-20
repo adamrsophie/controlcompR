@@ -7,8 +7,10 @@ x_{\min} - x_k)\|^2$$
 over the box \(u_{\min} \le u_k \le u_{\max}\) is computed with the
 bounded quasi-Newton method L-BFGS-B (stats::optim). The gradient is
 computed by a backward (adjoint) pass through the prediction, with the
-stage Jacobians of the model approximated by central differences, so it
-costs \(O(N (n + m))\) model evaluations. Input bounds are hard; state bounds are enforced only
+stage Jacobians of the model approximated by central differences (or
+taken from the model's analytic jacobian), so it costs
+\(O(N (n + m))\) model evaluations; the prediction is computed once
+per optimizer point and shared by the cost and the gradient. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \(\rho\) and can be violated."><meta property="og:description" content="Single-shooting nonlinear MPC for a discrete time ctrl_nlsys: at each
 sample the input sequence minimizing
 $$\sum_{k=0}^{N-1} \|x_k - x^r\|_Q^2 + \|u_k - u^r\|_R^2 +
@@ -17,8 +19,10 @@ x_{\min} - x_k)\|^2$$
 over the box \(u_{\min} \le u_k \le u_{\max}\) is computed with the
 bounded quasi-Newton method L-BFGS-B (stats::optim). The gradient is
 computed by a backward (adjoint) pass through the prediction, with the
-stage Jacobians of the model approximated by central differences, so it
-costs \(O(N (n + m))\) model evaluations. Input bounds are hard; state bounds are enforced only
+stage Jacobians of the model approximated by central differences (or
+taken from the model's analytic jacobian), so it costs
+\(O(N (n + m))\) model evaluations; the prediction is computed once
+per optimizer point and shared by the cost and the gradient. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \(\rho\) and can be violated."><meta property="og:image" content="https://adamrsophie.github.io/controlcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
@@ -97,8 +101,10 @@ x_{\min} - x_k)\|^2$$
 over the box \(u_{\min} \le u_k \le u_{\max}\) is computed with the
 bounded quasi-Newton method L-BFGS-B (<code><a href="https://rdrr.io/r/stats/optim.html" class="external-link">stats::optim</a></code>). The gradient is
 computed by a backward (adjoint) pass through the prediction, with the
-stage Jacobians of the model approximated by central differences, so it
-costs \(O(N (n + m))\) model evaluations. Input bounds are hard; state bounds are enforced only
+stage Jacobians of the model approximated by central differences (or
+taken from the model's analytic <code>jacobian</code>), so it costs
+\(O(N (n + m))\) model evaluations; the prediction is computed once
+per optimizer point and shared by the cost and the gradient. Input bounds are hard; state bounds are enforced only
 through the quadratic penalty \(\rho\) and can be violated.</p>
     </div>
 

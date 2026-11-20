@@ -110,7 +110,8 @@ process noise. The estimate is \(\hat x_{T|T} = x_T\).</p>
 <span>  x_max <span class="op">=</span> <span class="cn">Inf</span>,</span>
 <span>  w_min <span class="op">=</span> <span class="op">-</span><span class="cn">Inf</span>,</span>
 <span>  w_max <span class="op">=</span> <span class="cn">Inf</span>,</span>
-<span>  solver_settings <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  solver_settings <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  accuracy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"high"</span>, <span class="st">"standard"</span>, <span class="st">"fast"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">ctrl_mhe_run</span><span class="op">(</span><span class="va">mhe</span>, <span class="va">y</span>, u <span class="op">=</span> <span class="cn">NULL</span>, warm_start <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
@@ -150,7 +151,13 @@ definite).</p></dd>
 
 
 <dt id="arg-solver-settings">solver_settings<a class="anchor" aria-label="anchor" href="#arg-solver-settings"></a></dt>
-<dd><p>OSQP settings.</p></dd>
+<dd><p>OSQP settings; they override the <code>accuracy</code>
+profile.</p></dd>
+
+
+<dt id="arg-accuracy">accuracy<a class="anchor" aria-label="anchor" href="#arg-accuracy"></a></dt>
+<dd><p>Solver accuracy profile, as in <code><a href="ctrl_mpc.html">ctrl_mpc()</a></code> (<code>"high"</code>
+uses tolerances 1e-10).</p></dd>
 
 
 <dt id="arg-mhe">mhe<a class="anchor" aria-label="anchor" href="#arg-mhe"></a></dt>
@@ -190,7 +197,9 @@ active constraints MHE differs from, and can improve on, the Kalman
 filter, at the price of one QP per sample, so its cost grows with the
 horizon. MHE is worth it when states or noises have hard physical bounds
 (concentrations, saturations) that the Kalman filter would violate.</p>
-<p>Each window QP is assembled from scratch and solved by OSQP.</p>
+<p>Each window QP is solved by OSQP. Once the window is full, the solver
+workspace is reused from sample to sample while the sparsity pattern of
+the QP does not change; only its numbers are updated.</p>
     </div>
 
     <div class="section level2">

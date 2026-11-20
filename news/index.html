@@ -92,7 +92,20 @@
 <li>State-space frequency responses solve the resolvent without a condition-number cutoff, so badly scaled but nonsingular realizations are evaluated; only singular or overflowing solves give <code>NA</code>.</li>
 <li>Loop internal stability checks use the same policy as <code><a href="../reference/ctrl_stability.html">ctrl_stability()</a></code>.</li>
 <li>Design functions (LQR, pole placement, Kalman design, offset-free MPC, H2 and H-infinity synthesis) and the <code>ctrl_is_*()</code> predicates use only the staircase reduction; the PBH table and controllability matrix singular values are computed only by <code><a href="../reference/ctrl_controllability.html">ctrl_controllability()</a></code> and <code><a href="../reference/ctrl_observability.html">ctrl_observability()</a></code>. LQR on a 120-state model is about three times faster.</li>
-<li>The native LAPACK wrappers check argument types, dimensions, modes and tolerances at entry, check workspace queries before using their sizes, stop on invalid-argument codes and accept empty matrices. The test suite runs clean under AddressSanitizer and UndefinedBehaviorSanitizer.</li>
+<li>The native LAPACK wrappers check argument types, dimensions, modes and tolerances at entry, check workspace queries before using their sizes, stop on invalid-argument codes and accept empty matrices. The test suite runs clean under AddressSanitizer and UndefinedBehaviorSanitizer, and a CI workflow repeats that on every push.</li>
+</ul></li>
+<li>Performance:
+<ul><li>Discrete Lyapunov equations solve the triangular Stein equation in native code (about five times faster at 120 states).</li>
+<li>Frequency responses on many points use one complex Schur factorization and triangular solves (about six times faster at 120 states); short point lists keep the dense solve.</li>
+<li>The controllability staircase transforms only the trailing blocks; QZ computes only the Schur vectors the caller needs.</li>
+<li>MPC and MHE assemble their QPs from chunked triplets in linear time; MHE reuses the OSQP workspace while the QP sparsity is unchanged and advances the prior covariance lazily instead of storing one per sample.</li>
+<li>ARX order selection builds the lagged regressors once (about five times faster); ARX prediction is vectorized and N4SID validation does not simulate twice.</li>
+<li>The LQG simulation factors its constant algebraic loop once.</li>
+<li>NMPC shares each prediction between the cost and the gradient, and <code><a href="../reference/ctrl_nlsys.html">ctrl_nlsys()</a></code> accepts analytic Jacobians (<code>jacobian</code>), used by linearization, the EKF and NMPC instead of finite differences.</li>
+<li>
+<code><a href="../reference/ctrl_kalman_filter.html">ctrl_kalman_filter()</a></code>, <code><a href="../reference/ctrl_ekf.html">ctrl_ekf()</a></code> and <code><a href="../reference/ctrl_ekf.html">ctrl_ukf()</a></code> accept <code>covariances = "variances"</code> to store only the filtered variances.</li>
+<li>
+<code><a href="../reference/ctrl_mpc.html">ctrl_mpc()</a></code> and <code><a href="../reference/ctrl_mhe.html">ctrl_mhe()</a></code> accept <code>accuracy = "high"</code> (default), <code>"standard"</code> or <code>"fast"</code> solver profiles; the MPC article measures the trade-off.</li>
 <li>Robust stability decisions and H-infinity synthesis certification use the upper bound of the norm computation (<code>upper_bound</code>); an attained zero H-infinity optimum is returned with <code>gamma = 0</code>.</li>
 <li>
 <code><a href="../reference/ctrl_robust_performance.html">ctrl_robust_performance()</a></code> samples its peaks (including zero and infinite frequency) and reports a separate <code>certified</code> flag from a rigorous upper bound; the SISO exactness flag is <code>criterion_exact</code>.</li>

@@ -93,7 +93,8 @@ output \(y = h(t, x, u, \theta)\).</p>
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  state_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  input_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  output_names <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  output_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  jacobian <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -130,6 +131,15 @@ derivative (continuous) or the next state (discrete).</p></dd>
 
 <dt id="arg-state-names-input-names-output-names">state_names, input_names, output_names<a class="anchor" aria-label="anchor" href="#arg-state-names-input-names-output-names"></a></dt>
 <dd><p>Optional names.</p></dd>
+
+
+<dt id="arg-jacobian">jacobian<a class="anchor" aria-label="anchor" href="#arg-jacobian"></a></dt>
+<dd><p>Optional function <code>function(t, x, u, params)</code> returning
+analytic Jacobians as <code>list(A = , B = )</code> (\(\partial f/\partial x\),
+\(\partial f/\partial u\)) and optionally <code>C</code>, <code>D</code> for the output.
+When given, linearization, the EKF and NMPC gradients use it instead of
+central finite differences; missing entries are still approximated.
+<code><a href="ctrl_nl_discretize.html">ctrl_nl_discretize()</a></code> does not carry it to the discretized model.</p></dd>
 
 </dl></div>
     <div class="section level2">

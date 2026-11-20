@@ -6,7 +6,17 @@ G w_k\\, \\y_k = C x_k + D u_k + v_k\\.
 ## Usage
 
 ``` r
-ctrl_kalman_filter(sys, y, u = NULL, Qn, Rn, x0 = NULL, P0 = NULL, G = NULL)
+ctrl_kalman_filter(
+  sys,
+  y,
+  u = NULL,
+  Qn,
+  Rn,
+  x0 = NULL,
+  P0 = NULL,
+  G = NULL,
+  covariances = c("all", "variances")
+)
 
 ctrl_kalman_smoother(filter)
 ```
@@ -38,6 +48,13 @@ ctrl_kalman_smoother(filter)
 
   Process noise input matrix (default identity).
 
+- covariances:
+
+  `"all"` (default) stores the covariance, innovation covariance and
+  gain of every sample; `"variances"` stores only the filtered
+  variances, so memory grows with \\T n\\ instead of \\T n^2\\ (the
+  smoother then cannot be run).
+
 - filter:
 
   A `ctrl_kalman_filter` result.
@@ -46,11 +63,14 @@ ctrl_kalman_smoother(filter)
 
 `ctrl_kalman_filter()` returns an object of class `ctrl_kalman_filter`
 with `filtered` (`T x n`), `predicted` (`T x n`, row `k` is \\\hat
-x\_{k\|k-1}\\), `P_filtered` and `P_predicted` (`n x n x T` arrays),
-`innovations`, `innovation_cov` (`p x p x T`), `gain` (`n x p x T`),
-`nis` (normalized innovation squared) and `loglik` (Gaussian
-log-likelihood of the measurements). `ctrl_kalman_smoother()` returns a
-list with `smoothed` and `P_smoothed`.
+x\_{k\|k-1}\\), `variances` (`T x n`, the diagonal of \\P\_{k\|k}\\),
+`P_filtered` and `P_predicted` (`n x n x T` arrays, `NULL` with
+`covariances = "variances"`), `innovations`, `innovation_cov`
+(`p x p x T`), `gain` (`n x p x T`), `nis` (normalized innovation
+squared), `loglik` (Gaussian log-likelihood of the measurements) and
+`next_prediction`, `next_covariance` (the prediction for the sample
+after the data). `ctrl_kalman_smoother()` returns a list with `smoothed`
+and `P_smoothed`.
 
 ## Details
 

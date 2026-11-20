@@ -17,7 +17,8 @@ ctrl_nlsys(
   params = list(),
   state_names = NULL,
   input_names = NULL,
-  output_names = NULL
+  output_names = NULL,
+  jacobian = NULL
 )
 ```
 
@@ -53,6 +54,16 @@ ctrl_nlsys(
 - state_names, input_names, output_names:
 
   Optional names.
+
+- jacobian:
+
+  Optional function `function(t, x, u, params)` returning analytic
+  Jacobians as `list(A = , B = )` (\\\partial f/\partial x\\, \\\partial
+  f/\partial u\\) and optionally `C`, `D` for the output. When given,
+  linearization, the EKF and NMPC gradients use it instead of central
+  finite differences; missing entries are still approximated.
+  [`ctrl_nl_discretize()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_discretize.md)
+  does not carry it to the discretized model.
 
 ## Value
 

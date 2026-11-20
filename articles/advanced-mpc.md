@@ -47,7 +47,7 @@ sim_s <- ctrl_simulate_mpc(soft, c(0, 1), steps = 60)
 summary(sim_s)
 #> MPC simulation: 60 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 60
-#>   solve time: mean 2.51e-05 s, max 4.15e-05 s; mean iterations 49.58
+#>   solve time: mean 2.51e-05 s, max 4.19e-05 s; mean iterations 49.58
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0.94
 #>   max slack: 0.94
@@ -146,7 +146,7 @@ cold <- ctrl_mhe_run(mhe, y, warm_start = FALSE)
 c(max_difference = max(abs(cold$estimates - est$estimates)),
   iterations_cold = sum(cold$iterations), iterations_warm = sum(est$iterations))
 #>  max_difference iterations_cold iterations_warm 
-#>               0            6225            6025
+#>               0            6325            5575
 ```
 
 ``` r

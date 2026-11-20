@@ -135,7 +135,8 @@ feedthrough, on \(y_0 = C x_0 + D u_0\), an optional terminal constraint, and
 <span>  terminal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"none"</span>, <span class="st">"equality"</span><span class="op">)</span>,</span>
 <span>  terminal_set <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  solver_settings <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  accept_inaccurate <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  accept_inaccurate <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  accuracy <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"high"</span>, <span class="st">"standard"</span>, <span class="st">"fast"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -205,11 +206,20 @@ terminal constraint \(H (x_N - x^r_N) \le h\).</p></dd>
 
 <dt id="arg-solver-settings">solver_settings<a class="anchor" aria-label="anchor" href="#arg-solver-settings"></a></dt>
 <dd><p>List of OSQP settings (see <code><a href="https://rdrr.io/pkg/osqp/man/osqpSettings.html" class="external-link">osqp::osqpSettings()</a></code>);
-defaults are tight tolerances with polishing.</p></dd>
+they override the <code>accuracy</code> profile.</p></dd>
 
 
 <dt id="arg-accept-inaccurate">accept_inaccurate<a class="anchor" aria-label="anchor" href="#arg-accept-inaccurate"></a></dt>
 <dd><p>Accept the OSQP status <code>"solved inaccurate"</code>.</p></dd>
+
+
+<dt id="arg-accuracy">accuracy<a class="anchor" aria-label="anchor" href="#arg-accuracy"></a></dt>
+<dd><p>Solver accuracy profile: <code>"high"</code> (default; tolerances
+1e-9 with solution polishing), <code>"standard"</code> (1e-6 with polishing) or
+<code>"fast"</code> (1e-4, no polishing). Lower accuracy shortens solves; the
+applied input then differs from the exact optimum by roughly the
+tolerance times the problem scale, and bounds can be violated by about
+the tolerance. The MPC article measures the trade-off.</p></dd>
 
 </dl></div>
     <div class="section level2">

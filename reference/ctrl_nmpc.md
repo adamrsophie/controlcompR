@@ -8,10 +8,12 @@ x^r\\\_Q^2 + \\u_k - u^r\\\_R^2 + \\x_N - x^r\\\_P^2 + \rho \sum_k
 quasi-Newton method L-BFGS-B
 ([`stats::optim`](https://rdrr.io/r/stats/optim.html)). The gradient is
 computed by a backward (adjoint) pass through the prediction, with the
-stage Jacobians of the model approximated by central differences, so it
-costs \\O(N (n + m))\\ model evaluations. Input bounds are hard; state
-bounds are enforced only through the quadratic penalty \\\rho\\ and can
-be violated.
+stage Jacobians of the model approximated by central differences (or
+taken from the model's analytic `jacobian`), so it costs \\O(N (n +
+m))\\ model evaluations; the prediction is computed once per optimizer
+point and shared by the cost and the gradient. Input bounds are hard;
+state bounds are enforced only through the quadratic penalty \\\rho\\
+and can be violated.
 
 ## Usage
 
