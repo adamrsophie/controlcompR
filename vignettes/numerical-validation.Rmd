@@ -94,8 +94,10 @@ Stability is decided on a state realization balanced together with its
 input and output matrices, with per-pole bands from the first-order
 eigenvalue error bound, so the decision does not depend on state units.
 Covariance matrices are inverted on their support after equilibration
-(scaling to unit diagonal), so a small but positive variance is never
-treated as zero. Boundary cases
+(scaling to unit diagonal), so a small but positive variance is treated
+as zero only when it is at the rounding level of the equilibrated
+matrix, whatever the units or orientation of the coordinates. Positive
+definiteness checks use the same scaling. Boundary cases
 are reported (`"marginally stable"` for linear models, `"inconclusive"`
 for equilibria of nonlinear models) instead of being forced into stable or
 unstable. Every function that takes a tolerance documents it.

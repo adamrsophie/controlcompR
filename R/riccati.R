@@ -85,7 +85,11 @@ riccati_inputs <- function(A, B, Q, R, S, check_weights) {
     # with R positive definite, [Q S; S' R] is positive semidefinite exactly
     # when the Schur complement Q - S R^-1 S' is; testing it on its own scale
     # keeps a large R from masking an indefinite Q
-    SRS <- S %*% solve(R, t(S))
+    # solve with R scaled to unit diagonal so wide input units do not make
+    # the solve look singular
+    dr <- 1 / sqrt(diag(R))
+    SRS <- (S * rep(dr, each = n)) %*%
+      solve(R * outer(dr, dr), t(S * rep(dr, each = n)))
     Sc <- symmetrize(Q - SRS)
     tolw <- 1e3 * n * .Machine$double.eps * max(norm(Q, "2"), norm(SRS, "2"))
     if (min_eig_sym(Sc) < -tolw) {
@@ -94,7 +98,8 @@ riccati_inputs <- function(A, B, Q, R, S, check_weights) {
                  signif(min_eig_sym(Sc), 3), "). Use ",
                  "`check_weights = FALSE` to solve an indefinite equation.")
     }
-  } else if (rcond(R) < 1e-14) {
+  } else if (any(diag(R) == 0) ||
+             rcond(R / outer(sqrt(abs(diag(R))), sqrt(abs(diag(R))))) < 1e-14) {
     ctrl_abort("`R` must be nonsingular.")
   }
   list(A = A, B = B, Q = Q, R = R, S = S, n = n, m = m)
@@ -119,7 +124,9 @@ riccati_solve <- function(A, B, Q, R, S, discrete, check_weights) {
   #    Hamiltonian matrix, so that states in very different units carry
   #    comparable weight and G and Q have comparable size
   #    (Ab = T^-1 A T, Bb = T^-1 B, Qb = T Q T, Sb = T S)
-  G <- w$B %*% solve(R, t(w$B))
+  dr <- 1 / sqrt(abs(diag(R)))
+  Bd <- w$B * rep(dr, each = n)
+  G <- Bd %*% solve(R * outer(dr, dr), t(Bd))
   H <- rbind(cbind(w$A, -G), cbind(-Q, -t(w$A)))
   bs <- tryCatch(expm::balance(H, job = "S")$scale, error = function(e) rep(1, 2 * n))
   e <- round(log2(sqrt(bs[seq_len(n)] / bs[n + seq_len(n)])))

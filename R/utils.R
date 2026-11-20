@@ -117,13 +117,22 @@ check_psd <- function(X, name, tol = NULL) {
   X
 }
 
+# Positive definiteness is decided on the matrix scaled to unit diagonal,
+# so the decision does not depend on the units of the coordinates (a
+# diagonal weight with entries 1e14 and 1e-10 is positive definite).
 check_pd <- function(X, name, tol = NULL) {
   X <- check_symmetric(X, name)
   if (!length(X)) return(X)
-  tol <- tol %||% (100 * nrow(X) * .Machine$double.eps * norm(X, "2"))
-  if (min_eig_sym(X) <= tol) {
+  d <- diag(X)
+  if (any(d <= 0)) {
+    ctrl_abort("`", name, "` must be positive definite (nonpositive diagonal entry ",
+               signif(min(d), 3), ").")
+  }
+  tol <- tol %||% (100 * nrow(X) * .Machine$double.eps)
+  me <- min_eig_sym(X / outer(sqrt(d), sqrt(d)))
+  if (me <= tol) {
     ctrl_abort("`", name, "` must be positive definite (smallest eigenvalue ",
-               signif(min_eig_sym(X), 3), ").")
+               signif(me, 3), " after scaling to unit diagonal).")
   }
   X
 }
@@ -363,15 +372,16 @@ measurement_matrix <- function(y, p) {
 # Inverse on the support of a symmetric positive semidefinite matrix,
 # computed on the equilibrated matrix D^-1 P D^-1 (D = sqrt(diag(P))) so
 # that the rank decision does not depend on the units of the coordinates.
-# A direction is kept when its equilibrated eigenvalue is above the level
-# at which check_pd() accepts a matrix as positive definite (100 n eps), so
-# a covariance accepted as positive definite keeps all its directions,
-# also when its small directions are rotated away from the axes. Returns
+# A direction is kept when its equilibrated eigenvalue is above 10 n eps,
+# a few times the rounding level of the stored equilibrated matrix, so a
+# small positive direction is kept also when it is rotated away from the
+# axes; directions at the rounding level are treated as deterministic
+# (they carry no information that survived rounding). Returns
 # the generalized inverse `inv` (equal to solve(P) on the kept support), a
 # factor `factor` with factor factor' = P on the support (so
 # factor' inv factor = I) and an orthonormal basis `null` of the
 # deterministic directions.
-psd_pinv <- function(P, tol = 100 * nrow(as.matrix(P)) * .Machine$double.eps) {
+psd_pinv <- function(P, tol = 10 * nrow(as.matrix(P)) * .Machine$double.eps) {
   P <- as.matrix(P)
   n <- nrow(P)
   d <- sqrt(pmax(diag(P), 0))

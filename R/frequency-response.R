@@ -58,8 +58,12 @@ eval_system <- function(sys, z) {
   I <- diag(n)
   for (k in seq_along(z)) {
     M <- z[k] * I - s$A
-    X <- tryCatch(solve(M, s$B), error = function(e) NULL)
-    out[, , k] <- if (is.null(X)) NA_complex_ else s$C %*% X + s$D
+    # no rcond threshold: a badly scaled but nonsingular resolvent (a pole
+    # at 1e100 next to poles at the origin) is solved accurately by LU;
+    # only an exactly singular or overflowing solve gives NA
+    X <- tryCatch(solve(M, s$B, tol = 0), error = function(e) NULL)
+    Y <- if (is.null(X)) NULL else s$C %*% X + s$D
+    out[, , k] <- if (is.null(Y) || any(!is.finite(Y))) NA_complex_ else Y
   }
   out
 }

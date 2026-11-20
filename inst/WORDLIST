@@ -113,6 +113,7 @@ eig
 eigenproblem
 eigenstructure
 encirclements
+eps
 equilibrate
 equilibrated
 equilibration
@@ -149,6 +150,7 @@ ne
 nonconvex
 nonfinite
 noninteractive
+nonsingular
 nonsquare
 nonstiff
 normwise
@@ -169,6 +171,7 @@ quadratically
 representable
 residualization
 residualized
+resolvent
 saturations
 semisimple
 setpoint

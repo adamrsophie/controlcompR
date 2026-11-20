@@ -237,3 +237,50 @@ test_that("MHE matches the Kalman update for a rotated anisotropic prior", {
   K <- P0 %*% t(C) %*% solve(C %*% P0 %*% t(C) + 1e-13)
   expect_equal(unname(r$estimates[1, ]), drop(K) * 1e-7, tolerance = 1e-6)
 })
+
+test_that("zeros from a tiny feedthrough keep the moderate zero accurate", {
+  for (D in c(1e-7, 1e-10, 1e-14, 1e-30)) {
+    z <- ctrl_zeros(ctrl_ss(diag(c(-1, -2)), c(1, 1), c(1, 1), D = D))
+    ref <- polyroot(c(3 + 2 * D, 2 + 3 * D, D))
+    ref <- ref[order(Mod(ref), decreasing = TRUE)]
+    z <- z[order(Mod(z), decreasing = TRUE)]
+    expect_equal(Re(z), Re(ref), tolerance = 1e-10)
+  }
+})
+
+test_that("Riccati solutions are invariant to very different input units", {
+  set.seed(2)
+  A <- matrix(rnorm(9), 3)
+  B <- matrix(rnorm(6), 3)
+  S <- matrix(rnorm(6) * 0.1, 3)
+  R <- diag(c(1, 2))
+  Du <- diag(c(1e12, 1e-12))
+  ref <- ctrl_care(A, B, diag(3), R, S)
+  x <- ctrl_care(A, B %*% Du, diag(3), Du %*% R %*% Du, S %*% Du)
+  expect_equal(x$P, ref$P, tolerance = 1e-12)
+  expect_equal(Du %*% x$K, ref$K, tolerance = 1e-12)
+  refd <- ctrl_dare(A / 3, B, diag(3), R, S)
+  xd <- ctrl_dare(A / 3, B %*% Du, diag(3), Du %*% R %*% Du, S %*% Du)
+  expect_equal(xd$P, refd$P, tolerance = 1e-12)
+})
+
+test_that("the UKF matches the Kalman filter for a rotated anisotropic prior", {
+  U <- matrix(c(1, 1, -1, 1), 2) / sqrt(2)
+  P0 <- U %*% diag(c(1, 1e-10)) %*% t(U)
+  f <- ctrl_nlsys(function(k, x, u, p) x, function(k, x, u, p) sum(U[, 2] * x),
+                  nstates = 2, ninputs = 0, dt = 1)
+  ru <- ctrl_ukf(f, c(1e-5, 0), Qn = 0, Rn = 1e-12, x0 = c(0, 0), P0 = P0)
+  kf <- ctrl_kalman_filter(ctrl_ss(diag(2), matrix(0, 2, 1), matrix(U[, 2], 1),
+                                   dt = 1),
+                           c(1e-5, 0), Qn = matrix(0, 2, 2), Rn = 1e-12, P0 = P0)
+  expect_equal(unname(ru$filtered), unname(kf$filtered), tolerance = 1e-3)
+})
+
+test_that("frequency response of a badly scaled realization is evaluated", {
+  for (a in c(1e100, 1e-100)) {
+    s <- ctrl_tf2ss(ctrl_tf(1, c(1, a, 0, 0, 0)), minimal = FALSE)
+    r <- drop(ctrl_freqresp(s, c(1, 0))$response)
+    expect_equal(r[1], 1 / (1 - a * 1i), tolerance = 1e-12)
+    expect_true(is.na(r[2]))  # w = 0 is a pole
+  }
+})
