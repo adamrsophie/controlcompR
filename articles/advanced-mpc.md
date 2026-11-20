@@ -47,7 +47,7 @@ sim_s <- ctrl_simulate_mpc(soft, c(0, 1), steps = 60)
 summary(sim_s)
 #> MPC simulation: 60 samples, 0 failed solves (0%)
 #>   solver statuses: solved = 60
-#>   solve time: mean 2.51e-05 s, max 4.19e-05 s; mean iterations 49.58
+#>   solve time: mean 2.44e-05 s, max 3.79e-05 s; mean iterations 49.58
 #>   max input bound violation: 0
 #>   max state bound violation (true plant): 0.94
 #>   max slack: 0.94
@@ -149,6 +149,21 @@ c(max_difference = max(abs(cold$estimates - est$estimates)),
 #>               0            6325            5575
 ```
 
+Once the window is full, the solver workspace is reused while the QP
+keeps its sparsity pattern. The default `accuracy = "high"` solves each
+window to 1e-10; `"standard"` and `"fast"` trade accuracy for time, as
+for MPC:
+
+``` r
+
+fast <- ctrl_mhe_run(ctrl_mhe(sys, horizon = 10, Qn = 4e-4, Rn = 0.09, x0 = 0,
+                              P0 = 1, x_min = 0, accuracy = "fast"), y)
+c(max_difference = max(abs(fast$estimates - est$estimates)),
+  time_high_ms = 1e3 * sum(est$solve_time), time_fast_ms = 1e3 * sum(fast$solve_time))
+#> max_difference   time_high_ms   time_fast_ms 
+#>   5.012392e-05   2.005029e+00   1.141855e+00
+```
+
 ``` r
 
 df <- data.frame(k = rep(1:Tn, 3),
@@ -159,4 +174,4 @@ ggplot2::ggplot(df, ggplot2::aes(k, value, color = series)) +
   ggplot2::theme_bw()
 ```
 
-![](advanced-mpc_files/figure-html/unnamed-chunk-7-1.png)
+![](advanced-mpc_files/figure-html/unnamed-chunk-8-1.png)

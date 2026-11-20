@@ -57,8 +57,10 @@ do not prove backward stability for every input. The main methods:
 - **Discretization**: matrix exponential of an augmented matrix
   (zero-order and first-order hold), bilinear (Tustin) and matched
   pole-zero transformations.
-- **Frequency response**: a complex linear solve per frequency on a
-  diagonally balanced state-space model. Transfer function objects are
+- **Frequency response**: on a diagonally balanced state-space model,
+  one complex Schur factorization and a triangular solve per frequency
+  (a dense solve per frequency for short lists); a frequency at a pole
+  to working accuracy gives `NA`. Transfer function objects are
   evaluated from their polynomial coefficients, which is accurate for
   low orders; convert high-order transfer functions to state space first
   ([`ctrl_tf2ss()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf2ss.md))

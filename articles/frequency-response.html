@@ -109,13 +109,15 @@
 <h2 id="frequency-response">Frequency response<a class="anchor" aria-label="anchor" href="#frequency-response"></a>
 </h2>
 <p><code><a href="../reference/ctrl_freqresp.html">ctrl_freqresp()</a></code> evaluates <span class="math inline">G(j\omega)</span> (or <span class="math inline">G(e^{j\omega T})</span>) on a grid. State-space
-models use one complex linear solve <span class="math inline">C (j\omega
-I - A)^{-1} B + D</span> per frequency on a diagonally balanced
-realization; transfer function objects are evaluated from their
-coefficients, which is accurate for low orders (convert high-order
-transfer functions with <code><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss()</a></code> first). The default
-grid from <code><a href="../reference/ctrl_freq_grid.html">ctrl_freq_grid()</a></code> extends one to two decades
-beyond the poles and zeros and is denser near lightly damped modes:</p>
+models are evaluated as <span class="math inline">C (j\omega I - A)^{-1}
+B + D</span> on a diagonally balanced realization: for many frequencies
+with one complex Schur factorization and a triangular solve per
+frequency, for a few with a dense solve each; transfer function objects
+are evaluated from their coefficients, which is accurate for low orders
+(convert high-order transfer functions with <code><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss()</a></code>
+first). The default grid from <code><a href="../reference/ctrl_freq_grid.html">ctrl_freq_grid()</a></code> extends one
+to two decades beyond the poles and zeros and is denser near lightly
+damped modes:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">G</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_tf.html">ctrl_tf</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">10</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0.4</span>, <span class="fl">25</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fr</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/ctrl_freqresp.html">ctrl_freqresp</a></span><span class="op">(</span><span class="va">G</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1</span>, <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>

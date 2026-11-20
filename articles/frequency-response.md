@@ -9,10 +9,11 @@ library(controlcompR)
 
 [`ctrl_freqresp()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_freqresp.md)
 evaluates G(j\omega) (or G(e^{j\omega T})) on a grid. State-space models
-use one complex linear solve C (j\omega I - A)^{-1} B + D per frequency
-on a diagonally balanced realization; transfer function objects are
-evaluated from their coefficients, which is accurate for low orders
-(convert high-order transfer functions with
+are evaluated as C (j\omega I - A)^{-1} B + D on a diagonally balanced
+realization: for many frequencies with one complex Schur factorization
+and a triangular solve per frequency, for a few with a dense solve each;
+transfer function objects are evaluated from their coefficients, which
+is accurate for low orders (convert high-order transfer functions with
 [`ctrl_tf2ss()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_tf2ss.md)
 first). The default grid from
 [`ctrl_freq_grid()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_freq_grid.md)

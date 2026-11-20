@@ -74,6 +74,33 @@ ctrl_poles(lin)
 #> [1]  2.985682+0i -3.285682+0i
 ```
 
+Analytic Jacobians can be attached to the model with `jacobian`. They
+are checked for size when the model is created and are then used by
+[`ctrl_linearize()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_linearize.md),
+the EKF and the NMPC gradient instead of finite differences (entries
+left out are still approximated):
+
+``` r
+
+pendulum_j <- ctrl_nlsys(
+  update = pendulum$update, output = pendulum$output,
+  nstates = 2, ninputs = 1, params = pendulum$params,
+  jacobian = function(t, x, u, p) {
+    list(A = matrix(c(0, -p$g / p$l * cos(x[1]), 1, -p$c), 2),
+         B = matrix(c(0, 1), 2))
+  }
+)
+lin_j <- ctrl_linearize(pendulum_j, x0 = c(pi, 0), u0 = 0)
+attr(lin_j, "method")
+#> [1] "analytic (user supplied)"
+max(abs(lin_j$A - lin$A))
+#> [1] 5.481304e-10
+```
+
+[`ctrl_nl_discretize()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nl_discretize.md)
+does not carry analytic Jacobians over, because they describe the
+continuous model, not the discretized step.
+
 The linearization is a first-order statement about a neighborhood of the
 operating point; its stability verdict is local. An equilibrium whose
 linearization has poles on the stability boundary is reported as
@@ -99,7 +126,7 @@ for (a0 in c(0.3, 0.8)) {
 plot(sim)
 ```
 
-![](nonlinear_files/figure-html/unnamed-chunk-6-1.png)
+![](nonlinear_files/figure-html/unnamed-chunk-7-1.png)
 
 The region of attraction of the linear design is limited; large initial
 errors or input limits need other methods (energy shaping, NMPC).
@@ -147,12 +174,26 @@ c(ekf_mean_nis = mean(ekf$nis), ukf_mean_nis = mean(ukf$nis))
 plot(ukf, truth = X)
 ```
 
-![](nonlinear_files/figure-html/unnamed-chunk-8-1.png)
+![](nonlinear_files/figure-html/unnamed-chunk-9-1.png)
 
 The EKF linearizes at the current estimate; the UKF propagates sigma
-points and needs no Jacobians. Both are approximations whose covariances
-are not guaranteed to be consistent; the mean normalized innovation
-squared should be near the number of outputs (here 1).
+points and needs no Jacobians. For long runs of large models,
+`covariances = "variances"` keeps only the filtered variances instead of
+one covariance matrix per sample:
+
+``` r
+
+lean <- ctrl_ekf(pd, y, u = rep(0, Tn), Qn = diag(c(1e-6, 2.5e-5)), Rn = 0.0025,
+                 x0 = c(0.5, 0), P0 = diag(c(0.5, 0.5)), covariances = "variances")
+c(identical_estimates = identical(lean$filtered, ekf$filtered),
+  stored_values = length(lean$variances), full_storage = length(ekf$P_filtered))
+#> identical_estimates       stored_values        full_storage 
+#>                   1                 400                 800
+```
+
+Both filters are approximations whose covariances are not guaranteed to
+be consistent; the mean normalized innovation squared should be near the
+number of outputs (here 1).
 
 ## Nonlinear MPC (experimental)
 
@@ -178,7 +219,7 @@ ggplot2::ggplot(df, ggplot2::aes(t, angle)) + ggplot2::geom_line() +
   ggplot2::geom_hline(yintercept = pi, linetype = "dashed") + ggplot2::theme_bw()
 ```
 
-![](nonlinear_files/figure-html/unnamed-chunk-9-1.png)
+![](nonlinear_files/figure-html/unnamed-chunk-11-1.png)
 
 [`ctrl_nmpc_step()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_nmpc.md)
 solves one step from a given state and returns the first input, the
@@ -231,7 +272,7 @@ ggplot2::ggplot(df, ggplot2::aes(t, value)) + ggplot2::geom_step() +
   ggplot2::facet_wrap(~series, ncol = 1, scales = "free_y") + ggplot2::theme_bw()
 ```
 
-![](nonlinear_files/figure-html/unnamed-chunk-11-1.png)
+![](nonlinear_files/figure-html/unnamed-chunk-13-1.png)
 
 The torque saturates and reverses: the pendulum is pumped before it can
 be brought up, which a controller planning only 20 samples ahead does

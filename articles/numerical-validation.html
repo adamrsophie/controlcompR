@@ -245,11 +245,14 @@ test.</li>
 matrix (zero-order and first-order hold), bilinear (Tustin) and matched
 pole-zero transformations.</li>
 <li>
-<strong>Frequency response</strong>: a complex linear solve per
-frequency on a diagonally balanced state-space model. Transfer function
-objects are evaluated from their polynomial coefficients, which is
-accurate for low orders; convert high-order transfer functions to state
-space first (<code><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss()</a></code>) for better conditioning.</li>
+<strong>Frequency response</strong>: on a diagonally balanced
+state-space model, one complex Schur factorization and a triangular
+solve per frequency (a dense solve per frequency for short lists); a
+frequency at a pole to working accuracy gives <code>NA</code>. Transfer
+function objects are evaluated from their polynomial coefficients, which
+is accurate for low orders; convert high-order transfer functions to
+state space first (<code><a href="../reference/ctrl_tf2ss.html">ctrl_tf2ss()</a></code>) for better
+conditioning.</li>
 <li>
 <strong>Pole placement</strong>: robust eigenstructure assignment
 (Kautsky, Nichols and Van Dooren), with the eigenvalues of the result
