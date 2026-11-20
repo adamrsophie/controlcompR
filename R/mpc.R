@@ -206,9 +206,18 @@ trip_new <- function() {
 
 trip_push <- function(tr, i, j, x) {
   k <- tr$k + 1L
-  tr$i[[k]] <- i
-  tr$j[[k]] <- j
-  tr$x[[k]] <- x
+  # take each list out of the environment and drop the binding before
+  # appending, so R modifies it in place instead of copying it every time
+  li <- tr$i
+  lj <- tr$j
+  lx <- tr$x
+  tr$i <- tr$j <- tr$x <- NULL
+  li[[k]] <- i
+  lj[[k]] <- j
+  lx[[k]] <- x
+  tr$i <- li
+  tr$j <- lj
+  tr$x <- lx
   tr$k <- k
   invisible()
 }
