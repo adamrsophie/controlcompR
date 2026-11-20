@@ -55,9 +55,16 @@
     (`pole_tol`).
   - Covariances are inverted on their support after scaling to unit
     diagonal in the UKF update, the RTS smoother and the MHE arrival
-    cost, and every direction of a covariance accepted as positive
-    definite is kept, also when rotated away from the axes; the MHE QP
-    is solved in the prior’s own coordinates scaled to unit curvature.
+    cost; a positive direction is kept unless its equilibrated variance
+    is at the rounding level (10 n eps), also when it is rotated away
+    from the axes. The MHE QP is solved in the prior’s own coordinates
+    scaled to unit curvature.
+  - Positive definiteness of weights and covariances is decided after
+    scaling to unit diagonal, so it does not depend on units.
+  - State-space frequency responses solve the resolvent without a
+    condition-number cutoff, so badly scaled but nonsingular
+    realizations are evaluated; only singular or overflowing solves give
+    `NA`.
   - Loop internal stability checks use the same policy as
     [`ctrl_stability()`](https://adamrsophie.github.io/controlcompR/reference/ctrl_stability.md).
   - Robust stability decisions and H-infinity synthesis certification
